@@ -5,31 +5,30 @@ import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
 
-from learning.domains.abc_blocks.world import ABCBlocksWorldGT, ABCBlocksWorldLearned, \
-                                            ABCBlocksWorldLearnedClass, print_state, \
-                                            ABCBlocksWorldGTOpt, LogicalState
-from learning.domains.abc_blocks.abc_blocks_data import model_forward
-from learning.active.utils import GoalConditionedExperimentLogger
+from domains.ordered_blocks.world import OrderedBlocksWorldGT, OrderedBlocksWorldLearned, \
+                                            OrderedBlocksWorldLearnedClass, print_state, \
+                                            OrderedBlocksWorldOpt, LogicalState
+from learning.datasets import model_forward
+from learning.utils import ExperimentLogger
 from planning.tree import Tree, Node
 
 # this is a temporary HACK
-from learning.evaluate.utils import vec_to_logical_state
-rank_accuracy = 0
+from evaluate.utils import vec_to_logical_state
 
-def setup_world(args, model_i=None):
+def setup_world(args, model_exp_path=None, model_i=None):
     print('Planning with %s model.' % args.model_type)
     if args.model_type == 'learned':
-        model_logger = GoalConditionedExperimentLogger(args.model_exp_path)
+        model_logger = ExperimentLogger(model_exp_path)
         model = model_logger.load_trans_model(i=model_i)
         if model.pred_type == 'class':
-            world = ABCBlocksWorldLearnedClass(args.num_blocks, model)
+            world = OrderedBlocksWorldLearnedClass(args.num_blocks, model)
         else:
-            world = ABCBlocksWorldLearned(args.num_blocks, model)
+            world = OrderedBlocksWorldLearned(args.num_blocks, model)
         print('Using model %s.' % model_logger.exp_path)
     elif args.model_type == 'true':
-        world = ABCBlocksWorldGT(args.num_blocks)
+        world = OrderedBlocksWorldGT(args.num_blocks)
     elif args.model_type == 'opt':
-        world = ABCBlocksWorldGTOpt(args.num_blocks)
+        world = OrderedBlocksWorldOpt(args.num_blocks)
     return world
 
 def state_exists(tree, state):
@@ -67,8 +66,8 @@ def mcts(tree, world, node_value_fn, node_select_fn, node_update, args):
             node_update(node_id, node_value)
     return tree
 
-def run(goal, args, model_i=None):
-    world = setup_world(args, model_i)
+def run(goal, args, model_exp_path=None, model_i=None):
+    world = setup_world(args, model_exp_path, model_i)
     tree = Tree(world, goal, args)
     if args.value_fn == 'rollout':
         print('Using random model rollouts to estimate node value.')
@@ -76,7 +75,7 @@ def run(goal, args, model_i=None):
         node_select_fn = tree.get_uct_node
         node_update = tree.backpropagate
     elif args.value_fn == 'learned':
-        model_logger = GoalConditionedExperimentLogger(args.model_exp_path)
+        model_logger = ExperimentLogger(model_exp_path)
         print('Using heuristic model %s.' % model_logger.exp_path)
         heur_model = model_logger.load_heur_model()
         node_value_fn = lambda node_id: tree.get_heuristic(node_id, heur_model)
@@ -84,11 +83,7 @@ def run(goal, args, model_i=None):
         node_update = tree.update_steps
     tree = mcts(tree, world, node_value_fn, node_select_fn, node_update, args)
     found_plan = plan_from_tree(world, goal, tree, debug=False)
-
-    logger = GoalConditionedExperimentLogger.setup_experiment_directory(args, 'planning')
-    logger.save_planning_data(tree, goal, found_plan)
-    print('Saved planning tree, goal and plan to %s.' % logger.exp_path)
-    return found_plan, logger.exp_path, rank_accuracy
+    return tree, found_plan
 
 def plan_from_tree(world, goal, tree, debug=False):
     found_plan = None

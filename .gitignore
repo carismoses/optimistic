@@ -1,15 +1,10 @@
 .DS_store
+logs/
 tmp_urdfs/
 __pycache__/
 *.pyc
 *.mov
 venv/
-movies
-pb_robot
-pddlstream
-statistics
-temp
-tower-*
 *.pkl
 *.backup
 *.png
@@ -19,7 +14,3 @@ tower-*
 .vscode/
 *.mp4
 *.npy
-scratch/
-paper_results/
-learning/experiments/logs
-figures/*

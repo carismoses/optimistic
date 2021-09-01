@@ -1,10 +1,10 @@
 from collections import namedtuple
 import numpy as np
 
-from learning.domains.abc_blocks.abc_blocks_data import model_forward
-from learning.domains.abc_blocks.world import logical_to_vec_state, LogicalState
+from learning.datasets import model_forward
+from domains.ordered_blocks.world import logical_to_vec_state, LogicalState
 # this is a temporary HACK
-from learning.evaluate.utils import vec_to_logical_state
+from evaluate.utils import vec_to_logical_state
 class Node:
     def __init__(self, state, action, parent_id):
         self.state = state
