@@ -6,11 +6,16 @@ This repo implements a method for learning classifiers on top of optimistic acti
 
 This repo was developed using Python 3.9.6.
 
-Clone repo and install requirements
+1. Clone this repo and install requirements
 ```
 git clone git@github.com:carismoses/optimistic.git
 cd optimistic
 xargs -n1 python3 -m pip install < requirements.txt
+```
+2. Install [`pddlstream`](https://github.com/caelan/pddlstream)  using the instructions found there, then generate a symlink to this directory
+```
+cd optimistic
+ln -s ~/pddlstream/pddlstream .  # this assumes you installed it to your home directory
 ```
 
 ## Run

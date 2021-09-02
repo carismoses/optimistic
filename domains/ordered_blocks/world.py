@@ -27,6 +27,9 @@ class Table(Object):
 
 
 ### World and State Classes
+def parse_world_args(args):
+    num_blocks = int(args[0])
+    return [num_blocks]
 
 class OrderedBlocksWorld:
     def __init__(self, num_blocks):
@@ -67,14 +70,25 @@ class OrderedBlocksWorld:
     def is_goal_state(self, state, goal):
         raise NotImplementedError
 
+    def generate_random_goal(self):
+        top_block_num = np.random.randint(1,self.max_block_num)
+        return ('OnTop', top_block_num)
+
+    def get_init_state(self):
+        init_state = []
+        for bi in range(self.num_blocks):
+            init_state += [('OnTable', bi)]
+        init_state += [('OnTop', 0)]
+        return init_state
+
 
 # Ground Truth Blocks World (with option to behave optimistically)
 class OrderedBlocksWorldGT(OrderedBlocksWorld):
     def __init__(self, num_blocks):
         super().__init__(num_blocks)
 
-    def get_init_state(self):
-        return LogicalState(self._blocks, self.num_objects, self.table)
+    #def get_init_state(self):
+    #    return LogicalState(self._blocks, self.num_objects, self.table)
 
     def transition(self, state, action, optimistic=False):
         new_state = state.copy()
@@ -293,10 +307,6 @@ def logical_to_vec_state(state, num_objects):
         edge_features[bottom_i, top_i, 0] = 1.
 
     return object_features, edge_features
-
-def generate_random_goal(world):
-    top_block_num = np.random.randint(world.min_block_num+1, world.max_block_num+1)
-    return [On(top_block_num-1, top_block_num)]
 
 '''
 def parse_goals_csv(self, goal_file_path):
