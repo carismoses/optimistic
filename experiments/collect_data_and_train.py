@@ -6,20 +6,33 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader
 import time
 from pprint import pformat
+from copy import copy
 
-from tamp.logic import subset
-from domains.ordered_blocks.world import OrderedBlocksWorldGT, OrderedBlocksWorldOpt, generate_random_goal
-from learning.datasets import TransDataset, HeurDataset
+from pddlstream.utils import INF
+from pddlstream.algorithms.focused import solve_focused
+from pddlstream.algorithms.downward import fact_from_fd, is_applicable, apply_action
+
+from learning.datasets import TransDataset
 from learning.utils import ExperimentLogger
 from learning.models.gnn import TransitionGNN
-from planning import plan
 from learning.train import train
+from tamp.utils import postprocess_plan, task_from_problem, get_fd_action
+from domains.ordered_blocks.world import OrderedBlocksWorld
 
 # TODO: this doesn't make len(dataset) == args.max_transitions exactly
-# because sequences are added in chunks that might push it past the limit
+# because trajectories are added in chunks that might push it past the limit
 # but will be close
 
-def train_class(args, trans_dataset, heur_dataset, logger):
+def train_class(args, trans_dataset, logger):
+    if args.domain == 'ordered_blocks':
+        world, pddl_info = OrderedBlocksWorld.init(args.domain_args)
+    else:
+        raise NotImplementedError
+    init_state = world.get_init_state()
+    # NOTE: the goal is ignored if execute_random is called
+    goal = world.generate_random_goal()
+    problem = tuple([*pddl_info, init_state, goal])
+
     # save initial (empty) dataset
     logger.save_trans_dataset(trans_dataset, i=0)
 
@@ -31,32 +44,29 @@ def train_class(args, trans_dataset, heur_dataset, logger):
                                 pred_type=args.pred_type)
     logger.save_trans_model(trans_model, i=0)
 
-    # initialize planner
-    if args.data_collection_mode == 'random-goals-opt':
-        args.model_type = 'opt'
-    elif args.data_collection_mode == 'random-goals-learned':
-        args.model_type = 'learned'
-
     i = 0
-    true_world = OrderedBlocksWorldGT(args.num_blocks)
     while len(trans_dataset) < args.max_transitions:
         print('Iteration %i |dataset| = %i' % (i, len(trans_dataset)))
-        if args.data_collection_mode in ['random-goals-opt', 'random-goals-learned']:
-            # generate plan to reach random goal
-            goal = generate_random_goal(true_world)
-            tree, found_plan = plan.run(goal, args, logger.exp_path, model_i=i)
-            if found_plan: # found_plan is None if not found
-                trajectory = true_world.execute_plan(found_plan)
-                logger.save_planning_data(tree, goal, found_plan, i=i)
+        if args.data_collection_mode == 'random-goals':
+            # generate plan (using PDDLStream) to reach random goal
+            pddl_plan, cost, _ = solve_focused(problem,
+                                                success_cost=INF,
+                                                max_skeletons=2,
+                                                search_sample_ratio=1.0,
+                                                max_time=INF,
+                                                verbose=False,
+                                                unit_costs=True)
+            if pddl_plan is not None:
+                trajectory = execute_plan(world, problem, pddl_plan)
             else:
-                trajectory = random_action_sequence(true_world)
+                # if plan not found, execute random actions
+                trajectory = execute_random(world, problem)
         elif args.data_collection_mode == 'random-actions':
-            trajectory = random_action_sequence(true_world)
-            goal = None
+            trajectory = execute_random(world, problem)
 
         # add to dataset and save
         print('Adding trajectory to dataset.')
-        add_sequence_to_dataset(args, trans_dataset, heur_dataset, trajectory, goal)
+        add_trajectory_to_dataset(args, trans_dataset, trajectory, world)
 
         # initialize and train new model
         if args.train:
@@ -76,43 +86,55 @@ def train_class(args, trans_dataset, heur_dataset, logger):
         logger.save_trans_model(trans_model, i=i)
         print('Saved model to %s' % logger.exp_path)
 
-def random_action_sequence(true_world):
-    new_state = true_world.get_init_state()
+def execute_plan(world, problem, pddl_plan):
+    task, fd_plan = postprocess_plan(problem, pddl_plan)
+    fd_state = set(task.init)
+    trajectory = []
+    for (fd_action, pddl_action) in zip(fd_plan, pddl_plan):
+        assert is_applicable(fd_state, fd_action), 'Something wrong with planner. An invalid action is in the plan.'
+        new_fd_state = copy(fd_state)
+        valid_transition = world.is_model_correct(pddl_action)
+        if valid_transition:
+            apply_action(new_fd_state, fd_action) # apply action in PDDL model
+        pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
+        new_pddl_state = [fact_from_fd(sfd) for sfd in new_fd_state]
+        trajectory.append((pddl_state, pddl_action, new_pddl_state, valid_transition))
+        fd_state = new_fd_state
+    return trajectory
+
+def execute_random(world, problem):
+    task = task_from_problem(problem)
+    fd_state = set(task.init)
+    pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
+    trajectory = []
     valid_actions = True
-    action_sequence = []
     while valid_actions:
-        state = new_state
-        vec_action = true_world.random_policy(state)
-        new_state = true_world.transition(state, vec_action)
-        action_sequence.append((state, vec_action))
-        valid_actions = true_world.expert_policy(new_state) is not None
-    vec_action = np.zeros(2)
-    action_sequence.append((new_state, vec_action))
-    return action_sequence
+        pddl_action = world.random_action(pddl_state)
+        fd_action = get_fd_action(task, pddl_action)
+        new_fd_state = copy(fd_state)
+        valid_transition = world.is_model_correct(pddl_action)
+        if valid_transition:
+            apply_action(new_fd_state, fd_action) # apply action in PDDL model
+        new_pddl_state = [fact_from_fd(sfd) for sfd in new_fd_state]
+        trajectory.append((pddl_state, pddl_action, new_pddl_state, valid_transition))
+        fd_state = new_fd_state
+        pddl_state = new_pddl_state
+        valid_actions = world.valid_actions_exist(pddl_state)
+    return trajectory
 
-
-def add_sequence_to_dataset(args, trans_dataset, heur_dataset, action_sequence, goal):
-    opt_world = OrderedBlocksWorldOpt(args.num_blocks)
-    def helper(sequence, seq_goal, add_to_trans):
-        n = len(sequence)
-        object_features, goal_edge_features = seq_goal.as_vec()
-        for i in range(n):
-            state, vec_action = sequence[i]
-            object_features, edge_features = state.as_vec()
-            heur_dataset.add_to_dataset(object_features, edge_features, goal_edge_features, n-i-1)
-            # add_to_trans: only add to transition model once per sequence (not hindsight subsequences)
-            # i < n-1: don't add last action to trans dataset as it doesn't do anything
-            if add_to_trans and i < n-1:
-                next_state, _ = sequence[i+1]
-                object_features, next_edge_features = next_state.as_vec()
-                delta_edge_features = next_edge_features-edge_features
-                optimistic_accuracy = 1 if opt_world.transition(state, vec_action).is_equal(next_state) \
-                                        else 0
-                trans_dataset.add_to_dataset(object_features, edge_features, vec_action, next_edge_features, delta_edge_features, optimistic_accuracy)
-
-    # make each reached state a goal (hindsight experience replay)
-    for goal_i, (hindsight_goal, _) in enumerate(action_sequence):
-        helper(action_sequence[:goal_i+1], hindsight_goal, goal_i == len(action_sequence)-1)
+def add_trajectory_to_dataset(args, trans_dataset, trajectory, world):
+    for (state, pddl_action, next_state, opt_accuracy) in trajectory:
+        object_features, edge_features = world.state_to_vec(state)
+        action_features = world.action_to_vec(pddl_action)
+        # assume object features don't change for now
+        _, next_edge_features = world.state_to_vec(next_state)
+        delta_edge_features = next_edge_features-edge_features
+        trans_dataset.add_to_dataset(object_features,
+                                        edge_features,
+                                        action_features,
+                                        next_edge_features,
+                                        delta_edge_features,
+                                        opt_accuracy)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -124,9 +146,9 @@ if __name__ == '__main__':
                         choices=['ordered_blocks'],
                         default='ordered_blocks',
                         help='domain to generate data from')
-    parser.add_argument('--num-blocks',
-                        type=int,
-                        default=4)
+    parser.add_argument('--domain-args',
+                        nargs='+',
+                        help='arguments to pass into desired domain')
     parser.add_argument('--max-transitions',
                         type=int,
                         default=100,
@@ -137,7 +159,7 @@ if __name__ == '__main__':
                         help='path to save datasets and models to')
     parser.add_argument('--data-collection-mode',
                         type=str,
-                        choices=['random-actions', 'random-goals-opt', 'random-goals-learned'],
+                        choices=['random-actions', 'random-goals'],
                         required=True,
                         help='method of data collection')
     parser.add_argument('--N',
@@ -165,28 +187,6 @@ if __name__ == '__main__':
                         type=bool,
                         default=True,
                         help='Sometimes just want to collect dataset, dont want to train')
-    # Planning params
-    parser.add_argument('--num-branches',
-                        type=int,
-                        default=10,
-                        help='number of actions to try from each node')
-    parser.add_argument('--timeout',
-                        type=int,
-                        default=100,
-                        help='Iterations to run MCTS')
-    parser.add_argument('--c',
-                        type=int,
-                        default=.01,
-                        help='UCB parameter to balance exploration and exploitation')
-    parser.add_argument('--max-ro',
-                        type=int,
-                        default=10,
-                        help='Maximum number of random rollout steps')
-    parser.add_argument('--value-fn',
-                        type=str,
-                        choices=['rollout', 'learned'],
-                        default='rollout',
-                        help='use random model rollouts to estimate node value or learned value')
     args = parser.parse_args()
 
     if args.debug:
@@ -198,20 +198,20 @@ if __name__ == '__main__':
     if not args.pred_type == 'class':
         NotImplementedError('Prediction types != class have not been tested in a while')
 
-    if args.value_fn == 'learned':
-        NotImplementedError('Using the learned heuristic instead of rollouts has not been tested in a while')
-
     paths = []
     for n in range(args.N):
         print('Run %i/%i' % (n+1, args.N))
         trans_dataset = TransDataset()
-        heur_dataset = HeurDataset()
         logger = ExperimentLogger.setup_experiment_directory(args, 'experiments')
-        train_class(args, trans_dataset, heur_dataset, logger)
+        train_class(args, trans_dataset, logger)
         paths.append(logger.exp_path)
 
     # print out all paths
-    print('%i runs saved to :' % args.N)
-    print('['+pformat(paths[0])+',')
-    [print(pformat(path)+',') for path in paths[1:-1]]
-    print(pformat(paths[-1])+']')
+    if len(paths) > 1:
+        print('%i runs saved to :' % args.N)
+        print('['+pformat(paths[0])+',')
+        [print(pformat(path)+',') for path in paths[1:-1]]
+        print(pformat(paths[-1])+']')
+    else:
+        print('%i run saved to :' % args.N)
+        print('['+pformat(paths[0])+']')

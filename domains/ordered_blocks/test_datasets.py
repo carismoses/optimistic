@@ -1,8 +1,8 @@
 # each has 100 transitions
-test_datasets = {2: 'logs/experiments/test-2-20210901-161317',
-                3: 'logs/experiments/test-3-20210901-161452',
-                4: 'logs/experiments/test-4-20210901-161616',
-                5: 'logs/experiments/test-5-20210901-161704',
-                6: 'logs/experiments/test-6-20210901-161748',
-                7: 'logs/experiments/test-7-20210901-161842',
-                8: 'logs/experiments/test-8-20210901-162027'}
+test_datasets = {2: 'logs/experiments/2-random-20210909-111019',
+                3: 'logs/experiments/3-random-20210909-111243',
+                4: 'logs/experiments/4-random-20210909-111407',
+                5: 'logs/experiments/5-random-20210909-111506',
+                6: 'logs/experiments/6-random-20210909-112219',
+                7: 'logs/experiments/7-random-20210909-112340',
+                8: 'logs/experiments/8-random-20210909-112410'}

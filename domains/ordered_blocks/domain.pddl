@@ -5,27 +5,23 @@
 ; the bottom block + 1.
 ;
 ; There are two types of objects in this world: Blocks and the Table.
-; Blocks can be moved but the Table is fixed.
 
 (define (domain ordered-blocks)
   (:requirements :strips :equality)
   (:predicates
+    (On ?bt ?bb)
+    (Clear ?b)
     (OnTable ?b)
-    (OnTop ?b)
-    (NoStack)
   )
 
   (:action stack
     :parameters (?bt ?bb)
-    :precondition (and (OnTable ?bt)
-                       (or (NoStack) (OnTop ?bb)))
-    :effect (and (OnTop ?bt)
-                 (not (OnTable ?bt))
-                 (not (OnTop ?bb)))
-  )
+    :precondition (and (Clear ?bb)
+                       (Clear ?bt)
+                       (OnTable ?bt))
 
-  (:derived (NoStack)
-    (forall (?b) (OnTable ?b))
+    :effect (and (On ?bt ?bb)
+                 (not (Clear ?bb))
+                 (not (OnTable ?bt)))
   )
-
 )
