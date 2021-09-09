@@ -1,19 +1,45 @@
-from copy import copy, deepcopy
-import csv
+import os
+import odio_urdf
 import numpy as np
-import itertools
+
+import pb_robot
 
 from pddlstream.language.constants import Action
 from pddlstream.utils import read
 from pddlstream.language.generator import from_fn
 
+from panda_wrapper.panda_agent import PandaAgent
 from tamp.utils import predicate_in_state
 from domains.ordered_blocks.learned_pddl.primitives import get_trust_model
 
 class OrderedBlocksWorld:
     def __init__(self, args):
-        # NOTE: must be greater than 1!
-        self.num_blocks = int(args[0])
+        self.num_blocks = int(args[0])  # NOTE: must be greater than 1!
+        self.use_panda = bool(args[1])
+
+        if self.use_panda:
+            self.panda = PandaAgent()
+            self.panda.plan()
+            self.pb_blocks = self.place_blocks()
+            self.panda.execute()
+            self.pb_blocks = self.place_blocks()
+
+
+    # world frame aligns with the robot base
+    def place_blocks(self):
+        ys = np.linspace(-.4, .4, self.num_blocks)
+        x = 0.3
+        xy_points = [(x, y) for y in ys]
+        pb_blocks = []
+        for block_num, xy_point in zip(range(1, self.num_blocks+1), xy_points):
+            file_name = block_to_urdf(block_num)
+            pb_block = pb_robot.body.createBody(os.path.join('models', file_name))
+            # NOTE: for now assumes no relative rotation between robot base/world frame and object
+            z_point = pb_block.get_dimensions()[2]/2
+            pb_block.set_point([*xy_point, z_point])
+            pb_blocks.append(pb_blocks)
+        return pb_blocks
+
 
     def get_pddl_info(self, planning_model_type, logger=None):
         if planning_model_type == 'optimistic':
@@ -31,6 +57,8 @@ class OrderedBlocksWorld:
         pddl_state = []
         for bi in range(1, self.num_blocks+1):
             pddl_state += [('clear', bi), ('ontable', bi), ('block', bi)]
+        if self.use_panda:
+            pddl_state += self.panda.get_init_state()
         return pddl_state
 
     def generate_random_goal(self):
@@ -103,7 +131,7 @@ class OrderedBlocksWorld:
         return action.args[0] == action.args[1]+1
 
     # init keys for all potential actions
-    def all_potential_actions(self, num_blocks):
+    def all_optimistic_actions(self, num_blocks):
         pos_actions = []
         neg_actions = []
         for bb in range(1, num_blocks+1):
@@ -116,3 +144,49 @@ class OrderedBlocksWorld:
 
     def action_args_to_action(self, top_block_num, bottom_block_num):
         return Action(name='stack', args=(top_block_num, bottom_block_num))
+
+block_colors = [(255, 0 , 0, 1), (255, 1, 0, 1), (255, 255, 0, 1),
+                    (0, 255, 0, 1), (0, 0, 255, 1), (148, 0, 130, 1), (1, 0, 211, 1)]
+def block_to_urdf(block_num):
+    I = 0.001
+    side = 0.05
+    mass = 0.1
+    color = block_colors[(block_num % len(block_colors)) -1]
+    print(color)
+    link_urdf = odio_urdf.Link(str(block_num),
+                  odio_urdf.Inertial(
+                      odio_urdf.Origin(xyz=(0, 0, 0), rpy=(0, 0, 0)),
+                      odio_urdf.Mass(mass),
+                      odio_urdf.Inertia(ixx=I,
+                                        ixy=0,
+                                        ixz=0,
+                                        iyy=I,
+                                        iyz=0,
+                                        izz=I)
+                  ),
+                  odio_urdf.Collision(
+                      odio_urdf.Origin(xyz=(0, 0, 0), rpy=(0, 0, 0)),
+                      odio_urdf.Geometry(
+                          odio_urdf.Box(size=(side,
+                                            side,
+                                            side))
+                      )
+                  ),
+                  odio_urdf.Visual(
+                      odio_urdf.Origin(xyz=(0, 0, 0), rpy=(0, 0, 0)),
+                      odio_urdf.Geometry(
+                          odio_urdf.Box(size=(side,
+                                                side,
+                                                side))
+                      ),
+                      odio_urdf.Material('color',
+                                    odio_urdf.Color(rgba=color)
+                                    )
+                  ))
+
+    block_urdf = odio_urdf.Robot(link_urdf, name=str(block_num))
+    file_name = '%i.urdf' % block_num
+    path = os.path.join('pb_robot', 'models', file_name)
+    with open(path, 'w') as handle:
+        handle.write(str(block_urdf))
+    return file_name
