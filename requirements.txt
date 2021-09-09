@@ -3,3 +3,4 @@ numpy==1.18.1
 scipy==1.4.1
 torch==1.5.1
 torchvision==0.6.1
+git+https://github.com/hauptmech/odio_urdf.git

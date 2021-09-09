@@ -15,4 +15,5 @@ venv/
 *.mp4
 *.npy
 pddlstream
+pb_robot
 temp/
