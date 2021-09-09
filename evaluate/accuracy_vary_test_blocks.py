@@ -2,7 +2,7 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 
-from domains.ordered_blocks.world import OrderedBlocksWorld, all_potential_actions
+from domains.ordered_blocks.world import OrderedBlocksWorld, all_optimistic_actions
 from learning.utils import ExperimentLogger
 from learning.datasets import model_forward
 from evaluate.utils import recc_dict, plot_results
@@ -14,7 +14,7 @@ def calc_full_trans_accuracy(model_type, test_num_blocks, model):
     accuracies = {}
     # NOTE: we test all actions from initial state assuming that the network is ignoring the state
     world = OrderedBlocksWorld(test_num_blocks)
-    pos_actions, neg_actions = world.all_potential_actions(test_num_blocks)
+    pos_actions, neg_actions = world.all_optimistic_actions(test_num_blocks)
     init_state = world.get_init_state()
     vof, vef = world.state_to_vec(init_state)
     for gt_pred, actions in zip([1, 0], [pos_actions, neg_actions]):

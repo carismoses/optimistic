@@ -26,12 +26,13 @@ from domains.ordered_blocks.world import OrderedBlocksWorld
 def train_class(args, trans_dataset, logger):
     if args.domain == 'ordered_blocks':
         world = OrderedBlocksWorld(args.domain_args)
-        if args.data_collection_mode == 'random-goals-opt':
+        if args.data_collection_mode in ['random-goals-opt', 'random-actions']:
             pddl_info = world.get_pddl_info('optimistic')
         elif args.data_collection_mode == 'random-goals-learned':
             pddl_info = world.get_pddl_info('learned', logger)
     else:
         raise NotImplementedError
+
     init_state = world.get_init_state()
     # NOTE: the goal is ignored if execute_random is called
     goal = world.generate_random_goal()
