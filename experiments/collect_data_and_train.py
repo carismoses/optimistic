@@ -25,12 +25,17 @@ from domains.ordered_blocks.world import OrderedBlocksWorld
 
 def train_class(args, trans_dataset, logger):
     if args.domain == 'ordered_blocks':
-        world, pddl_info = OrderedBlocksWorld.init(args.domain_args)
+        world = OrderedBlocksWorld(args.domain_args)
+        if args.data_collection_mode == 'random-goals-opt':
+            pddl_info = world.get_pddl_info('optimistic')
+        elif args.data_collection_mode == 'random-goals-learned':
+            pddl_info = world.get_pddl_info('learned', logger)
     else:
         raise NotImplementedError
     init_state = world.get_init_state()
     # NOTE: the goal is ignored if execute_random is called
     goal = world.generate_random_goal()
+    print('Goal: ', goal)
     problem = tuple([*pddl_info, init_state, goal])
 
     # save initial (empty) dataset
@@ -47,7 +52,7 @@ def train_class(args, trans_dataset, logger):
     i = 0
     while len(trans_dataset) < args.max_transitions:
         print('Iteration %i |dataset| = %i' % (i, len(trans_dataset)))
-        if args.data_collection_mode == 'random-goals':
+        if 'random-goals' in args.data_collection_mode:
             # generate plan (using PDDLStream) to reach random goal
             pddl_plan, cost, _ = solve_focused(problem,
                                                 success_cost=INF,
@@ -56,6 +61,7 @@ def train_class(args, trans_dataset, logger):
                                                 max_time=INF,
                                                 verbose=False,
                                                 unit_costs=True)
+            print('Plan: ', pddl_plan)
             if pddl_plan is not None:
                 trajectory = execute_plan(world, problem, pddl_plan)
             else:
@@ -138,6 +144,7 @@ def add_trajectory_to_dataset(args, trans_dataset, trajectory, world):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+    # Data collection args
     parser.add_argument('--debug',
                         action='store_true',
                         help='set to run in debug mode')
@@ -159,14 +166,14 @@ if __name__ == '__main__':
                         help='path to save datasets and models to')
     parser.add_argument('--data-collection-mode',
                         type=str,
-                        choices=['random-actions', 'random-goals'],
+                        choices=['random-actions', 'random-goals-opt', 'random-goals-learned'],
                         required=True,
                         help='method of data collection')
     parser.add_argument('--N',
                         type=int,
                         default=1,
                         help='number of data collection/training runs to perform')
-    # Training params
+    # Training args
     parser.add_argument('--pred-type',
                         type=str,
                         choices=['delta_state', 'full_state', 'class'],

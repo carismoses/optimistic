@@ -7,7 +7,8 @@ def postprocess_plan(problem, plan):
       evaluations, goal_exp, domain, externals = parse_problem(problem, unit_costs=True)
       problem = get_problem(evaluations, goal_exp, domain, unit_costs=True)
       task = task_from_domain_problem(domain, problem)
-      action_instances = get_action_instances(task, transform_plan_args(plan, Object.from_value))
+      plan_args = transform_plan_args(plan, Object.from_value)
+      action_instances = get_action_instances(task, plan_args)
       return task, action_instances
 
 def get_fd_action(task, pddl_action):

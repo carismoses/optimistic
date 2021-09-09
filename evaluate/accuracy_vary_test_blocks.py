@@ -11,10 +11,10 @@ def calc_full_trans_accuracy(model_type, test_num_blocks, model):
     '''
     :param model_type: in ['learned', 'opt']
     '''
-    pos_actions, neg_actions = all_potential_actions(test_num_blocks)
     accuracies = {}
     # NOTE: we test all actions from initial state assuming that the network is ignoring the state
     world = OrderedBlocksWorld(test_num_blocks)
+    pos_actions, neg_actions = world.all_potential_actions(test_num_blocks)
     init_state = world.get_init_state()
     vof, vef = world.state_to_vec(init_state)
     for gt_pred, actions in zip([1, 0], [pos_actions, neg_actions]):

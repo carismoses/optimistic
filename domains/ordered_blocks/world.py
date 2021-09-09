@@ -5,34 +5,39 @@ import itertools
 
 from pddlstream.language.constants import Action
 from pddlstream.utils import read
+from pddlstream.language.generator import from_fn
 
 from tamp.utils import predicate_in_state
+from domains.ordered_blocks.learned_pddl.primitives import get_trust_model
 
 class OrderedBlocksWorld:
-    def __init__(self, num_blocks):
+    def __init__(self, args):
         # NOTE: must be greater than 1!
-        self.num_blocks = num_blocks
+        self.num_blocks = int(args[0])
 
-    @staticmethod
-    def init(args):
-        num_blocks = int(args[0])
-        world = OrderedBlocksWorld(num_blocks)
-        domain_pddl = read('domains/ordered_blocks/domain.pddl')
-        stream_pddl = None
+    def get_pddl_info(self, planning_model_type, logger=None):
+        if planning_model_type == 'optimistic':
+            domain_pddl = read('domains/ordered_blocks/optimistic_pddl/domain.pddl')
+            stream_pddl = None
+            stream_map = {}
+        elif planning_model_type == 'learned':
+            domain_pddl = read('domains/ordered_blocks/learned_pddl/domain.pddl')
+            stream_pddl = read('domains/ordered_blocks/learned_pddl/streams.pddl')
+            stream_map = {'get-trust-model': from_fn(get_trust_model(self, logger))}
         constant_map = {}
-        stream_map = {}
-        return world, [domain_pddl, constant_map, stream_pddl, stream_map]
+        return [domain_pddl, constant_map, stream_pddl, stream_map]
 
     def get_init_state(self):
         pddl_state = []
         for bi in range(1, self.num_blocks+1):
-            pddl_state += [('clear', bi), ('ontable', bi)]
+            pddl_state += [('clear', bi), ('ontable', bi), ('block', bi)]
         return pddl_state
 
     def generate_random_goal(self):
         top_block_num = np.random.randint(2, self.num_blocks+1)
         return ('on', top_block_num, top_block_num-1)
 
+    # TODO: is there a way to sample random actions using PDDL code?
     def random_action(self, state):
         action = None
         table_blocks = [bn for bn in range(1, self.num_blocks+1)
@@ -49,6 +54,8 @@ class OrderedBlocksWorld:
             action = Action(name='stack', args=(top_block_num, bottom_block_num))
         return action
 
+    # TODO: remove this check from random-actions as it assumes domain information
+    # should instead just explore for a number of time steps
     def valid_actions_exist(self, state):
         # for each clear block on the table (which will be placed as a top block)
         table_blocks = []
@@ -91,18 +98,21 @@ class OrderedBlocksWorld:
     # NOTE: in physical domains, to evaluate if a transition matched the optimistic model,
     # we will have to see if the resulting physical state matches the resulting PDDL
     # state. This will require a method of going from the physical world to a PDDL
-    # respresentation fo the state.
+    # respresentation of the state.
     def is_model_correct(self, action):
         return action.args[0] == action.args[1]+1
 
-# init keys for all potential actions
-def all_potential_actions(num_blocks):
-    pos_actions = []
-    neg_actions = []
-    for bb in range(1, num_blocks+1):
-        for bt in range(1, num_blocks+1):
-            if bt == bb+1:
-                pos_actions.append(str(bt)+','+str(bb))
-            elif bt != bb:
-                neg_actions.append(str(bt)+','+str(bb))
-    return pos_actions, neg_actions
+    # init keys for all potential actions
+    def all_potential_actions(self, num_blocks):
+        pos_actions = []
+        neg_actions = []
+        for bb in range(1, num_blocks+1):
+            for bt in range(1, num_blocks+1):
+                if bt == bb+1:
+                    pos_actions.append(str(bt)+','+str(bb))
+                elif bt != bb:
+                    neg_actions.append(str(bt)+','+str(bb))
+        return pos_actions, neg_actions
+
+    def action_args_to_action(self, top_block_num, bottom_block_num):
+        return Action(name='stack', args=(top_block_num, bottom_block_num))
