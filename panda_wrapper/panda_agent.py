@@ -127,8 +127,12 @@ class PandaAgent:
                  ('atpose', self.table, self.table_pose)]
         return init
 
-    def step_simulation(self, T=100):
-        for _ in range(T):
-            p.stepSimulation(physicsClientId=self._execution_client_id)
-            p.stepSimulation(physicsClientId=self._planning_client_id)
-            time.sleep(1/2400.)
+    def step_simulation(self):
+        print('Press Ctrl-C to resume execution.')
+        try:
+            while True:
+                p.stepSimulation(physicsClientId=self._execution_client_id)
+                p.stepSimulation(physicsClientId=self._planning_client_id)
+                time.sleep(1/2400.)
+        except KeyboardInterrupt:
+            pass

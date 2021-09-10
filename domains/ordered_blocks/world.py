@@ -1,12 +1,14 @@
 import os
 import odio_urdf
 import numpy as np
+from copy import copy
 
 import pb_robot
 
 from pddlstream.language.constants import Action
 from pddlstream.utils import read
 from pddlstream.language.generator import from_fn
+from pddlstream.algorithms.downward import fact_from_fd, apply_action
 
 from panda_wrapper.panda_agent import PandaAgent
 from tamp.utils import predicate_in_state
@@ -42,6 +44,12 @@ class OrderedBlocksWorld:
 
 
     def get_pddl_info(self, planning_model_type, logger=None):
+        #if self.use_panda:
+        #    if planning_model_type == 'optimistic':
+        #        pass # TODO: make new domain that includes pick and place
+        #    if planning_model_type == 'learned':
+        #        pass # TODO
+        #else:
         if planning_model_type == 'optimistic':
             domain_pddl = read('domains/ordered_blocks/optimistic_pddl/domain.pddl')
             stream_pddl = None
@@ -123,13 +131,6 @@ class OrderedBlocksWorld:
     def action_to_vec(self, action):
         return np.array([action.args[0], action.args[1]])
 
-    # NOTE: in physical domains, to evaluate if a transition matched the optimistic model,
-    # we will have to see if the resulting physical state matches the resulting PDDL
-    # state. This will require a method of going from the physical world to a PDDL
-    # respresentation of the state.
-    def is_model_correct(self, action):
-        return action.args[0] == action.args[1]+1
-
     # init keys for all potential actions
     def all_optimistic_actions(self, num_blocks):
         pos_actions = []
@@ -144,6 +145,23 @@ class OrderedBlocksWorld:
 
     def action_args_to_action(self, top_block_num, bottom_block_num):
         return Action(name='stack', args=(top_block_num, bottom_block_num))
+
+
+    # NOTE: in physical domains, to evaluate if a transition matched the optimistic model,
+    # we will have to see if the resulting physical state matches the resulting PDDL
+    # state. This will require a method of going from the physical world to a PDDL
+    # respresentation of the state.
+    def transition(self, pddl_state, fd_state, pddl_action, fd_action):
+        new_fd_state = copy(fd_state)
+        valid_transition = pddl_action.args[0] == pddl_action.args[1]+1
+        if valid_transition:
+            apply_action(new_fd_state, fd_action) # apply action in PDDL model
+            if self.use_panda:
+                pass # TODO: call panda controllers to place blocks
+        pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
+        new_pddl_state = [fact_from_fd(sfd) for sfd in new_fd_state]
+        return new_pddl_state, new_fd_state, valid_transition
+
 
 block_colors = [(255, 0 , 0, 1), (255, 1, 0, 1), (255, 255, 0, 1),
                     (0, 255, 0, 1), (0, 0, 255, 1), (148, 0, 130, 1), (1, 0, 211, 1)]

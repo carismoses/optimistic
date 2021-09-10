@@ -6,11 +6,10 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader
 import time
 from pprint import pformat
-from copy import copy
 
 from pddlstream.utils import INF
 from pddlstream.algorithms.focused import solve_focused
-from pddlstream.algorithms.downward import fact_from_fd, is_applicable, apply_action
+from pddlstream.algorithms.downward import fact_from_fd, is_applicable
 
 from learning.datasets import TransDataset
 from learning.utils import ExperimentLogger
@@ -32,6 +31,8 @@ def train_class(args, trans_dataset, logger):
             pddl_info = world.get_pddl_info('learned', logger)
     else:
         raise NotImplementedError
+
+    world.panda.step_simulation()
 
     init_state = world.get_init_state()
     # NOTE: the goal is ignored if execute_random is called
@@ -99,12 +100,8 @@ def execute_plan(world, problem, pddl_plan):
     trajectory = []
     for (fd_action, pddl_action) in zip(fd_plan, pddl_plan):
         assert is_applicable(fd_state, fd_action), 'Something wrong with planner. An invalid action is in the plan.'
-        new_fd_state = copy(fd_state)
-        valid_transition = world.is_model_correct(pddl_action)
-        if valid_transition:
-            apply_action(new_fd_state, fd_action) # apply action in PDDL model
         pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
-        new_pddl_state = [fact_from_fd(sfd) for sfd in new_fd_state]
+        new_pddl_state, new_fd_state, valid_transition = world.transition(pddl_state, fd_state, pddl_action, fd_action)
         trajectory.append((pddl_state, pddl_action, new_pddl_state, valid_transition))
         fd_state = new_fd_state
     return trajectory
@@ -118,11 +115,7 @@ def execute_random(world, problem):
     while valid_actions:
         pddl_action = world.random_action(pddl_state)
         fd_action = get_fd_action(task, pddl_action)
-        new_fd_state = copy(fd_state)
-        valid_transition = world.is_model_correct(pddl_action)
-        if valid_transition:
-            apply_action(new_fd_state, fd_action) # apply action in PDDL model
-        new_pddl_state = [fact_from_fd(sfd) for sfd in new_fd_state]
+        new_pddl_state, new_fd_state, valid_transition = world.transition(pddl_state, fd_state, pddl_action, fd_action)
         trajectory.append((pddl_state, pddl_action, new_pddl_state, valid_transition))
         fd_state = new_fd_state
         pddl_state = new_pddl_state
