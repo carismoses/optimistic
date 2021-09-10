@@ -31,14 +31,8 @@ def train_class(args, trans_dataset, logger):
             pddl_info = world.get_pddl_info('learned', logger)
     else:
         raise NotImplementedError
-
-    world.panda.step_simulation()
-
     init_state = world.get_init_state()
-    # NOTE: the goal is ignored if execute_random is called
-    goal = world.generate_random_goal()
-    print('Goal: ', goal)
-    problem = tuple([*pddl_info, init_state, goal])
+    #world.panda.step_simulation()
 
     # save initial (empty) dataset
     logger.save_trans_dataset(trans_dataset, i=0)
@@ -56,7 +50,10 @@ def train_class(args, trans_dataset, logger):
         print('Iteration %i |dataset| = %i' % (i, len(trans_dataset)))
         if 'random-goals' in args.data_collection_mode:
             # generate plan (using PDDLStream) to reach random goal
-            pddl_plan, cost, _ = solve_focused(problem,
+            goal = world.generate_random_goal()
+            print('Goal: ', goal)
+            problem = tuple([*pddl_info, init_state, goal])
+            pddl_plan, cost, init_expanded = solve_focused(problem,
                                                 success_cost=INF,
                                                 max_skeletons=2,
                                                 search_sample_ratio=1.0,
@@ -65,7 +62,7 @@ def train_class(args, trans_dataset, logger):
                                                 unit_costs=True)
             print('Plan: ', pddl_plan)
             if pddl_plan is not None:
-                trajectory = execute_plan(world, problem, pddl_plan)
+                trajectory = execute_plan(world, problem, pddl_plan, init_expanded)
             else:
                 # if plan not found, execute random actions
                 trajectory = execute_random(world, problem)
@@ -94,8 +91,8 @@ def train_class(args, trans_dataset, logger):
         logger.save_trans_model(trans_model, i=i)
         print('Saved model to %s' % logger.exp_path)
 
-def execute_plan(world, problem, pddl_plan):
-    task, fd_plan = postprocess_plan(problem, pddl_plan)
+def execute_plan(world, problem, pddl_plan, init_expanded):
+    task, fd_plan = postprocess_plan(problem, pddl_plan, init_expanded)
     fd_state = set(task.init)
     trajectory = []
     for (fd_action, pddl_action) in zip(fd_plan, pddl_plan):

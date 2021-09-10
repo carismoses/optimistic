@@ -7,7 +7,6 @@ import pb_robot
 
 from pddlstream.language.constants import Action
 from pddlstream.utils import read
-from pddlstream.language.generator import from_fn
 from pddlstream.algorithms.downward import fact_from_fd, apply_action
 
 from panda_wrapper.panda_agent import PandaAgent
@@ -17,7 +16,7 @@ from domains.ordered_blocks.learned_pddl.primitives import get_trust_model
 class OrderedBlocksWorld:
     def __init__(self, args):
         self.num_blocks = int(args[0])  # NOTE: must be greater than 1!
-        self.use_panda = bool(args[1])
+        self.use_panda = args[1] == 'True'
 
         if self.use_panda:
             self.panda = PandaAgent()
@@ -57,9 +56,10 @@ class OrderedBlocksWorld:
         elif planning_model_type == 'learned':
             domain_pddl = read('domains/ordered_blocks/learned_pddl/domain.pddl')
             stream_pddl = read('domains/ordered_blocks/learned_pddl/streams.pddl')
-            stream_map = {'get-trust-model': from_fn(get_trust_model(self, logger))}
+            stream_map = {'TrustModel': get_trust_model(self, logger)}
         constant_map = {}
         return [domain_pddl, constant_map, stream_pddl, stream_map]
+
 
     def get_init_state(self):
         pddl_state = []
@@ -69,9 +69,11 @@ class OrderedBlocksWorld:
             pddl_state += self.panda.get_init_state()
         return pddl_state
 
+
     def generate_random_goal(self):
         top_block_num = np.random.randint(2, self.num_blocks+1)
         return ('on', top_block_num, top_block_num-1)
+
 
     # TODO: is there a way to sample random actions using PDDL code?
     def random_action(self, state):
@@ -90,6 +92,7 @@ class OrderedBlocksWorld:
             action = Action(name='stack', args=(top_block_num, bottom_block_num))
         return action
 
+
     # TODO: remove this check from random-actions as it assumes domain information
     # should instead just explore for a number of time steps
     def valid_actions_exist(self, state):
@@ -106,6 +109,7 @@ class OrderedBlocksWorld:
                 if predicate_in_state(('clear', bottom_block_num), state):
                     return True
         return False
+
 
     def state_to_vec(self, state):
         def block_on_top(bottom_block_num, state):
@@ -128,8 +132,10 @@ class OrderedBlocksWorld:
                     is_block_on_top, top_block_num = block_on_top(bottom_block_num, state)
         return object_features, edge_features
 
+
     def action_to_vec(self, action):
         return np.array([action.args[0], action.args[1]])
+
 
     # init keys for all potential actions
     def all_optimistic_actions(self, num_blocks):
@@ -142,6 +148,7 @@ class OrderedBlocksWorld:
                 elif bt != bb:
                     neg_actions.append(str(bt)+','+str(bb))
         return pos_actions, neg_actions
+
 
     def action_args_to_action(self, top_block_num, bottom_block_num):
         return Action(name='stack', args=(top_block_num, bottom_block_num))
