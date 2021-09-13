@@ -116,15 +116,9 @@ class PandaAgent:
         """
         conf = pb_robot.vobj.BodyConf(self.planning_robot, self.planning_robot.arm.GetJointValues())
         print('Initial configuration:', conf.configuration)
-        init = [('canmove',),
-                ('conf', conf),
-                ('startconf', conf),
+        init = [('conf', conf),
                 ('atconf', conf),
                 ('handempty',)]
-
-        self.table_pose = pb_robot.vobj.BodyPose(self.table, self.table.get_base_link_pose())
-        init += [('pose', self.table, self.table_pose),
-                 ('atpose', self.table, self.table_pose)]
         return init
 
     def step_simulation(self):

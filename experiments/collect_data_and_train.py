@@ -23,12 +23,9 @@ from domains.ordered_blocks.world import OrderedBlocksWorld
 # but will be close
 
 def train_class(args, trans_dataset, logger):
+    pddl_model_type = 'learned' if 'learned' in args.data_collection_mode else 'optimistic'
     if args.domain == 'ordered_blocks':
-        world = OrderedBlocksWorld(args.domain_args)
-        if args.data_collection_mode in ['random-goals-opt', 'random-actions']:
-            pddl_info = world.get_pddl_info('optimistic')
-        elif args.data_collection_mode == 'random-goals-learned':
-            pddl_info = world.get_pddl_info('learned', logger)
+        world, pddl_info = OrderedBlocksWorld.init(args.domain_args, pddl_model_type, logger)
     else:
         raise NotImplementedError
     init_state = world.get_init_state()
@@ -51,6 +48,7 @@ def train_class(args, trans_dataset, logger):
         if 'random-goals' in args.data_collection_mode:
             # generate plan (using PDDLStream) to reach random goal
             goal = world.generate_random_goal()
+            print('Init: ', init_state)
             print('Goal: ', goal)
             problem = tuple([*pddl_info, init_state, goal])
             pddl_plan, cost, init_expanded = solve_focused(problem,
