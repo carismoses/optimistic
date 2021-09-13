@@ -10,6 +10,7 @@
     (On ?bt ?bb)
     (Clear ?b)
     (OnTable ?b)
+    (HeightTwo ?b)
   )
 
   (:action stack
@@ -22,4 +23,9 @@
                  (not (Clear ?bb))
                  (not (OnTable ?bt)))
   )
+
+  (:derived (HeightTwo ?b)
+    (exists (?bb) (and (On ?b ?bb) (OnTable ?bb)))
+  )
+
 )

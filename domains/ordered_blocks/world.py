@@ -60,7 +60,7 @@ class OrderedBlocksWorld:
             robot = self.panda.planning_robot
             optimistic_domain_pddl = read('domains/ordered_blocks/panda_domain/optimistic/domain.pddl')
             optimistic_stream_pddl = read('domains/ordered_blocks/panda_domain/optimistic/streams.pddl')
-            optimistic_stream_map = [{
+            optimistic_stream_map = {
                 'plan-free-motion': from_fn(get_free_motion_gen(robot,
                                                                 fixed)),
                 'plan-holding-motion': from_fn(get_holding_motion_gen(robot,
@@ -75,7 +75,7 @@ class OrderedBlocksWorld:
                                                                 backoff_frame='gripper')),
                 'sample-pose-block': from_fn(get_pose_gen_block(fixed)),
                 'sample-grasp': from_list_fn(get_grasp_gen(robot)),
-                }]
+                }
             if pddl_model_type == 'optimistic':
                 domain_pddl = optimistic_domain_pddl
                 stream_pddl = optimistic_stream_pddl
@@ -113,8 +113,9 @@ class OrderedBlocksWorld:
 
 
     def generate_random_goal(self):
-        top_block_num = np.random.randint(2, self.num_blocks+1)
-        return ('on', top_block_num, top_block_num-1)
+        return ('heighttwo', 2)
+        #top_block_num = np.random.randint(2, self.num_blocks+1)
+        #return ('on', top_block_num, top_block_num-1)
         #robot_conf = pb_robot.vobj.BodyConf(self.panda.planning_robot, self.panda.planning_robot.arm.GetJointValues())
         #return ('atconf', robot_conf)
 
