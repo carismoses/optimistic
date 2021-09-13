@@ -22,8 +22,8 @@ class OrderedBlocksWorld:
         num_blocks = int(domain_args[0])
         use_panda = domain_args[1] == 'True'
         world = OrderedBlocksWorld(num_blocks, use_panda)
-        pddl_info = world.get_pddl_info(pddl_model_type, logger)
-        return world, pddl_info
+        opt_pddl_info, pddl_info = world.get_pddl_info(pddl_model_type, logger)
+        return world, opt_pddl_info, pddl_info
 
 
     def __init__(self, num_blocks, use_panda):
@@ -58,39 +58,49 @@ class OrderedBlocksWorld:
         if self.use_panda:
             fixed = self.pb_blocks+self.panda.fixed
             robot = self.panda.planning_robot
-            if pddl_model_type == 'optimistic':
-                domain_pddl = read('domains/ordered_blocks/panda_domain/optimistic/domain.pddl')
-                stream_pddl = read('domains/ordered_blocks/panda_domain/optimistic/streams.pddl')
-                stream_map = {
-                    'plan-free-motion': from_fn(get_free_motion_gen(robot,
-                                                                    fixed)),
-                    'plan-holding-motion': from_fn(get_holding_motion_gen(robot,
-                                                                            fixed)),
-                    'pick-inverse-kinematics': from_fn(get_ik_fn(robot,
+            optimistic_domain_pddl = read('domains/ordered_blocks/panda_domain/optimistic/domain.pddl')
+            optimistic_stream_pddl = read('domains/ordered_blocks/panda_domain/optimistic/streams.pddl')
+            optimistic_stream_map = [{
+                'plan-free-motion': from_fn(get_free_motion_gen(robot,
+                                                                fixed)),
+                'plan-holding-motion': from_fn(get_holding_motion_gen(robot,
+                                                                        fixed)),
+                'pick-inverse-kinematics': from_fn(get_ik_fn(robot,
+                                                            fixed,
+                                                            approach_frame='gripper',
+                                                            backoff_frame='global')),
+                'place-inverse-kinematics': from_fn(get_ik_fn(robot,
                                                                 fixed,
-                                                                approach_frame='gripper',
-                                                                backoff_frame='global')),
-                    'place-inverse-kinematics': from_fn(get_ik_fn(robot,
-                                                                    fixed,
-                                                                    approach_frame='global',
-                                                                    backoff_frame='gripper')),
-                    'sample-pose-block': from_fn(get_pose_gen_block(fixed)),
-                    'sample-grasp': from_list_fn(get_grasp_gen(robot)),
-                }
-
-            if pddl_model_type == 'learned':
+                                                                approach_frame='global',
+                                                                backoff_frame='gripper')),
+                'sample-pose-block': from_fn(get_pose_gen_block(fixed)),
+                'sample-grasp': from_list_fn(get_grasp_gen(robot)),
+                }]
+            if pddl_model_type == 'optimistic':
+                domain_pddl = optimistic_domain_pddl
+                stream_pddl = optimistic_stream_pddl
+                stream_map = optimistic_stream_map
+            elif pddl_model_type == 'learned':
                 pass # TODO
         else:
+            optimistic_domain_pddl = read('domains/ordered_blocks/discrete_domain/optimistic/domain.pddl')
+            optimistic_stream_pddl = None
+            optimistic_stream_map = {}
             if pddl_model_type == 'optimistic':
-                domain_pddl = read('domains/ordered_blocks/discrete_domain/optimistic/domain.pddl')
-                stream_pddl = None
-                stream_map = {}
+                domain_pddl = optimistic_domain_pddl
+                stream_pddl = optimistic_stream_pddl
+                stream_map = optimistic_stream_map
             elif pddl_model_type == 'learned':
                 domain_pddl = read('domains/ordered_blocks/discrete_domain/learned/domain.pddl')
                 stream_pddl = read('domains/ordered_blocks/discrete_domain/learned/streams.pddl')
                 stream_map = {'TrustModel': get_trust_model(self, logger)}
         constant_map = {}
-        return [domain_pddl, constant_map, stream_pddl, stream_map]
+        optimistic_pddl_info = [optimistic_domain_pddl,
+                                constant_map,
+                                optimistic_stream_pddl,
+                                optimistic_stream_map]
+        pddl_info = [domain_pddl, constant_map, stream_pddl, stream_map]
+        return optimistic_pddl_info, pddl_info
 
 
     def get_init_state(self):
@@ -109,7 +119,7 @@ class OrderedBlocksWorld:
         #return ('atconf', robot_conf)
 
     # TODO: is there a way to sample random actions using PDDL code?
-    def random_action(self, state):
+    def random_optimistic_action(self, state):
         action = None
         table_blocks = [bn for bn in range(1, self.num_blocks+1)
                 if predicate_in_state(('ontable', bn), state) and predicate_in_state(('clear', bn), state)]

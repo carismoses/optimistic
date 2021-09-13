@@ -25,7 +25,9 @@ from domains.ordered_blocks.world import OrderedBlocksWorld
 def train_class(args, trans_dataset, logger):
     pddl_model_type = 'learned' if 'learned' in args.data_collection_mode else 'optimistic'
     if args.domain == 'ordered_blocks':
-        world, pddl_info = OrderedBlocksWorld.init(args.domain_args, pddl_model_type, logger)
+        world, opt_pddl_info, pddl_info = OrderedBlocksWorld.init(args.domain_args,
+                                                                pddl_model_type,
+                                                                logger)
     else:
         raise NotImplementedError
     init_state = world.get_init_state()
@@ -45,12 +47,14 @@ def train_class(args, trans_dataset, logger):
     i = 0
     while len(trans_dataset) < args.max_transitions:
         print('Iteration %i |dataset| = %i' % (i, len(trans_dataset)))
+        goal = world.generate_random_goal() # not used if execute_random
+        print('Init: ', init_state)
+        print('Goal: ', goal)
+        problem = tuple([*pddl_info, init_state, goal])
+        opt_problem = tuple([*opt_pddl_info, init_state, goal]) # used in execute_random
         if 'random-goals' in args.data_collection_mode:
             # generate plan (using PDDLStream) to reach random goal
-            goal = world.generate_random_goal()
-            print('Init: ', init_state)
-            print('Goal: ', goal)
-            problem = tuple([*pddl_info, init_state, goal])
+
             pddl_plan, cost, init_expanded = solve_focused(problem,
                                                 success_cost=INF,
                                                 max_skeletons=2,
@@ -63,9 +67,9 @@ def train_class(args, trans_dataset, logger):
                 trajectory = execute_plan(world, problem, pddl_plan, init_expanded)
             else:
                 # if plan not found, execute random actions
-                trajectory = execute_random(world, problem)
+                trajectory = execute_random(world, opt_problem)
         elif args.data_collection_mode == 'random-actions':
-            trajectory = execute_random(world, problem)
+            trajectory = execute_random(world, opt_problem)
 
         # add to dataset and save
         print('Adding trajectory to dataset.')
@@ -108,7 +112,7 @@ def execute_random(world, problem):
     trajectory = []
     valid_actions = True
     while valid_actions:
-        pddl_action = world.random_action(pddl_state)
+        pddl_action = world.random_optimistic_action(pddl_state)
         fd_action = get_fd_action(task, pddl_action)
         new_pddl_state, new_fd_state, valid_transition = world.transition(pddl_state, fd_state, pddl_action, fd_action)
         trajectory.append((pddl_state, pddl_action, new_pddl_state, valid_transition))
