@@ -2,7 +2,7 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 
-from domains.ordered_blocks.world import OrderedBlocksWorld, all_optimistic_actions
+from domains.ordered_blocks.world import OrderedBlocksWorld
 from learning.utils import ExperimentLogger
 from learning.datasets import model_forward
 from evaluate.utils import recc_dict, plot_results
@@ -13,7 +13,7 @@ def calc_full_trans_accuracy(model_type, test_num_blocks, model):
     '''
     accuracies = {}
     # NOTE: we test all actions from initial state assuming that the network is ignoring the state
-    world = OrderedBlocksWorld(test_num_blocks)
+    world = OrderedBlocksWorld(test_num_blocks, False)
     pos_actions, neg_actions = world.all_optimistic_actions(test_num_blocks)
     init_state = world.get_init_state()
     vof, vef = world.state_to_vec(init_state)
@@ -138,7 +138,7 @@ if __name__ == '__main__':
 
     # Save data to logger
     logger = ExperimentLogger.setup_experiment_directory(args, 'model_accuracy')
-    logger.save_plot_data([test_datasets, trans_success_data, heur_success_data])
+    logger.save_plot_data([test_datasets, trans_success_data])
     print('Saving data to %s.' % logger.exp_path)
 
     # Plot results and save to logger

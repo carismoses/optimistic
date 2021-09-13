@@ -47,11 +47,11 @@ def train_class(args, trans_dataset, logger):
     i = 0
     while len(trans_dataset) < args.max_transitions:
         print('Iteration %i |dataset| = %i' % (i, len(trans_dataset)))
-        goal = world.generate_random_goal() # not used if execute_random
+        goal = world.generate_random_goal() # ignored if execute_random()
         print('Init: ', init_state)
         print('Goal: ', goal)
         problem = tuple([*pddl_info, init_state, goal])
-        opt_problem = tuple([*opt_pddl_info, init_state, goal]) # used in execute_random
+        opt_problem = tuple([*opt_pddl_info, init_state, goal]) # used in execute_random()
         if 'random-goals' in args.data_collection_mode:
             # generate plan (using PDDLStream) to reach random goal
 
