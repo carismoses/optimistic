@@ -12,8 +12,8 @@ from pddlstream.language.generator import from_list_fn, from_fn
 
 from panda_wrapper.panda_agent import PandaAgent
 from tamp.utils import predicate_in_state
-from domains.ordered_blocks.discrete_world.learned.primitives import get_trust_model
-from domains.ordered_blocks.panda_world.primitives import get_free_motion_gen, \
+from domains.ordered_blocks.discrete_domain.learned.primitives import get_trust_model
+from domains.ordered_blocks.panda_domain.primitives import get_free_motion_gen, \
     get_holding_motion_gen, get_ik_fn, get_pose_gen_block, get_grasp_gen
 
 class OrderedBlocksWorld:
@@ -59,8 +59,8 @@ class OrderedBlocksWorld:
             fixed = self.pb_blocks+self.panda.fixed
             robot = self.panda.planning_robot
             if pddl_model_type == 'optimistic':
-                domain_pddl = read('domains/ordered_blocks/panda_world/optimistic/domain.pddl')
-                stream_pddl = read('domains/ordered_blocks/panda_world/optimistic/streams.pddl')
+                domain_pddl = read('domains/ordered_blocks/panda_domain/optimistic/domain.pddl')
+                stream_pddl = read('domains/ordered_blocks/panda_domain/optimistic/streams.pddl')
                 stream_map = {
                     'plan-free-motion': from_fn(get_free_motion_gen(robot,
                                                                     fixed)),
@@ -82,12 +82,12 @@ class OrderedBlocksWorld:
                 pass # TODO
         else:
             if pddl_model_type == 'optimistic':
-                domain_pddl = read('domains/ordered_blocks/discrete_world/optimistic/domain.pddl')
+                domain_pddl = read('domains/ordered_blocks/discrete_domain/optimistic/domain.pddl')
                 stream_pddl = None
                 stream_map = {}
             elif pddl_model_type == 'learned':
-                domain_pddl = read('domains/ordered_blocks/discrete_world/learned/domain.pddl')
-                stream_pddl = read('domains/ordered_blocks/discrete_world/learned/streams.pddl')
+                domain_pddl = read('domains/ordered_blocks/discrete_domain/learned/domain.pddl')
+                stream_pddl = read('domains/ordered_blocks/discrete_domain/learned/streams.pddl')
                 stream_map = {'TrustModel': get_trust_model(self, logger)}
         constant_map = {}
         return [domain_pddl, constant_map, stream_pddl, stream_map]
@@ -103,10 +103,10 @@ class OrderedBlocksWorld:
 
 
     def generate_random_goal(self):
-        #top_block_num = np.random.randint(2, self.num_blocks+1)
-        #return ('on', top_block_num, top_block_num-1)
-        robot_conf = pb_robot.vobj.BodyConf(self.panda.planning_robot, self.panda.planning_robot.arm.GetJointValues())
-        return ('atconf', robot_conf)
+        top_block_num = np.random.randint(2, self.num_blocks+1)
+        return ('on', top_block_num, top_block_num-1)
+        #robot_conf = pb_robot.vobj.BodyConf(self.panda.planning_robot, self.panda.planning_robot.arm.GetJointValues())
+        #return ('atconf', robot_conf)
 
     # TODO: is there a way to sample random actions using PDDL code?
     def random_action(self, state):
