@@ -47,14 +47,14 @@ def train_class(args, trans_dataset, logger):
     i = 0
     while len(trans_dataset) < args.max_transitions:
         print('Iteration %i |dataset| = %i' % (i, len(trans_dataset)))
-        goal = world.generate_random_goal() # ignored if execute_random()
+        #goal = world.generate_random_goal() # ignored if execute_random()
+        goal = ('heighttwo', 2)
         print('Init: ', init_state)
         print('Goal: ', goal)
         problem = tuple([*pddl_info, init_state, goal])
         opt_problem = tuple([*opt_pddl_info, init_state, goal]) # used in execute_random()
         if 'random-goals' in args.data_collection_mode:
             # generate plan (using PDDLStream) to reach random goal
-
             pddl_plan, cost, init_expanded = solve_focused(problem,
                                                 success_cost=INF,
                                                 max_skeletons=2,
@@ -97,12 +97,20 @@ def execute_plan(world, problem, pddl_plan, init_expanded):
     task, fd_plan = postprocess_plan(problem, pddl_plan, init_expanded)
     fd_state = set(task.init)
     trajectory = []
-    for (fd_action, pddl_action) in zip(fd_plan, pddl_plan):
+    ai = 0
+    valid_transition = True
+    while valid_transition:
+        fd_action, pddl_action = fd_plan[ai], pddl_plan[ai]
         assert is_applicable(fd_state, fd_action), 'Something wrong with planner. An invalid action is in the plan.'
         pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
-        new_pddl_state, new_fd_state, valid_transition = world.transition(pddl_state, fd_state, pddl_action, fd_action)
+        new_pddl_state, new_fd_state, valid_transition = world.transition(pddl_state,
+                                                                            fd_state,
+                                                                            pddl_action,
+                                                                            fd_action)
         trajectory.append((pddl_state, pddl_action, new_pddl_state, valid_transition))
         fd_state = new_fd_state
+        valid_transition = valid_transition and ai < len(fd_plan)-1 # stop when fail action or at end of trajectory
+        ai += 1
     return trajectory
 
 def execute_random(world, problem):
@@ -114,7 +122,10 @@ def execute_random(world, problem):
     while valid_actions:
         pddl_action = world.random_optimistic_action(pddl_state)
         fd_action = get_fd_action(task, pddl_action)
-        new_pddl_state, new_fd_state, valid_transition = world.transition(pddl_state, fd_state, pddl_action, fd_action)
+        new_pddl_state, new_fd_state, valid_transition = world.transition(pddl_state,
+                                                                            fd_state,
+                                                                            pddl_action,
+                                                                            fd_action)
         trajectory.append((pddl_state, pddl_action, new_pddl_state, valid_transition))
         fd_state = new_fd_state
         pddl_state = new_pddl_state

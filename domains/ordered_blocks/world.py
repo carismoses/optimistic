@@ -27,7 +27,7 @@ class OrderedBlocksWorld:
 
 
     def __init__(self, num_blocks, use_panda):
-        self.num_blocks = num_blocks  # NOTE: must be greater than 1!
+        self.num_blocks = num_blocks  # NOTE: 1 < num_blocks <= 8
         self.use_panda = use_panda
 
         if self.use_panda:
@@ -113,11 +113,11 @@ class OrderedBlocksWorld:
 
 
     def generate_random_goal(self):
-        return ('heighttwo', 2)
-        #top_block_num = np.random.randint(2, self.num_blocks+1)
-        #return ('on', top_block_num, top_block_num-1)
-        #robot_conf = pb_robot.vobj.BodyConf(self.panda.planning_robot, self.panda.planning_robot.arm.GetJointValues())
-        #return ('atconf', robot_conf)
+        int_to_str = {2:'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six',
+                        7: 'seven', 8: 'eight'}
+        random_top_block = np.random.randint(1, self.num_blocks+1)
+        random_height = np.random.randint(2, self.num_blocks+1)
+        return ('height%s' % int_to_str[random_height], random_top_block)
 
     # TODO: is there a way to sample random actions using PDDL code?
     def random_optimistic_action(self, state):

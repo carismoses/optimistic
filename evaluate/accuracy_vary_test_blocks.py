@@ -128,7 +128,7 @@ if __name__ == '__main__':
             test_dataset_path = test_datasets[test_num_blocks]
             test_dataset_logger = ExperimentLogger(test_dataset_path)
             test_trans_dataset = test_dataset_logger.load_trans_dataset()
-            test_trans_dataset.set_pred_type('full_state')
+            test_trans_dataset.set_pred_type('class')
             trans_success_data['opt'][test_num_blocks] = calc_trans_accuracy('opt',
                                                                     test_trans_dataset,
                                                                     test_num_blocks)

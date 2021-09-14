@@ -25,8 +25,10 @@ def plot_results(success_data, all_test_num_blocks, title, xlabel, ylabel, logge
             method_avgs.append(np.mean(num_block_success_data))
             method_mins.append(np.mean(num_block_success_data)-np.std(num_block_success_data))
             method_maxs.append(np.mean(num_block_success_data)+np.std(num_block_success_data))
-
-        axis.plot(all_test_num_blocks, method_avgs, color=cs[i], label=method)
+        if method == 'opt':
+            axis.plot(all_test_num_blocks, method_avgs, color=cs[i], label=method, linestyle='-.')
+        else:
+            axis.plot(all_test_num_blocks, method_avgs, color=cs[i], label=method)
         axis.fill_between(all_test_num_blocks, method_mins, method_maxs, color=cs[i], alpha=0.1)
 
     axis.set_xticks(all_test_num_blocks)
