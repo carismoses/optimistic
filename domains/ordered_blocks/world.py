@@ -112,11 +112,14 @@ class OrderedBlocksWorld:
         return pddl_state
 
 
-    def generate_random_goal(self):
+    def generate_random_goal(self, feasible=False):
         int_to_str = {2:'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six',
                         7: 'seven', 8: 'eight'}
-        random_top_block = np.random.randint(1, self.num_blocks+1)
-        random_height = np.random.randint(2, self.num_blocks+1)
+        random_top_block = np.random.randint(2, self.num_blocks+1)
+        if feasible:
+            random_height = np.random.randint(2, random_top_block+1)
+        else:
+            random_height = np.random.randint(2, self.num_blocks+1)
         return ('height%s' % int_to_str[random_height], random_top_block)
 
     # TODO: is there a way to sample random actions using PDDL code?

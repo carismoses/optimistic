@@ -42,7 +42,7 @@ if __name__ == '__main__':
     test_goals = {}
     for test_num_blocks in test_datasets:
         world = OrderedBlocksWorld(test_num_blocks, False) # TODO: don't assume no robot
-        test_goals[test_num_blocks] = [world.generate_random_goal() for _ in range(num_goals)]
+        test_goals[test_num_blocks] = [world.generate_random_goal(feasible=True) for _ in range(num_goals)]
     print('Done generating goals.')
 
     if compare_opt:
