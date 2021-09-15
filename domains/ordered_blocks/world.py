@@ -18,7 +18,7 @@ from domains.ordered_blocks.panda_domain.primitives import get_free_motion_gen, 
 
 class OrderedBlocksWorld:
     @staticmethod
-    def init(domain_args, pddl_model_type, logger):
+    def init(domain_args, pddl_model_type, logger=None):
         num_blocks = int(domain_args[0])
         use_panda = domain_args[1] == 'True'
         world = OrderedBlocksWorld(num_blocks, use_panda)

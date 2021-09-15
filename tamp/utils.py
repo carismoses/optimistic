@@ -2,6 +2,7 @@ from pddlstream.algorithms.algorithm import parse_problem
 from pddlstream.algorithms.downward import task_from_domain_problem, get_action_instances, \
                                             get_problem, parse_action
 from pddlstream.language.conversion import Object, transform_plan_args
+from pddlstream.algorithms.downward import fact_from_fd, is_applicable
 
 def postprocess_plan(problem, plan, init_facts_expanded):
     # replace init in problem with init_expanded
@@ -36,3 +37,43 @@ def predicate_in_state(predicate, state):
         if tuple(simple_pddl_predicate) == predicate:
             return True
     return False
+
+
+def execute_plan(world, problem, pddl_plan, init_expanded):
+    task, fd_plan = postprocess_plan(problem, pddl_plan, init_expanded)
+    fd_state = set(task.init)
+    trajectory = []
+    ai = 0
+    valid_transition = True
+    while valid_transition:
+        fd_action, pddl_action = fd_plan[ai], pddl_plan[ai]
+        assert is_applicable(fd_state, fd_action), 'Something wrong with planner. An invalid action is in the plan.'
+        pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
+        new_pddl_state, new_fd_state, valid_transition = world.transition(pddl_state,
+                                                                            fd_state,
+                                                                            pddl_action,
+                                                                            fd_action)
+        trajectory.append((pddl_state, pddl_action, new_pddl_state, valid_transition))
+        fd_state = new_fd_state
+        valid_transition = valid_transition and ai < len(fd_plan)-1 # stop when fail action or at end of trajectory
+        ai += 1
+    return trajectory
+
+def execute_random(world, problem):
+    task = task_from_problem(problem)
+    fd_state = set(task.init)
+    pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
+    trajectory = []
+    valid_actions = True
+    while valid_actions:
+        pddl_action = world.random_optimistic_action(pddl_state)
+        fd_action = get_fd_action(task, pddl_action)
+        new_pddl_state, new_fd_state, valid_transition = world.transition(pddl_state,
+                                                                            fd_state,
+                                                                            pddl_action,
+                                                                            fd_action)
+        trajectory.append((pddl_state, pddl_action, new_pddl_state, valid_transition))
+        fd_state = new_fd_state
+        pddl_state = new_pddl_state
+        valid_actions = world.valid_actions_exist(pddl_state)
+    return trajectory
