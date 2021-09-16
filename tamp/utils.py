@@ -26,7 +26,8 @@ def task_from_problem(problem):
     return task_from_domain_problem(domain, problem)
 
 # predicate is strings and ints, but state potentially has pddlstream.language.object.Object
-def predicate_in_state(predicate, state):
+def get_simple_state(state):
+    simple_state = []
     for pddl_predicate in state:
         simple_pddl_predicate = [pddl_predicate[0]]
         for arg in pddl_predicate[1:]:
@@ -34,9 +35,8 @@ def predicate_in_state(predicate, state):
                 simple_pddl_predicate.append(arg)
             elif isinstance(arg, Object):
                 simple_pddl_predicate.append(arg.value)
-        if tuple(simple_pddl_predicate) == predicate:
-            return True
-    return False
+        simple_state.append(tuple(simple_pddl_predicate))
+    return simple_state
 
 
 def execute_plan(world, problem, pddl_plan, init_expanded):
@@ -64,16 +64,19 @@ def execute_random(world, problem):
     fd_state = set(task.init)
     pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
     trajectory = []
-    valid_actions = True
-    while valid_actions:
+    valid_transition = True
+    while valid_transition:
         pddl_action = world.random_optimistic_action(pddl_state)
-        fd_action = get_fd_action(task, pddl_action)
-        new_pddl_state, new_fd_state, valid_transition = world.transition(pddl_state,
-                                                                            fd_state,
-                                                                            pddl_action,
-                                                                            fd_action)
-        trajectory.append((pddl_state, pddl_action, new_pddl_state, valid_transition))
-        fd_state = new_fd_state
-        pddl_state = new_pddl_state
-        valid_actions = world.valid_actions_exist(pddl_state)
+        if pddl_action is None:
+            valid_transition = False
+        else:
+            print('Random action: ', pddl_action)
+            fd_action = get_fd_action(task, pddl_action)
+            new_pddl_state, new_fd_state, valid_transition = world.transition(pddl_state,
+                                                                                fd_state,
+                                                                                pddl_action,
+                                                                                fd_action)
+            trajectory.append((pddl_state, pddl_action, new_pddl_state, valid_transition))
+            fd_state = new_fd_state
+            pddl_state = new_pddl_state
     return trajectory

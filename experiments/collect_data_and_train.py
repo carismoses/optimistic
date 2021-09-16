@@ -46,12 +46,15 @@ def train_class(args, trans_dataset, logger):
     i = 0
     while len(trans_dataset) < args.max_transitions:
         print('Iteration %i |dataset| = %i' % (i, len(trans_dataset)))
-        goal = world.generate_random_goal() # ignored if execute_random()
+        if 'curriculum' not in args.data_collection_mode:
+            goal = world.generate_random_goal() # ignored if execute_random()
+        else:
+            goal = world.generate_curriculum_goal(len(trans_dataset), args.max_transitions)
         print('Init: ', init_state)
         print('Goal: ', goal)
         problem = tuple([*pddl_info, init_state, goal])
         opt_problem = tuple([*opt_pddl_info, init_state, goal]) # used in execute_random()
-        if 'random-goals' in args.data_collection_mode:
+        if 'goals' in args.data_collection_mode:
             # generate plan (using PDDLStream) to reach random goal
             pddl_plan, cost, init_expanded = solve_focused(problem,
                                                 success_cost=INF,
@@ -129,7 +132,7 @@ if __name__ == '__main__':
                         help='path to save datasets and models to')
     parser.add_argument('--data-collection-mode',
                         type=str,
-                        choices=['random-actions', 'random-goals-opt', 'random-goals-learned'],
+                        choices=['random-actions', 'random-goals-opt', 'random-goals-learned', 'curriculum-goals-learned'],
                         required=True,
                         help='method of data collection')
     parser.add_argument('--N',

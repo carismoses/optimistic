@@ -11,7 +11,7 @@ from pddlstream.algorithms.downward import fact_from_fd, apply_action
 from pddlstream.language.generator import from_list_fn, from_fn
 
 from panda_wrapper.panda_agent import PandaAgent
-from tamp.utils import predicate_in_state
+from tamp.utils import get_simple_state
 from domains.ordered_blocks.discrete_domain.learned.primitives import get_trust_model
 from domains.ordered_blocks.panda_domain.primitives import get_free_motion_gen, \
     get_holding_motion_gen, get_ik_fn, get_pose_gen_block, get_grasp_gen
@@ -113,26 +113,39 @@ class OrderedBlocksWorld:
 
 
     def generate_random_goal(self, feasible=False):
-        int_to_str = {2:'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six',
-                        7: 'seven', 8: 'eight'}
         random_top_block = np.random.randint(2, self.num_blocks+1)
         if feasible:
             random_height = np.random.randint(2, random_top_block+1)
         else:
             random_height = np.random.randint(2, self.num_blocks+1)
-        return ('height%s' % int_to_str[random_height], random_top_block)
+        return ('height%s' % int_to_str(random_height), random_top_block)
+
+
+    def generate_curriculum_goal(self, current_t, max_t):
+        max_blocks = range(2, self.num_blocks+1)
+        t_times = np.linspace(0, max_t, self.num_blocks)
+        for t0, t1 in zip(t_times[:-1], t_times[1:]):
+            if current_t >= t0 and current_t < t1:
+                t_index = np.where(t_times==t0)[0][0]
+                break
+        max_block = max_blocks[t_index]
+        random_top_block = np.random.randint(2, max_block+1)
+        random_height = np.random.randint(2, max_block+1)
+        return ('height%s' % int_to_str(random_height), random_top_block)
+
 
     # TODO: is there a way to sample random actions using PDDL code?
     def random_optimistic_action(self, state):
         action = None
+        simple_state = get_simple_state(state)
         table_blocks = [bn for bn in range(1, self.num_blocks+1)
-                if predicate_in_state(('ontable', bn), state) and predicate_in_state(('clear', bn), state)]
+                if ('ontable', bn) in simple_state and ('clear', bn) in simple_state]
         if len(table_blocks) > 0:
             top_block_idx = np.random.choice(len(table_blocks))
             top_block_num = table_blocks[top_block_idx]
             possible_bottom_blocks = []
             for bn in range(1, self.num_blocks+1):
-                if predicate_in_state(('clear', bn), state) and bn != top_block_num:
+                if ('clear', bn) in simple_state and bn != top_block_num:
                     possible_bottom_blocks.append(bn)
             bottom_block_idx = np.random.choice(len(possible_bottom_blocks))
             bottom_block_num = possible_bottom_blocks[bottom_block_idx]
@@ -140,28 +153,11 @@ class OrderedBlocksWorld:
         return action
 
 
-    # TODO: remove this check from random-actions as it assumes domain information
-    # should instead just explore for a number of time steps
-    def valid_actions_exist(self, state):
-        # for each clear block on the table (which will be placed as a top block)
-        table_blocks = []
-        for block_num in range(1, self.num_blocks+1):
-            if predicate_in_state(('ontable', block_num), state) and \
-                        predicate_in_state(('clear', block_num), state):
-                table_blocks.append(block_num)
-        # check if the correct corresponding bottom block is clear
-        for table_block in table_blocks:
-            if table_block != 1:
-                bottom_block_num = table_block-1
-                if predicate_in_state(('clear', bottom_block_num), state):
-                    return True
-        return False
-
-
     def state_to_vec(self, state):
+        simple_state = get_simple_state(state)
         def block_on_top(bottom_block_num, state):
             for top_block_num in range(1, self.num_blocks):
-                if predicate_in_state(('on', top_block_num, bottom_block_num), state):
+                if ('on', top_block_num, bottom_block_num) in simple_state:
                     return True, top_block_num
             return False, None
 
@@ -169,7 +165,7 @@ class OrderedBlocksWorld:
         edge_features = np.zeros((self.num_blocks+1, self.num_blocks+1, 1))
         # for each block on the table, recursively check which blocks are on top of it
         for block_num in range(1, self.num_blocks+1):
-            if predicate_in_state(('ontable', block_num), state):
+            if ('ontable', block_num) in simple_state:
                 edge_features[0, block_num, 0] = 1.
                 bottom_block_num = block_num
                 is_block_on_top, top_block_num = block_on_top(bottom_block_num, state)
@@ -216,6 +212,10 @@ class OrderedBlocksWorld:
         new_pddl_state = [fact_from_fd(sfd) for sfd in new_fd_state]
         return new_pddl_state, new_fd_state, valid_transition
 
+int_to_str_dict = {2:'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six',
+            7: 'seven', 8: 'eight'}
+def int_to_str(int):
+    return int_to_str_dict[int]
 
 block_colors = [(255, 0 , 0, 1), (255, 1, 0, 1), (255, 255, 0, 1),
                     (0, 255, 0, 1), (0, 0, 255, 1), (148, 0, 130, 1), (1, 0, 211, 1)]

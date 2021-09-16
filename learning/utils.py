@@ -40,7 +40,6 @@ class ExperimentLogger:
         if root_folder == 'experiments':
             os.mkdir(os.path.join(exp_path, 'datasets'))
             os.mkdir(os.path.join(exp_path, 'models'))
-            os.mkdir(os.path.join(exp_path, 'plans'))
 
         with open(os.path.join(exp_path, 'args.pkl'), 'wb') as handle:
             pickle.dump(args, handle)
@@ -61,9 +60,6 @@ class ExperimentLogger:
 
     def save_balanced_dataset(self, dataset):
         self.save_dataset(dataset, 'balanced_dataset.pkl')
-
-    def save_heur_dataset(self, dataset):
-        self.save_dataset(dataset, 'heur_dataset.pkl')
 
     def load_dataset(self, fname):
         with open(os.path.join(self.exp_path, 'datasets', fname), 'rb') as handle:
@@ -89,9 +85,6 @@ class ExperimentLogger:
             fname = 'balanced_dataset.pkl'
         return self.load_dataset(fname)
 
-    def load_heur_dataset(self):
-        return self.load_dataset('heur_dataset.pkl')
-
     # Models
     def save_model(self, model, fname):
         torch.save(model.state_dict(), os.path.join(self.exp_path, 'models', fname))
@@ -102,9 +95,6 @@ class ExperimentLogger:
         else:
             fname = 'trans_model.pt'
         self.save_model(model, fname)
-
-    def save_heur_model(self, model):
-        self.save_model(model, 'heur_model.pt')
 
     def load_trans_model(self, i=None):
         # NOTE: returns the highest numbered model if i is not given
@@ -138,15 +128,6 @@ class ExperimentLogger:
         model.load_state_dict(torch.load(os.path.join(self.exp_path, 'models', fname)))
         return model
 
-    def load_heur_model(self):
-        n_of_in=1
-        n_ef_in=1
-        model = HeuristicGNN(n_of_in=n_of_in,
-                                n_ef_in=n_ef_in,
-                                n_hidden=self.args.n_hidden)
-        model.load_state_dict(torch.load(os.path.join(self.exp_path, 'models', 'heur_model.pt')))
-        return model
-
     # Planning info
     def save_planning_data(self, tree, goal, plan, i=None):
         with open(os.path.join(self.exp_path, 'plans', 'plan_data_%i.pkl' % i), 'wb') as handle:
@@ -158,26 +139,6 @@ class ExperimentLogger:
             args = pickle.load(handle)
         return args
 
-    # Evaluation
-    # plan data
-    def save_dot_graph(self, dot_graph):
-        dot_graph.write_svg(os.path.join(self.exp_path, 'plan_graph.svg'))
-
-    def load_plan_tree(self):
-        with open(os.path.join(self.exp_path, 'tree.pkl'), 'rb') as handle:
-            tree = pickle.load(handle)
-        return tree
-
-    def load_plan_goal(self):
-        with open(os.path.join(self.exp_path, 'goal.pkl'), 'rb') as handle:
-            goal = pickle.load(handle)
-        return goal
-
-    def load_final_plan(self):
-        with open(os.path.join(self.exp_path, 'plan.pkl'), 'rb') as handle:
-            final_plan = pickle.load(handle)
-        return final_plan
-
     # plot data
     def save_plot_data(self, plot_data):
         with open(os.path.join(self.exp_path, 'plot_data.pkl'), 'wb') as handle:
@@ -187,4 +148,3 @@ class ExperimentLogger:
         with open(os.path.join(self.exp_path, 'plot_data.pkl'), 'rb') as handle:
             plot_data = pickle.load(handle)
         return plot_data
-    
