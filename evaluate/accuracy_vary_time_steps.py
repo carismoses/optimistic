@@ -111,8 +111,9 @@ if __name__ == '__main__':
                                                         method,
                                                         method_model_paths,
                                                         world)
-                ax.plot(avg_acc, color=cs[mi], label=method)
-                ax.fill_between(avg_acc-std_acc, avg_acc+std_acc, color=cs[mi], alpha=0.1)
+                xs = np.arange(len(avg_acc))
+                ax.plot(xs, avg_acc, color=cs[mi], label=method)
+                ax.fill_between(xs, avg_acc-std_acc, avg_acc+std_acc, color=cs[mi], alpha=0.1)
             if compare_opt:
                 final_accuracy = calc_opt_accuracy(test_dataset)
                 ax.plot([0, len(avg_acc)], [final_accuracy, final_accuracy], color= cs[mi+1], label='opt')
