@@ -5,18 +5,21 @@ import itertools
 
 from learning.utils import ExperimentLogger
 from learning.datasets import model_forward
+from domains.ordered_blocks.world import OrderedBlocksWorld
+from evaluate.utils import recc_dict
 
-def calc_time_step_accs(test_num_blocks, test_dataset_path, model_paths):
-    test_dataset_logger = ExperimentLogger(test_dataset_path)
-    test_dataset = test_dataset_logger.load_trans_dataset()
-    test_dataset.set_pred_type('class')
+all_time_step_accs = recc_dict()
 
+def calc_time_step_accs(test_num_blocks, test_dataset, method, model_paths, world):
     all_model_accuracies = []
-    for mi, model_path in enumerate(model_paths):
+    # NOTE: this assumes all action validity can be correctly determined from the initial state!
+    # this won't always be the case!
+    vof, vef = world.state_to_vec(world.get_init_state())
+    for model_path in model_paths:
         logger = ExperimentLogger(model_path)
         accuracies = []
-        i = 0       # current model and dataset index
-        max_T = 0   # current time step (there are potentially multiple timesteps between i's)
+        i = 0       # current model and dataset index (within a model_path)
+        max_T = 0   # current max time step given i
         for t in itertools.count(1):
             if t > max_T:
                 i += 1
@@ -25,14 +28,20 @@ def calc_time_step_accs(test_num_blocks, test_dataset_path, model_paths):
                     train_dataset = logger.load_trans_dataset(i=i)
                     max_T = len(train_dataset)
                 except:
+                    print('Model %s ends at timestep %i' % (model_path, max_T))
                     break
-            preds = [model_forward(trans_model, x).round().squeeze() for x,y in test_dataset]
-            gts = [y.numpy().squeeze() for x,y in test_dataset]
+            preds, gts = [], []
+            for action, label in test_dataset:
+                va = world.action_to_vec(action)
+                x = [vof, vef, va]
+                preds.append(model_forward(trans_model, x).round().squeeze())
+                gts.append(label)
             accuracy = np.mean([(pred == gt) for pred, gt in zip(preds, gts)])
             accuracies.append(accuracy)
         all_model_accuracies.append(accuracies)
+        all_time_step_accs[test_num_blocks][method][model_path] = accuracies
 
-    # plot all accuracies
+    # calculate avg and std accuracies accross all models
     max_T = max([len(ma) for ma in all_model_accuracies])
     avg_accuracies = []
     std_accuracies = []
@@ -48,16 +57,12 @@ def calc_time_step_accs(test_num_blocks, test_dataset_path, model_paths):
 
     return np.array(avg_accuracies), np.array(std_accuracies)
 
-def calc_opt_accuracy(test_dataset_path):
-    test_dataset_logger = ExperimentLogger(test_dataset_path)
-    test_dataset = test_dataset_logger.load_trans_dataset()
-    test_dataset.set_pred_type('class')
+def calc_opt_accuracy(test_dataset):
+    # NOTE: this assumes all action validity can be correctly determined from the initial state!
+    # this won't always be the case!
     accuracies = []
-    for x, y in test_dataset:
-        # get all relevant transition info
-        vof, vef, va = [xi.detach().numpy() for xi in x]
+    for _, gt_pred in test_dataset:
         model_pred = 1. # optimistic model always thinks it's right
-        gt_pred = y.numpy().squeeze()
         accuracy = int(np.array_equal(gt_pred, model_pred))
         accuracies.append(accuracy)
     return np.mean(accuracies)
@@ -77,28 +82,51 @@ if __name__ == '__main__':
         import pdb; pdb.set_trace()
 
     #### Parameters ####
-    # import train and test datasets
-    from domains.ordered_blocks.test_datasets import test_datasets
+    # import train
     from domains.ordered_blocks.results_paths import model_paths
     compare_opt = True  # if want to compare against the optimistic model
+    all_test_num_blocks = [2, 3, 4, 5, 6, 7, 8, 9]
     ########
 
     cs = ['r', 'g', 'b', 'c', 'm', 'y', 'k']
+    logger = ExperimentLogger.setup_experiment_directory(args, 'model_accuracy')
+
+    # generate dataset for each test_num_blocks
+    test_datasets = {}
+    for test_num_blocks in all_test_num_blocks:
+        num_blocks_dataset = []
+        world = OrderedBlocksWorld(test_num_blocks, False)
+        all_opt_actions = world.all_optimistic_actions()
+        for opt_action in all_opt_actions:
+            num_blocks_dataset.append([opt_action, world.valid_transition(opt_action)])
+        test_datasets[test_num_blocks] = num_blocks_dataset
 
     # run for each method and model
-    for test_num_blocks, test_dataset_path in test_datasets.items():
-        if test_num_blocks in [2]:
+    for test_num_blocks, test_dataset in test_datasets.items():
+        if test_num_blocks in all_test_num_blocks:
             fig, ax = plt.subplots()
             for mi, (method, method_model_paths) in enumerate(model_paths.items()):
-                avg_acc, std_acc = calc_time_step_accs(test_num_blocks, test_dataset_path, method_model_paths)
+                avg_acc, std_acc = calc_time_step_accs(test_num_blocks,
+                                                        test_dataset,
+                                                        method,
+                                                        method_model_paths,
+                                                        world)
                 ax.plot(avg_acc, color=cs[mi], label=method)
                 ax.fill_between(avg_acc-std_acc, avg_acc+std_acc, color=cs[mi], alpha=0.1)
             if compare_opt:
-                final_accuracy = calc_opt_accuracy(test_dataset_path)
+                final_accuracy = calc_opt_accuracy(test_dataset)
                 ax.plot([0, len(avg_acc)], [final_accuracy, final_accuracy], color= cs[mi+1], label='opt')
-            ax.set_title('Accuracy over Time for %i Blocks' % test_num_blocks)
+            title = 'Accuracy over Time for %i Blocks' % test_num_blocks
+            ax.set_title(title)
             ax.set_ylabel('Accuracy')
             ax.set_xlabel('Training Timesteps')
             ax.set_ylim(0, 1.1)
             ax.legend(title='Method')
-    plt.show()
+
+            # save plots to logger
+            plt.savefig('%s/%s.png' % (logger.exp_path, title))
+            print('Saving figures to %s.' % logger.exp_path)
+
+    # Save data to logger
+    logger.save_plot_data(all_time_step_accs)
+    print('Saving data to %s.' % logger.exp_path)
