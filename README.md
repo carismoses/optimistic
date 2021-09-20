@@ -42,19 +42,26 @@ python3 -m experiments.collect_data_and_train --data-collection-mode <DCM> --dom
 - ```'random-goals-opt'```: sample random goals, plan to achieve them using the optimistic model, train on collected data. Use random rollouts when not plan is found
 - ```'random-goals-learned'```: sample random goals, plan to achieve them using the current learned model, train on collected data. Use random rollouts when not plan is found
 - ```'random-actions'```: sample random actions
+- ```'curriculum-goals-learned'```: goals increase in complexity over time (more blocks and higher heights). Use random rollouts when not plan is found
+- ```'curriculum-goals-learned-new'```: goals increase in complexity over time (higher heights always consider all blocks). Use random rollouts when not plan is found
+  - optionally add the ```--curriculum-max-t <MT>``` argument to perform curriculum learning until ```<MT>``` then do random goal sampling afterwards 
 
 ### Evaluate Performance ###
 
-#### Model Accuracy ####
-The following command will calculate the accuracy of the learned models in test domains varying from 2-8 blocks. To generate a test dataset, run the following command separately for ```<NB>``` equal to 2 through 8
+#### Model Accuracy across Domains (Generalization) ####
 
-```
-python3 -m experiments.collect_data_and_train --data-collection-mode random-actions --exp-name <EN> --domain-args <NB> --train False
-```
-and write the paths in ```domains/ordered_blocks/test_datasets.py```. Store your paths from the training runs in ```domains/ordered_blocks/results_paths.py```. Then run the following command which will save plots and data to ```logs/model_accuracu/<EN>```.
+The following command will calculate the accuracy of the learned models in test domains varying from 2-8 blocks. Store your paths from the training runs in ```domains/ordered_blocks/results_paths.py```. Then run the following command which will save plots and data to ```logs/model_accuracu/<EN>```.
 
 ```
 python3 -m evaluate.accuracy_vary_test_blocks --exp-name <EN>
+```
+
+#### Model Accuracy over Training Time ####
+
+The following command will calculate the accuracy of the learned models over the course of training for domain sizes of 2-8 blocks (separate plot for each). Store your paths from the training runs in ```domains/ordered_blocks/results_paths.py```. Then run the following command which will save plots and data to ```logs/model_accuracu/<EN>```.
+
+```
+python3 -m evaluate.accuracy_vary_time_steps --exp-name <EN>
 ```
 
 ## ToDos
