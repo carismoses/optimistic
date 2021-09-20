@@ -181,16 +181,14 @@ class OrderedBlocksWorld:
 
 
     # init keys for all potential actions
-    def all_optimistic_actions(self, num_blocks):
-        pos_actions = []
-        neg_actions = []
-        for bb in range(1, num_blocks+1):
-            for bt in range(1, num_blocks+1):
-                if bt == bb+1:
-                    pos_actions.append(str(bt)+','+str(bb))
-                elif bt != bb:
-                    neg_actions.append(str(bt)+','+str(bb))
-        return pos_actions, neg_actions
+    def all_optimistic_actions(self):
+        actions = []
+        for bb in range(1, self.num_blocks+1):
+            for bt in range(1, self.num_blocks+1):
+                if bb != bt:
+                    action = Action(name='stack', args=(bt, bb))
+                    actions.append(action)
+        return actions
 
 
     def action_args_to_action(self, top_block_num, bottom_block_num):
@@ -203,14 +201,17 @@ class OrderedBlocksWorld:
     # respresentation of the state.
     def transition(self, pddl_state, fd_state, pddl_action, fd_action):
         new_fd_state = copy(fd_state)
-        valid_transition = pddl_action.args[0] == pddl_action.args[1]+1
-        if valid_transition:
+        if self.valid_transition(pddl_action):
             apply_action(new_fd_state, fd_action) # apply action in PDDL model
             if self.use_panda:
                 pass # TODO: call panda controllers to place blocks
         pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
         new_pddl_state = [fact_from_fd(sfd) for sfd in new_fd_state]
-        return new_pddl_state, new_fd_state, valid_transition
+        return new_pddl_state, new_fd_state, self.valid_transition(pddl_action)
+
+
+    def valid_transition(self, pddl_action):
+        return pddl_action.args[0] == pddl_action.args[1]+1
 
 int_to_str_dict = {2:'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six',
             7: 'seven', 8: 'eight'}
