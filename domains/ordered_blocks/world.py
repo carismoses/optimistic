@@ -121,18 +121,38 @@ class OrderedBlocksWorld:
         return ('height%s' % int_to_str(random_height), random_top_block)
 
 
-    def generate_curriculum_goal(self, current_t, max_t):
-        max_blocks = range(2, self.num_blocks+1)
-        t_times = np.linspace(0, max_t, self.num_blocks)
-        for t0, t1 in zip(t_times[:-1], t_times[1:]):
-            if current_t >= t0 and current_t < t1:
-                t_index = np.where(t_times==t0)[0][0]
-                break
-        max_block = max_blocks[t_index]
-        random_top_block = np.random.randint(2, max_block+1)
-        random_height = np.random.randint(2, max_block+1)
-        return ('height%s' % int_to_str(random_height), random_top_block)
-
+    def generate_curriculum_goal(self, current_t, max_t, new=False):
+        '''
+        Old method is to increase the maximum random block num used in a random
+        goal in each time zone. New method is to increase the maximum random
+        height used to generate a random goal in each time zone. It also shortens
+        the time zones.
+        '''
+        if current_t >= max_t:
+            return self.generate_random_goal()
+        if not new:
+            max_blocks = range(2, self.num_blocks+1)
+            t_times = np.linspace(0, max_t, len(max_blocks)+1)
+            for t0, t1 in zip(t_times[:-1], t_times[1:]):
+                if current_t >= t0 and current_t < t1:
+                    t_index = np.where(t_times==t0)[0][0]
+                    break
+            max_block = max_blocks[t_index]
+            random_top_block = np.random.randint(2, max_block+1)
+            random_height = np.random.randint(2, max_block+1)
+            return ('height%s' % int_to_str(random_height), random_top_block)
+        else:
+            max_heights = range(2, self.num_blocks+1)
+            t_times = np.linspace(0, max_t, len(max_heights)+1)
+            for t0, t1 in zip(t_times[:-1], t_times[1:]):
+                if current_t >= t0 and current_t < t1:
+                    t_index = np.where(t_times==t0)[0][0]
+                    break
+            max_height = max_heights[t_index]
+            #random_height = np.random.randint(2, max_height+1)
+            random_height = max_height
+            random_top_block = np.random.randint(2, self.num_blocks+1)
+            return ('height%s' % int_to_str(random_height), random_top_block)
 
     # TODO: is there a way to sample random actions using PDDL code?
     def random_optimistic_action(self, state):

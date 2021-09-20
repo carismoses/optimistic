@@ -49,7 +49,9 @@ def train_class(args, trans_dataset, logger):
         if 'curriculum' not in args.data_collection_mode:
             goal = world.generate_random_goal() # ignored if execute_random()
         else:
-            goal = world.generate_curriculum_goal(len(trans_dataset), args.max_transitions)
+            new = True if 'new' in args.data_collection_mode else False
+            max_t = args.curriculum_max_t if args.curriculum_max_t else args.max_transitions
+            goal = world.generate_curriculum_goal(len(trans_dataset), max_t, new=new)
         print('Init: ', init_state)
         print('Goal: ', goal)
         problem = tuple([*pddl_info, init_state, goal])
@@ -77,16 +79,15 @@ def train_class(args, trans_dataset, logger):
         add_trajectory_to_dataset(args, trans_dataset, trajectory, world)
 
         # initialize and train new model
-        if args.train:
-            trans_model = TransitionGNN(n_of_in=1,
-                                        n_ef_in=1,
-                                        n_af_in=2,
-                                        n_hidden=16,
-                                        pred_type=args.pred_type)
-            trans_dataset.set_pred_type(args.pred_type)
-            print('Training model.')
-            trans_dataloader = DataLoader(trans_dataset, batch_size=args.batch_size, shuffle=True)
-            train(trans_dataloader, trans_model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
+        trans_model = TransitionGNN(n_of_in=1,
+                                    n_ef_in=1,
+                                    n_af_in=2,
+                                    n_hidden=16,
+                                    pred_type=args.pred_type)
+        trans_dataset.set_pred_type(args.pred_type)
+        print('Training model.')
+        trans_dataloader = DataLoader(trans_dataset, batch_size=args.batch_size, shuffle=True)
+        train(trans_dataloader, trans_model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
 
         # save new model and dataset
         i += 1
@@ -132,9 +133,12 @@ if __name__ == '__main__':
                         help='path to save datasets and models to')
     parser.add_argument('--data-collection-mode',
                         type=str,
-                        choices=['random-actions', 'random-goals-opt', 'random-goals-learned', 'curriculum-goals-learned'],
+                        choices=['random-actions', 'random-goals-opt', 'random-goals-learned', 'curriculum-goals-learned', 'curriculum-goals-learned-new'],
                         required=True,
                         help='method of data collection')
+    parser.add_argument('--curriculum-max-t',
+                        type=int,
+                        help='number of time steps before randomly sample goals (only needed if curriculum_goals in args.data_collection_mode')
     parser.add_argument('--N',
                         type=int,
                         default=1,
@@ -156,10 +160,6 @@ if __name__ == '__main__':
                         type=int,
                         default=16,
                         help='number of hidden units in network')
-    parser.add_argument('--train',
-                        type=bool,
-                        default=True,
-                        help='Sometimes just want to collect dataset, dont want to train')
     args = parser.parse_args()
 
     if args.debug:
