@@ -13,7 +13,7 @@ cd optimistic
 xargs -n1 python3 -m pip install < requirements.txt
 ```
 2. Install [`pb_robot`](https://github.com/mike-n-7/pb_robot) using the instructions below, not the ones in the repo's README.
-This installs dependecies, clones the repo and compliles the IKFask library for the panda
+This installs dependecies, clones the repo and compliles the IKFask library for the panda (see Troubleshooting below if the build command fails)
    ```
    pip3 install numpy pybullet recordclass catkin_pkg IPython networkx scipy numpy-quaternion
    pip3 install git+https://github.com/mike-n-7/tsr.git
@@ -44,7 +44,7 @@ python3 -m experiments.collect_data_and_train --data-collection-mode <DCM> --dom
 - ```'random-actions'```: sample random actions
 - ```'curriculum-goals-learned'```: goals increase in complexity over time (more blocks and higher heights). Use random rollouts when not plan is found
 - ```'curriculum-goals-learned-new'```: goals increase in complexity over time (higher heights always consider all blocks). Use random rollouts when not plan is found
-  - optionally add the ```--curriculum-max-t <MT>``` argument to perform curriculum learning until ```<MT>``` then do random goal sampling afterwards 
+  - optionally add the ```--curriculum-max-t <MT>``` argument to perform curriculum learning until ```<MT>``` then do random goal sampling afterwards
 
 ### Evaluate Performance ###
 
@@ -71,3 +71,28 @@ python3 -m evaluate.accuracy_vary_time_steps --exp-name <EN>
 4. Develop tools world actions in PDDLStream
 5. Collect data on when optimistic model fails
 6. Learn classifier from data
+
+## Troubleshooting
+
+This may be useful for setting up the repo using a different Python version. If building
+pb_robot with `python setup.py build` failed with the following error:
+
+```./ikfast.h:41:10: fatal error: 'python3.6/Python.h' file not found```
+
+The compiler can't find the appropriate python header. The solution is to first locate the header:
+
+```
+$ find /usr/local/Cellar/ -name Python.h
+/usr/local/Cellar//python/3.7.7/Frameworks/Python.framework/Versions/3.7/include/python3.7m/Python.h
+/usr/local/Cellar//python@3.8/3.8.2/Frameworks/Python.framework/Versions/3.8/include/python3.8/Python.h
+```
+
+which prints the python include directories. I wanted to use 3.7, so then I set the environment variable
+
+```export CPLUS_INCLUDE_PATH=/usr/local/Cellar//python/3.7.7/Frameworks/Python.framework/Versions/3.7/include/```
+
+and finally modify `pb_robot/src/pb_robot/ikfast/ikfast.h` by changing
+
+```
+#include "python3.6/Python.h" -> #include "python3.7m/Python.h"
+```
