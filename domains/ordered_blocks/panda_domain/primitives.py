@@ -9,7 +9,6 @@ DEBUG_FAILURE = False
 
 def get_free_motion_gen(robot, fixed=[]):
     def fn(conf1, conf2, fluents=[]):
-        import pdb; pdb.set_trace()
         obstacles = assign_fluent_state(fluents)
         fluent_names = [o.get_name() for o in obstacles]
         for o in fixed:
@@ -176,7 +175,7 @@ def get_pose_gen_block(fixed=[]):
         """
         # NOTE: this assumes we want all blocks at the same orientation always (when not held)
         bottom_block_tform = pb_robot.geometry.tform_from_pose(bottom_block_pose.pose)
-        rel_z_pose = bottom_block.dimensions[2]/2+top_block.dimensions[2]/2
+        rel_z_pose = bottom_block.get_dimensions()[2]/2+top_block.get_dimensions()[2]/2
         rel_pose = ((0., 0., rel_z_pose), (0., 0., 0., 1.))
         top_block_tform = bottom_block_tform@rel_pose
         top_block_pose = pb_robot.geometry.tform_from_pose(top_block_tform)
