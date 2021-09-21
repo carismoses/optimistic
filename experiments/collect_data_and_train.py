@@ -29,7 +29,6 @@ def train_class(args, trans_dataset, logger):
                                                                 logger)
     else:
         raise NotImplementedError
-    init_state = world.get_init_state()
     #world.panda.step_simulation()
 
     # save initial (empty) dataset
@@ -52,12 +51,11 @@ def train_class(args, trans_dataset, logger):
             new = True if 'new' in args.data_collection_mode else False
             max_t = args.curriculum_max_t if args.curriculum_max_t else args.max_transitions
             goal = world.generate_curriculum_goal(len(trans_dataset), max_t, new=new)
-        print('Init: ', init_state)
+        print('Init: ', world.init_state)
         print('Goal: ', goal)
-        problem = tuple([*pddl_info, init_state, goal])
-        opt_problem = tuple([*opt_pddl_info, init_state, goal]) # used in execute_random()
         if 'goals' in args.data_collection_mode:
             # generate plan (using PDDLStream) to reach random goal
+            problem = tuple([*pddl_info, world.init_state, goal])
             pddl_plan, cost, init_expanded = solve_focused(problem,
                                                 success_cost=INF,
                                                 max_skeletons=2,
@@ -66,13 +64,13 @@ def train_class(args, trans_dataset, logger):
                                                 verbose=False,
                                                 unit_costs=True)
             print('Plan: ', pddl_plan)
-            if pddl_plan is not None:
+            if pddl_plan is not None and len(pddl_plan) > 0:
                 trajectory = execute_plan(world, problem, pddl_plan, init_expanded)
             else:
                 # if plan not found, execute random actions
-                trajectory = execute_random(world, opt_problem)
+                trajectory = execute_random(world, opt_pddl_info)
         elif args.data_collection_mode == 'random-actions':
-            trajectory = execute_random(world, opt_problem)
+            trajectory = execute_random(world, opt_pddl_info)
 
         # add to dataset and save
         print('Adding trajectory to dataset.')
@@ -97,17 +95,18 @@ def train_class(args, trans_dataset, logger):
 
 def add_trajectory_to_dataset(args, trans_dataset, trajectory, world):
     for (state, pddl_action, next_state, opt_accuracy) in trajectory:
-        object_features, edge_features = world.state_to_vec(state)
-        action_features = world.action_to_vec(pddl_action)
-        # assume object features don't change for now
-        _, next_edge_features = world.state_to_vec(next_state)
-        delta_edge_features = next_edge_features-edge_features
-        trans_dataset.add_to_dataset(object_features,
-                                        edge_features,
-                                        action_features,
-                                        next_edge_features,
-                                        delta_edge_features,
-                                        opt_accuracy)
+        if pddl_action.name == 'stack' or pddl_action.name == 'place':
+            object_features, edge_features = world.state_to_vec(state)
+            action_features = world.action_to_vec(pddl_action)
+            # assume object features don't change for now
+            _, next_edge_features = world.state_to_vec(next_state)
+            delta_edge_features = next_edge_features-edge_features
+            trans_dataset.add_to_dataset(object_features,
+                                            edge_features,
+                                            action_features,
+                                            next_edge_features,
+                                            delta_edge_features,
+                                            opt_accuracy)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

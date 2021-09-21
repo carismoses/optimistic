@@ -25,6 +25,7 @@ def task_from_problem(problem):
     problem = get_problem(evaluations, goal_exp, domain, unit_costs=True)
     return task_from_domain_problem(domain, problem)
 
+
 # predicate is strings and ints, but state potentially has pddlstream.language.object.Object
 def get_simple_state(state):
     simple_state = []
@@ -59,17 +60,22 @@ def execute_plan(world, problem, pddl_plan, init_expanded):
         ai += 1
     return trajectory
 
-def execute_random(world, problem):
-    task = task_from_problem(problem)
-    fd_state = set(task.init)
-    pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
+
+def execute_random(world, opt_pddl_info):
     trajectory = []
     valid_transition = True
+    goal = world.generate_random_goal() # placeholder/dummy variable
+    pddl_plan, expanded_states = world.random_optimistic_plan()
+    opt_problem = tuple([*opt_pddl_info, world.init_state+expanded_states, goal]) # used in execute_random()
+    task = task_from_problem(opt_problem)
+    fd_state = set(task.init)
+    pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
+    i = 0
     while valid_transition:
-        pddl_action = world.random_optimistic_action(pddl_state)
-        if pddl_action is None:
-            valid_transition = False
+        if i >= len(pddl_plan):
+            break
         else:
+            pddl_action = pddl_plan[i]
             print('Random action: ', pddl_action)
             fd_action = get_fd_action(task, pddl_action)
             new_pddl_state, new_fd_state, valid_transition = world.transition(pddl_state,
@@ -79,4 +85,5 @@ def execute_random(world, problem):
             trajectory.append((pddl_state, pddl_action, new_pddl_state, valid_transition))
             fd_state = new_fd_state
             pddl_state = new_pddl_state
+        i += 1
     return trajectory
