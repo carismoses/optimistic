@@ -35,7 +35,22 @@ class OrderedBlocksWorld:
             self.panda.plan()
             self.pb_blocks = self.place_blocks()
             self.panda.execute()
-            self.pb_blocks = self.place_blocks()
+            self.place_blocks()
+        self.initialize_state()
+
+
+    def initialize_state(self):
+        pddl_state = []
+        for pb in self.pb_blocks:
+            pose = pb_robot.vobj.BodyPose(pb, pb.get_base_link_pose())
+            pddl_state += [('pose', pb, pose),
+                            ('atpose', pb, pose),
+                            ('clear', pb),
+                            ('ontable', pb),
+                            ('block', pb)]
+        if self.use_panda:
+            pddl_state += self.panda.get_init_state()
+        self.init_state = pddl_state
 
 
     # world frame aligns with the robot base
@@ -50,7 +65,7 @@ class OrderedBlocksWorld:
             # NOTE: for now assumes no relative rotation between robot base/world frame and object
             z_point = pb_block.get_dimensions()[2]/2
             pb_block.set_point([*xy_point, z_point])
-            pb_blocks.append(pb_blocks)
+            pb_blocks.append(pb_block)
         return pb_blocks
 
 
@@ -103,15 +118,6 @@ class OrderedBlocksWorld:
         return optimistic_pddl_info, pddl_info
 
 
-    def get_init_state(self):
-        pddl_state = []
-        for bi in range(1, self.num_blocks+1):
-            pddl_state += [('clear', bi), ('ontable', bi), ('block', bi)]
-        if self.use_panda:
-            pddl_state += self.panda.get_init_state()
-        return pddl_state
-
-
     def generate_random_goal(self, feasible=False):
         random_top_block = np.random.randint(2, self.num_blocks+1)
         if feasible:
@@ -155,22 +161,59 @@ class OrderedBlocksWorld:
             return ('height%s' % int_to_str(random_height), random_top_block)
 
     # TODO: is there a way to sample random actions using PDDL code?
-    def random_optimistic_action(self, state):
-        action = None
-        simple_state = get_simple_state(state)
-        table_blocks = [bn for bn in range(1, self.num_blocks+1)
-                if ('ontable', bn) in simple_state and ('clear', bn) in simple_state]
-        if len(table_blocks) > 0:
-            top_block_idx = np.random.choice(len(table_blocks))
-            top_block_num = table_blocks[top_block_idx]
-            possible_bottom_blocks = []
-            for bn in range(1, self.num_blocks+1):
-                if ('clear', bn) in simple_state and bn != top_block_num:
-                    possible_bottom_blocks.append(bn)
-            bottom_block_idx = np.random.choice(len(possible_bottom_blocks))
-            bottom_block_num = possible_bottom_blocks[bottom_block_idx]
-            action = Action(name='stack', args=(top_block_num, bottom_block_num))
-        return action
+    def random_optimistic_plan(self):
+        if not self.use_panda:
+            action = None
+            simple_state = get_simple_state(state)
+            table_blocks = [bn for bn in range(1, self.num_blocks+1)
+                    if ('ontable', bn) in simple_state and ('clear', bn) in simple_state]
+            if len(table_blocks) > 0:
+                top_block_idx = np.random.choice(len(table_blocks))
+                top_block_num = table_blocks[top_block_idx]
+                possible_bottom_blocks = []
+                for bn in range(1, self.num_blocks+1):
+                    if ('clear', bn) in simple_state and bn != top_block_num:
+                        possible_bottom_blocks.append(bn)
+                bottom_block_idx = np.random.choice(len(possible_bottom_blocks))
+                bottom_block_num = possible_bottom_blocks[bottom_block_idx]
+                action = Action(name='stack', args=(top_block_num, bottom_block_num))
+            return [action], []
+        else:
+            state = self.init_state
+            fixed = self.pb_blocks+self.panda.fixed
+            robot = self.panda.planning_robot
+
+            # pick action
+            grasp_fn = get_grasp_gen(robot)
+            pick_fn = get_ik_fn(robot,
+                                fixed,
+                                approach_frame='gripper',
+                                backoff_frame='global')
+            block = self.pb_blocks[0]
+            pose = self.init_state[0][2]
+            grasps = grasp_fn(block)
+            i = 0
+            while True:
+                try:
+                    print('attempt %i' % i)
+                    grasp_i = np.random.randint(len(grasps))
+                    grasp = grasps[grasp_i][0]
+                    pinit_conf, final_conf, traj = pick_fn(block, pose, grasp)
+                    break
+                except:
+                    i += 1
+                    pass
+            pick_pre = ('pickkin', block, pose, grasp, pinit_conf, final_conf, traj)
+            pick_action = Action(name='pick', args=(block, pose, grasp, pinit_conf, final_conf, traj))
+
+            # move free action
+            init_conf = self.init_state[-2][1]
+            free_fn = get_free_motion_gen(robot, fixed)
+            free_traj = free_fn(init_conf, pinit_conf)
+            free_pre = ('freemotion', init_conf, free_traj, pinit_conf)
+            free_action = Action(name='move_free', args=(init_conf, pinit_conf, free_traj))
+
+            return [free_action, pick_action], [free_pre, pick_pre]
 
 
     def state_to_vec(self, state):
@@ -231,7 +274,14 @@ class OrderedBlocksWorld:
 
 
     def valid_transition(self, pddl_action):
-        return pddl_action.args[0] == pddl_action.args[1]+1
+        if not self.use_panda:
+            return pddl_action.args[0] == pddl_action.args[1]+1 # stack action
+        else:
+            if pddl_action.name == 'place':
+                top_block, bottom_block = pddl_action.args[0], pddl_action.args[2] # place action
+                return top_block == bottom_block+1
+            else:
+                return True # all other actions are valid
 
 int_to_str_dict = {2:'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six',
             7: 'seven', 8: 'eight'}
