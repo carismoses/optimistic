@@ -168,18 +168,20 @@ def get_ik_fn(robot, fixed=[], num_attempts=4, approach_frame='gripper', backoff
     return fn
 
 
+# placement pose for a block. surface is ALWAYS another block, never the table
 def get_pose_gen_block(fixed=[]):
     def fn(top_block, bottom_block, bottom_block_pose):
-        """
-        @param rel_pose: A homogeneous transformation matrix.
-        """
         # NOTE: this assumes we want all blocks at the same orientation always (when not held)
+        # and that all blocks start off at orn (0,0,0,1)
         bottom_block_tform = pb_robot.geometry.tform_from_pose(bottom_block_pose.pose)
         rel_z_pose = bottom_block.get_dimensions()[2]/2+top_block.get_dimensions()[2]/2
-        rel_pose = ((0., 0., rel_z_pose), (0., 0., 0., 1.))
-        top_block_tform = bottom_block_tform@rel_pose
-        top_block_pose = pb_robot.geometry.tform_from_pose(top_block_tform)
-        top_block_pose = pb_robot.vobj.BodyPose(top_block, top_block_pose)
+        rel_tform = np.array([[1.  , 0.  , 0.  , 0.  ],
+                            [0.  , 1.  , 0.  , 0.  ],
+                            [0.  , 0.  , 1.  , rel_z_pose],
+                            [0.  , 0.  , 0.  , 1.  ]])
+        top_block_tform = bottom_block_tform@rel_tform
+        top_block_pose = pb_robot.geometry.pose_from_tform(top_block_tform)
+        top_block_pose  = pb_robot.vobj.BodyPose(top_block, top_block_pose)
         return (top_block_pose,)
     return fn
 
