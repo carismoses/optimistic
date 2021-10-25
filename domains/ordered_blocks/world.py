@@ -149,6 +149,7 @@ class OrderedBlocksWorld:
             random_height = np.random.randint(2, top_block_num+1)
         else:
             random_height = np.random.randint(2, self.num_blocks+1)
+        random_height = 2
         return ('height%s' % int_to_str(random_height), random_top_block)
 
 
@@ -262,6 +263,7 @@ class OrderedBlocksWorld:
             apply_action(new_fd_state, fd_action) # apply action in PDDL model
             if self.use_panda:
                 print('Executing action: ', pddl_action)
+                self.panda.execute_action(pddl_action, self.fixed, world_obstacles=list(self.pb_blocks))
         pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
         new_pddl_state = [fact_from_fd(sfd) for sfd in new_fd_state]
         return new_pddl_state, new_fd_state, self.valid_transition(pddl_action)
