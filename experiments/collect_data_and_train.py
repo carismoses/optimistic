@@ -17,19 +17,9 @@ from learning.train import train
 from tamp.utils import execute_random, execute_plan
 from domains.ordered_blocks.world import OrderedBlocksWorld
 
-# TODO: this doesn't make len(dataset) == args.max_transitions exactly
-# because trajectories are added in chunks that might push it past the limit
-# but will be close
 
 def train_class(args, trans_dataset, logger):
     pddl_model_type = 'learned' if 'learned' in args.data_collection_mode else 'optimistic'
-    if args.domain == 'ordered_blocks':
-        world, opt_pddl_info, pddl_info = OrderedBlocksWorld.init(args.domain_args,
-                                                                pddl_model_type,
-                                                                logger)
-    else:
-        raise NotImplementedError
-    #world.panda.step_simulation()
 
     # save initial (empty) dataset
     logger.save_trans_dataset(trans_dataset, i=0)
@@ -38,22 +28,25 @@ def train_class(args, trans_dataset, logger):
     trans_model = TransitionGNN(n_of_in=1,
                                 n_ef_in=1,
                                 n_af_in=2,
-                                n_hidden=16,
+                                n_hidden=args.n_hidden,
                                 pred_type=args.pred_type)
     logger.save_trans_model(trans_model, i=0)
 
     i = 0
     while len(trans_dataset) < args.max_transitions:
         print('Iteration %i |dataset| = %i' % (i, len(trans_dataset)))
-        if 'curriculum' not in args.data_collection_mode:
-            goal = world.generate_random_goal() # ignored if execute_random()
+        if args.domain == 'ordered_blocks':
+            world, opt_pddl_info, pddl_info = OrderedBlocksWorld.init(args.domain_args,
+                                                                    pddl_model_type,
+                                                                    args.vis,
+                                                                    logger)
         else:
-            new = True if 'new' in args.data_collection_mode else False
-            max_t = args.curriculum_max_t if args.curriculum_max_t else args.max_transitions
-            goal = world.generate_curriculum_goal(len(trans_dataset), max_t, new=new)
+            raise NotImplementedError
+        goal = world.generate_random_goal() # ignored if execute_random()
         print('Init: ', world.init_state)
         print('Goal: ', goal)
         if 'goals' in args.data_collection_mode:
+            world.panda.add_text('Planning')
             # generate plan (using PDDLStream) to reach random goal
             problem = tuple([*pddl_info, world.init_state, goal])
             pddl_plan, cost, init_expanded = solve_focused(problem,
@@ -62,15 +55,22 @@ def train_class(args, trans_dataset, logger):
                                                 search_sample_ratio=1.0,
                                                 max_time=INF,
                                                 verbose=False,
-                                                unit_costs=True)
+                                                unit_costs=True,
+                                                initial_complexity=2)  # don't set complexity=2 in simple (non-robot) domain
             print('Plan: ', pddl_plan)
             if pddl_plan is not None and len(pddl_plan) > 0:
+                world.panda.add_text('Executing plan')
                 trajectory = execute_plan(world, problem, pddl_plan, init_expanded)
             else:
                 # if plan not found, execute random actions
+                world.panda.add_text('Planning failed. Executing random action.')
                 trajectory = execute_random(world, opt_pddl_info)
         elif args.data_collection_mode == 'random-actions':
+            world.panda.add_text('Executing random actions.')
             trajectory = execute_random(world, opt_pddl_info)
+
+        # disconnect from world
+        world.disconnect()
 
         # add to dataset and save
         print('Adding trajectory to dataset.')
@@ -80,7 +80,7 @@ def train_class(args, trans_dataset, logger):
         trans_model = TransitionGNN(n_of_in=1,
                                     n_ef_in=1,
                                     n_af_in=2,
-                                    n_hidden=16,
+                                    n_hidden=args.n_hidden,
                                     pred_type=args.pred_type)
         trans_dataset.set_pred_type(args.pred_type)
         print('Training model.')
@@ -92,6 +92,7 @@ def train_class(args, trans_dataset, logger):
         logger.save_trans_dataset(trans_dataset, i=i)
         logger.save_trans_model(trans_model, i=i)
         print('Saved model to %s' % logger.exp_path)
+
 
 def add_trajectory_to_dataset(args, trans_dataset, trajectory, world):
     for (state, pddl_action, next_state, opt_accuracy) in trajectory:
@@ -113,7 +114,7 @@ if __name__ == '__main__':
     # Data collection args
     parser.add_argument('--debug',
                         action='store_true',
-                        help='set to run in debug mode')
+                        help='use to run in debug mode')
     parser.add_argument('--domain',
                         type=str,
                         choices=['ordered_blocks'],
@@ -132,16 +133,16 @@ if __name__ == '__main__':
                         help='path to save datasets and models to')
     parser.add_argument('--data-collection-mode',
                         type=str,
-                        choices=['random-actions', 'random-goals-opt', 'random-goals-learned', 'curriculum-goals-learned', 'curriculum-goals-learned-new'],
+                        choices=['random-actions', 'random-goals-opt', 'random-goals-learned'],
                         required=True,
                         help='method of data collection')
-    parser.add_argument('--curriculum-max-t',
-                        type=int,
-                        help='number of time steps before randomly sample goals (only needed if curriculum_goals in args.data_collection_mode')
     parser.add_argument('--N',
                         type=int,
                         default=1,
                         help='number of data collection/training runs to perform')
+    parser.add_argument('--vis',
+                        action='store_true',
+                        help='use to visualize robot executions.')
     # Training args
     parser.add_argument('--pred-type',
                         type=str,

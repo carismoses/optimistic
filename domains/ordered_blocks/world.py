@@ -223,6 +223,7 @@ class OrderedBlocksWorld:
             if ('on', block, self.panda.table) in simple_state:
                 edge_features[0, self.pb_blocks[block], 0] = 1.
                 is_block_on_top, top_block = block_on_top(block, state)
+                bottom_block = block
                 while is_block_on_top:
                     edge_features[self.pb_blocks[bottom_block], self.pb_blocks[top_block], 0] = 1.
                     bottom_block = top_block

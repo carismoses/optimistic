@@ -6,7 +6,7 @@ from pddlstream.algorithms.downward import fact_from_fd, is_applicable
 
 def postprocess_plan(problem, plan, init_facts_expanded):
     # replace init in problem with init_expanded
-    full_init_state = list(set(init_facts_expanded.all_facts+init_facts_expanded.preimage_facts))
+    full_init_state = init_facts_expanded.all_facts+init_facts_expanded.preimage_facts
     pddl_info = problem[:4]
     goal = problem[5]
     problem = tuple([*pddl_info, full_init_state, goal])
@@ -65,7 +65,7 @@ def execute_random(world, opt_pddl_info):
     trajectory = []
     valid_transition = True
     goal = world.generate_random_goal() # placeholder/dummy variable
-    pddl_plan, expanded_states = world.random_optimistic_plan()
+    pddl_plan, expanded_states = world.random_actions()
     opt_problem = tuple([*opt_pddl_info, world.init_state+expanded_states, goal]) # used in execute_random()
     task = task_from_problem(opt_problem)
     fd_state = set(task.init)
