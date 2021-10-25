@@ -2,6 +2,7 @@ import os
 import odio_urdf
 import numpy as np
 from copy import copy
+import random
 
 import pb_robot
 
@@ -18,39 +19,60 @@ from domains.ordered_blocks.panda_domain.primitives import get_free_motion_gen, 
 
 class OrderedBlocksWorld:
     @staticmethod
-    def init(domain_args, pddl_model_type, logger=None):
+    def init(domain_args, pddl_model_type, vis, logger=None):
         num_blocks = int(domain_args[0])
         use_panda = domain_args[1] == 'True'
-        world = OrderedBlocksWorld(num_blocks, use_panda)
+        world = OrderedBlocksWorld(num_blocks, use_panda, vis)
         opt_pddl_info, pddl_info = world.get_pddl_info(pddl_model_type, logger)
         return world, opt_pddl_info, pddl_info
 
 
-    def __init__(self, num_blocks, use_panda):
+    def __init__(self, num_blocks, use_panda, vis):
         self.num_blocks = num_blocks  # NOTE: 1 < num_blocks <= 8
         self.use_panda = use_panda
 
         if self.use_panda:
-            self.panda = PandaAgent()
+            self.panda = PandaAgent(vis)
             self.panda.plan()
-            self.pb_blocks = self.place_blocks()
+            self.pb_blocks, self.orig_poses = self.place_blocks()
             self.panda.execute()
             self.place_blocks()
-        self.initialize_state()
+            self.panda.plan()
+            self.fixed = [self.panda.table]
+        self.init_state = self.get_init_state()
 
 
-    def initialize_state(self):
+    def get_init_state(self):
         pddl_state = []
         for pb in self.pb_blocks:
             pose = pb_robot.vobj.BodyPose(pb, pb.get_base_link_pose())
             pddl_state += [('pose', pb, pose),
                             ('atpose', pb, pose),
                             ('clear', pb),
-                            ('ontable', pb),
+                            ('on', pb, self.panda.table),
                             ('block', pb)]
         if self.use_panda:
             pddl_state += self.panda.get_init_state()
-        self.init_state = pddl_state
+        return pddl_state
+
+
+    # NOTE: this reset looks like it works but then planning fails
+    def reset(self):
+        def reset_blocks():
+            for pb_block, block_pose in self.orig_poses.items():
+                pb_block.set_base_link_pose(block_pose)
+        self.panda.plan()
+        reset_blocks()
+        self.panda.execute()
+        reset_blocks()
+        self.panda.reset()
+
+
+    def disconnect(self):
+        self.panda.plan()
+        pb_robot.utils.disconnect()
+        self.panda.execute()
+        pb_robot.utils.disconnect()
 
 
     # world frame aligns with the robot base
@@ -58,37 +80,39 @@ class OrderedBlocksWorld:
         ys = np.linspace(-.4, .4, self.num_blocks)
         x = 0.3
         xy_points = [(x, y) for y in ys]
-        pb_blocks = []
+        pb_blocks = {}
+        orig_poses = {}
         for block_num, xy_point in zip(range(1, self.num_blocks+1), xy_points):
             file_name = block_to_urdf(block_num)
             pb_block = pb_robot.body.createBody(os.path.join('models', file_name))
             # NOTE: for now assumes no relative rotation between robot base/world frame and object
-            z_point = pb_block.get_dimensions()[2]/2
-            pb_block.set_point([*xy_point, z_point])
-            pb_blocks.append(pb_block)
-        return pb_blocks
+            z = pb_robot.placements.stable_z(pb_block, self.panda.table)
+            block_pose = ((*xy_point, z), (0., 0., 0., 1.))
+            pb_block.set_base_link_pose(block_pose)
+            pb_blocks[pb_block] = block_num
+            orig_poses[pb_block] = block_pose
+        return pb_blocks, orig_poses
 
 
     def get_pddl_info(self, pddl_model_type, logger):
         if self.use_panda:
-            fixed = self.pb_blocks+self.panda.fixed
             robot = self.panda.planning_robot
             optimistic_domain_pddl = read('domains/ordered_blocks/panda_domain/optimistic/domain.pddl')
             optimistic_stream_pddl = read('domains/ordered_blocks/panda_domain/optimistic/streams.pddl')
             optimistic_stream_map = {
                 'plan-free-motion': from_fn(get_free_motion_gen(robot,
-                                                                fixed)),
+                                                                self.fixed)),
                 'plan-holding-motion': from_fn(get_holding_motion_gen(robot,
-                                                                        fixed)),
+                                                                        self.fixed)),
                 'pick-inverse-kinematics': from_fn(get_ik_fn(robot,
-                                                            fixed,
+                                                            self.fixed,
                                                             approach_frame='gripper',
                                                             backoff_frame='global')),
                 'place-inverse-kinematics': from_fn(get_ik_fn(robot,
-                                                                fixed,
+                                                                self.fixed,
                                                                 approach_frame='global',
                                                                 backoff_frame='gripper')),
-                'sample-pose-block': from_fn(get_pose_gen_block(fixed)),
+                'sample-pose-block': from_fn(get_pose_gen_block(self.fixed)),
                 'sample-grasp': from_list_fn(get_grasp_gen(robot)),
                 }
             if pddl_model_type == 'optimistic':
@@ -119,77 +143,29 @@ class OrderedBlocksWorld:
 
 
     def generate_random_goal(self, feasible=False):
-        random_top_block = np.random.randint(2, self.num_blocks+1)
+        random_top_block = random.choice(list(self.pb_blocks))
         if feasible:
-            random_height = np.random.randint(2, random_top_block+1)
+            top_block_num = self.pb_blocks[random_top_block]
+            random_height = np.random.randint(2, top_block_num+1)
         else:
             random_height = np.random.randint(2, self.num_blocks+1)
         return ('height%s' % int_to_str(random_height), random_top_block)
 
 
-    def generate_curriculum_goal(self, current_t, max_t, new=False):
-        '''
-        Old method is to increase the maximum random block num used in a random
-        goal in each time zone. New method is to increase the maximum random
-        height used to generate a random goal in each time zone. It also shortens
-        the time zones.
-        '''
-        if current_t >= max_t:
-            return self.generate_random_goal()
-        if not new:
-            max_blocks = range(2, self.num_blocks+1)
-            t_times = np.linspace(0, max_t, len(max_blocks)+1)
-            for t0, t1 in zip(t_times[:-1], t_times[1:]):
-                if current_t >= t0 and current_t < t1:
-                    t_index = np.where(t_times==t0)[0][0]
-                    break
-            max_block = max_blocks[t_index]
-            random_top_block = np.random.randint(2, max_block+1)
-            random_height = np.random.randint(2, max_block+1)
-            return ('height%s' % int_to_str(random_height), random_top_block)
-        else:
-            max_heights = range(2, self.num_blocks+1)
-            t_times = np.linspace(0, max_t, len(max_heights)+1)
-            for t0, t1 in zip(t_times[:-1], t_times[1:]):
-                if current_t >= t0 and current_t < t1:
-                    t_index = np.where(t_times==t0)[0][0]
-                    break
-            max_height = max_heights[t_index]
-            #random_height = np.random.randint(2, max_height+1)
-            random_height = max_height
-            random_top_block = np.random.randint(2, self.num_blocks+1)
-            return ('height%s' % int_to_str(random_height), random_top_block)
-
     # TODO: is there a way to sample random actions using PDDL code?
-    def random_optimistic_plan(self):
-        if not self.use_panda:
-            action = None
-            simple_state = get_simple_state(state)
-            table_blocks = [bn for bn in range(1, self.num_blocks+1)
-                    if ('ontable', bn) in simple_state and ('clear', bn) in simple_state]
-            if len(table_blocks) > 0:
-                top_block_idx = np.random.choice(len(table_blocks))
-                top_block_num = table_blocks[top_block_idx]
-                possible_bottom_blocks = []
-                for bn in range(1, self.num_blocks+1):
-                    if ('clear', bn) in simple_state and bn != top_block_num:
-                        possible_bottom_blocks.append(bn)
-                bottom_block_idx = np.random.choice(len(possible_bottom_blocks))
-                bottom_block_num = possible_bottom_blocks[bottom_block_idx]
-                action = Action(name='stack', args=(top_block_num, bottom_block_num))
-            return [action], []
-        else:
-            state = self.init_state
-            fixed = self.pb_blocks+self.panda.fixed
+    def random_actions(self):
+        state = self.init_state
+        # TODO: this doesn't work
+        if self.use_panda:
             robot = self.panda.planning_robot
 
             # pick action
             grasp_fn = get_grasp_gen(robot)
             pick_fn = get_ik_fn(robot,
-                                fixed,
+                                self.fixed,
                                 approach_frame='gripper',
                                 backoff_frame='global')
-            block = self.pb_blocks[0]
+            block = list(self.pb_blocks.values())[0]
             pose = self.init_state[0][2]
             grasps = grasp_fn(block)
             i = 0
@@ -208,39 +184,60 @@ class OrderedBlocksWorld:
 
             # move free action
             init_conf = self.init_state[-2][1]
-            free_fn = get_free_motion_gen(robot, fixed)
+            free_fn = get_free_motion_gen(robot, self.fixed)
             free_traj = free_fn(init_conf, pinit_conf)
             free_pre = ('freemotion', init_conf, free_traj, pinit_conf)
             free_action = Action(name='move_free', args=(init_conf, pinit_conf, free_traj))
 
             return [free_action, pick_action], [free_pre, pick_pre]
+        else:
+            action = None
+            simple_state = get_simple_state(state)
+            table_blocks = [bn for bn in range(1, self.num_blocks+1)
+                    if ('ontable', bn) in simple_state and ('clear', bn) in simple_state]
+            if len(table_blocks) > 0:
+                top_block_idx = np.random.choice(len(table_blocks))
+                top_block_num = table_blocks[top_block_idx]
+                possible_bottom_blocks = []
+                for bn in range(1, self.num_blocks+1):
+                    if ('clear', bn) in simple_state and bn != top_block_num:
+                        possible_bottom_blocks.append(bn)
+                bottom_block_idx = np.random.choice(len(possible_bottom_blocks))
+                bottom_block_num = possible_bottom_blocks[bottom_block_idx]
+                action = Action(name='stack', args=(top_block_num, bottom_block_num))
+            return [action], []
 
 
     def state_to_vec(self, state):
         simple_state = get_simple_state(state)
-        def block_on_top(bottom_block_num, state):
-            for top_block_num in range(1, self.num_blocks):
-                if ('on', top_block_num, bottom_block_num) in simple_state:
-                    return True, top_block_num
+        def block_on_top(bottom_block, state):
+            for top_block in self.pb_blocks:
+                if ('on', top_block, bottom_block) in simple_state:
+                    return True, top_block
             return False, None
 
         object_features = np.expand_dims(np.arange(self.num_blocks+1), 1)
         edge_features = np.zeros((self.num_blocks+1, self.num_blocks+1, 1))
         # for each block on the table, recursively check which blocks are on top of it
-        for block_num in range(1, self.num_blocks+1):
-            if ('ontable', block_num) in simple_state:
-                edge_features[0, block_num, 0] = 1.
-                bottom_block_num = block_num
-                is_block_on_top, top_block_num = block_on_top(bottom_block_num, state)
+        for block in self.pb_blocks:
+            if ('on', block, self.panda.table) in simple_state:
+                edge_features[0, self.pb_blocks[block], 0] = 1.
+                is_block_on_top, top_block = block_on_top(block, state)
                 while is_block_on_top:
-                    edge_features[bottom_block_num, top_block_num, 0] = 1.
-                    bottom_block_num = top_block_num
-                    is_block_on_top, top_block_num = block_on_top(bottom_block_num, state)
+                    edge_features[self.pb_blocks[bottom_block], self.pb_blocks[top_block], 0] = 1.
+                    bottom_block = top_block
+                    is_block_on_top, top_block = block_on_top(bottom_block, state)
         return object_features, edge_features
 
 
     def action_to_vec(self, action):
-        return np.array([action.args[0], action.args[1]])
+        if action.name == 'place':
+            top_block_num = self.pb_blocks[action.args[0]]
+            bottom_block_num = self.pb_blocks[action.args[2]]
+        elif action.name == 'stack':
+            top_block_num = action.args[0]
+            bottom_block_num = action.args[1]
+        return np.array([top_block_num, bottom_block_num])
 
 
     # init keys for all potential actions
@@ -258,28 +255,27 @@ class OrderedBlocksWorld:
         return Action(name='stack', args=(top_block_num, bottom_block_num))
 
 
-    # NOTE: in physical domains, to evaluate if a transition matched the optimistic model,
-    # we will have to see if the resulting physical state matches the resulting PDDL
-    # state. This will require a method of going from the physical world to a PDDL
-    # respresentation of the state.
     def transition(self, pddl_state, fd_state, pddl_action, fd_action):
         new_fd_state = copy(fd_state)
         if self.valid_transition(pddl_action):
             apply_action(new_fd_state, fd_action) # apply action in PDDL model
             if self.use_panda:
-                pass # TODO: call panda controllers to place blocks
+                print('Executing action: ', pddl_action)
         pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
         new_pddl_state = [fact_from_fd(sfd) for sfd in new_fd_state]
         return new_pddl_state, new_fd_state, self.valid_transition(pddl_action)
 
 
+    # NOTE: in physical domains, to evaluate if a transition matched the optimistic model,
+    # we will have to see if the resulting physical state matches the resulting PDDL
+    # state. This will require a method of going from the physical world to a PDDL
+    # respresentation of the state.
     def valid_transition(self, pddl_action):
-        if not self.use_panda:
-            return pddl_action.args[0] == pddl_action.args[1]+1 # stack action
+        if pddl_action.name == 'stack':
+            return pddl_action.args[0] == pddl_action.args[1]+1
         else:
             if pddl_action.name == 'place':
-                top_block, bottom_block = pddl_action.args[0], pddl_action.args[2] # place action
-                return top_block == bottom_block+1
+                return self.pb_blocks[pddl_action.args[0]] == self.pb_blocks[pddl_action.args[2]]+1
             else:
                 return True # all other actions are valid
 
