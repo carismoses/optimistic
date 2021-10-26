@@ -62,28 +62,27 @@ def execute_plan(world, problem, pddl_plan, init_expanded):
 
 
 def execute_random(world, opt_pddl_info):
-    trajectory = []
-    valid_transition = True
     goal = world.generate_random_goal() # placeholder/dummy variable
     pddl_plan, expanded_states = world.random_actions()
     opt_problem = tuple([*opt_pddl_info, world.init_state+expanded_states, goal]) # used in execute_random()
     task = task_from_problem(opt_problem)
     fd_state = set(task.init)
-    pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
-    i = 0
+    trajectory = []
+    ai = 0
+    valid_transition = True
     while valid_transition:
-        if i >= len(pddl_plan):
-            break
-        else:
-            pddl_action = pddl_plan[i]
-            print('Random action: ', pddl_action)
-            fd_action = get_fd_action(task, pddl_action)
-            new_pddl_state, new_fd_state, valid_transition = world.transition(pddl_state,
-                                                                                fd_state,
-                                                                                pddl_action,
-                                                                                fd_action)
-            trajectory.append((pddl_state, pddl_action, new_pddl_state, valid_transition))
-            fd_state = new_fd_state
-            pddl_state = new_pddl_state
-        i += 1
+        pddl_action = pddl_plan[ai]
+        print('Random action: ', pddl_action)
+        fd_action = get_fd_action(task, pddl_action)
+        assert is_applicable(fd_state, fd_action), 'Something wrong with random action planning.'
+        pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
+        new_pddl_state, new_fd_state, valid_transition = world.transition(pddl_state,
+                                                                            fd_state,
+                                                                            pddl_action,
+                                                                            fd_action)
+        trajectory.append((pddl_state, pddl_action, new_pddl_state, valid_transition))
+        fd_state = new_fd_state
+        #pddl_state = new_pddl_state
+        valid_transition = valid_transition and ai < len(pddl_plan)-1 # stop when fail action or at end of trajectory
+        ai += 1
     return trajectory

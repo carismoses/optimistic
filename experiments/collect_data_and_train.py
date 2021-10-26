@@ -63,10 +63,10 @@ def train_class(args, trans_dataset, logger):
                 trajectory = execute_plan(world, problem, pddl_plan, init_expanded)
             else:
                 # if plan not found, execute random actions
-                world.panda.add_text('Planning failed. Executing random action.')
+                world.panda.add_text('Planning failed. Executing random action')
                 trajectory = execute_random(world, opt_pddl_info)
         elif args.data_collection_mode == 'random-actions':
-            world.panda.add_text('Executing random actions.')
+            world.panda.add_text('Executing random actions')
             trajectory = execute_random(world, opt_pddl_info)
 
         # disconnect from world

@@ -149,7 +149,6 @@ class OrderedBlocksWorld:
             random_height = np.random.randint(2, top_block_num+1)
         else:
             random_height = np.random.randint(2, self.num_blocks+1)
-        random_height = 2
         return ('height%s' % int_to_str(random_height), random_top_block)
 
 
@@ -158,39 +157,121 @@ class OrderedBlocksWorld:
         state = self.init_state
         # TODO: this doesn't work
         if self.use_panda:
-            robot = self.panda.planning_robot
+            def random_block(cond, state):
+                blocks = list(self.pb_blocks)
+                random.shuffle(blocks)
+                for block in blocks:
+                    if cond(block, state):
+                        for fluent in state:
+                            if fluent[0] == 'atpose' and fluent[1] == block:
+                                pose = fluent[2]
+                                return block, pose
+
+            clear = lambda block, state : ('clear', block) in state
+            on_table_clear = lambda block, state : (('on', block, self.panda.table) in state) and clear(block, state)
 
             # pick action
-            grasp_fn = get_grasp_gen(robot)
-            pick_fn = get_ik_fn(robot,
+            grasp_fn = get_grasp_gen(self.panda.planning_robot)
+            pick_fn = get_ik_fn(self.panda.planning_robot,
                                 self.fixed,
                                 approach_frame='gripper',
                                 backoff_frame='global')
-            block = list(self.pb_blocks.values())[0]
-            pose = self.init_state[0][2]
-            grasps = grasp_fn(block)
+
+
+            top_block, top_block_pose = random_block(on_table_clear, state)
+            grasps = grasp_fn(top_block)
             i = 0
             while True:
                 try:
-                    print('attempt %i' % i)
                     grasp_i = np.random.randint(len(grasps))
                     grasp = grasps[grasp_i][0]
-                    pinit_conf, final_conf, traj = pick_fn(block, pose, grasp)
+                    pick_init_conf, pick_final_conf, pick_traj = pick_fn(top_block,
+                                                                    top_block_pose,
+                                                                    grasp)
+                    print('Found successful grasp.')
                     break
                 except:
                     i += 1
                     pass
-            pick_pre = ('pickkin', block, pose, grasp, pinit_conf, final_conf, traj)
-            pick_action = Action(name='pick', args=(block, pose, grasp, pinit_conf, final_conf, traj))
+
+            pick_pre = ('pickkin',
+                        top_block,
+                        top_block_pose,
+                        grasp,
+                        pick_init_conf,
+                        pick_final_conf,
+                        pick_traj)
+            pick_action = Action(name='pick', args=(top_block,
+                                                    top_block_pose,
+                                                    self.panda.table,
+                                                    grasp,
+                                                    pick_init_conf,
+                                                    pick_final_conf,
+                                                    pick_traj))
+
+            # place action
+            place_fn = get_ik_fn(self.panda.planning_robot,
+                                    self.fixed,
+                                    approach_frame='global',
+                                    backoff_frame='gripper')
+            supported_fn = get_pose_gen_block(self.fixed)
+
+            bottom_block = top_block
+            while bottom_block == top_block:
+                bottom_block, bottom_block_pose = random_block(clear, state)
+            top_block_place_pose = supported_fn(top_block, bottom_block, bottom_block_pose)[0]
+            place_init_conf, place_final_conf, place_traj = place_fn(top_block,
+                                                                    top_block_place_pose,
+                                                                    grasp)
+
+            place_pre = ('placekin',
+                        top_block,
+                        top_block_place_pose,
+                        grasp,
+                        place_init_conf,
+                        place_final_conf,
+                        place_traj)
+            supported_pre = ('supported',
+                            top_block,
+                            top_block_place_pose,
+                            bottom_block,
+                            bottom_block_pose)
+            place_action = Action(name='place', args=(top_block,
+                                                        top_block_place_pose,
+                                                        bottom_block,
+                                                        bottom_block_pose,
+                                                        grasp,
+                                                        place_init_conf,
+                                                        place_final_conf,
+                                                        place_traj))
 
             # move free action
-            init_conf = self.init_state[-2][1]
-            free_fn = get_free_motion_gen(robot, self.fixed)
-            free_traj = free_fn(init_conf, pinit_conf)
-            free_pre = ('freemotion', init_conf, free_traj, pinit_conf)
-            free_action = Action(name='move_free', args=(init_conf, pinit_conf, free_traj))
+            for fluent in state:
+                if fluent[0] == 'atconf':
+                    init_conf = fluent[1]
+            move_free_fn = get_free_motion_gen(self.panda.planning_robot, self.fixed)
+            move_free_traj = move_free_fn(init_conf, pick_init_conf)[0]
+            move_free_pre = ('freemotion', init_conf, move_free_traj, pick_init_conf)
+            move_free_action = Action(name='move_free', args=(init_conf, pick_init_conf, move_free_traj))
 
-            return [free_action, pick_action], [free_pre, pick_pre]
+            # move holding action
+            move_holding_fn = get_holding_motion_gen(self.panda.planning_robot, self.fixed)
+            move_holding_traj = move_holding_fn(pick_final_conf, place_init_conf, top_block, grasp)[0]
+            move_holding_pre = ('holdingmotion',
+                                pick_final_conf,
+                                move_holding_traj,
+                                place_init_conf,
+                                top_block,
+                                grasp)
+            move_holding_action = Action(name='move_holding', args=(pick_final_conf,
+                                                                    place_init_conf,
+                                                                    top_block,
+                                                                    grasp,
+                                                                    move_holding_traj))
+
+            actions = [move_free_action, pick_action, move_holding_action, place_action]
+            add_fluents = [move_free_pre, pick_pre, place_pre, supported_pre, move_holding_pre]
+            return actions, add_fluents
         else:
             action = None
             simple_state = get_simple_state(state)
