@@ -46,9 +46,11 @@ def train_class(args, trans_dataset, logger):
         print('Init: ', world.init_state)
         print('Goal: ', goal)
         if 'goals' in args.data_collection_mode:
-            world.panda.add_text('Planning')
+            if world.use_panda:
+                world.panda.add_text('Planning')
             # generate plan (using PDDLStream) to reach random goal
             problem = tuple([*pddl_info, world.init_state, goal])
+            ic = 2 if world.use_panda else 0
             pddl_plan, cost, init_expanded = solve_focused(problem,
                                                 success_cost=INF,
                                                 max_skeletons=2,
@@ -56,17 +58,20 @@ def train_class(args, trans_dataset, logger):
                                                 max_time=INF,
                                                 verbose=False,
                                                 unit_costs=True,
-                                                initial_complexity=2)  # don't set complexity=2 in simple (non-robot) domain
+                                                initial_complexity=ic)  # don't set complexity=2 in simple (non-robot) domain
             print('Plan: ', pddl_plan)
             if pddl_plan is not None and len(pddl_plan) > 0:
-                world.panda.add_text('Executing plan')
+                if world.use_panda:
+                    world.panda.add_text('Executing plan')
                 trajectory = execute_plan(world, problem, pddl_plan, init_expanded)
             else:
                 # if plan not found, execute random actions
-                world.panda.add_text('Planning failed. Executing random action')
+                if world.use_panda:
+                    world.panda.add_text('Planning failed. Executing random action')
                 trajectory = execute_random(world, opt_pddl_info)
         elif args.data_collection_mode == 'random-actions':
-            world.panda.add_text('Executing random actions')
+            if world.use_panda:
+                world.panda.add_text('Executing random actions')
             trajectory = execute_random(world, opt_pddl_info)
 
         # disconnect from world
@@ -96,7 +101,7 @@ def train_class(args, trans_dataset, logger):
 
 def add_trajectory_to_dataset(args, trans_dataset, trajectory, world):
     for (state, pddl_action, next_state, opt_accuracy) in trajectory:
-        if pddl_action.name == 'stack' or pddl_action.name == 'place':
+        if 'place' in pddl_action.name:
             object_features, edge_features = world.state_to_vec(state)
             action_features = world.action_to_vec(pddl_action)
             # assume object features don't change for now

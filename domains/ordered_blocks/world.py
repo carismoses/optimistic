@@ -39,20 +39,35 @@ class OrderedBlocksWorld:
             self.place_blocks()
             self.panda.plan()
             self.fixed = [self.panda.table]
+        else:
+            self.nb_blocks = {}
+            for n in range(1,self.num_blocks+1):
+                nb_block = NumberedBlock(n)
+                self.nb_blocks[nb_block] = n
+            self.table = Table()
+
+        self.blocks = self.pb_blocks if self.use_panda else self.nb_blocks
+        self.table = self.panda.table if self.use_panda else self.table
         self.init_state = self.get_init_state()
 
 
     def get_init_state(self):
         pddl_state = []
-        for pb in self.pb_blocks:
-            pose = pb_robot.vobj.BodyPose(pb, pb.get_base_link_pose())
-            pddl_state += [('pose', pb, pose),
-                            ('atpose', pb, pose),
-                            ('clear', pb),
-                            ('on', pb, self.panda.table),
-                            ('block', pb)]
         if self.use_panda:
+            for pb in self.blocks:
+                pose = pb_robot.vobj.BodyPose(pb, pb.get_base_link_pose())
+                pddl_state += [('pose', pb, pose),
+                                ('atpose', pb, pose),
+                                ('clear', pb),
+                                ('on', pb, self.panda.table),
+                                ('block', pb)]
             pddl_state += self.panda.get_init_state()
+        else:
+            for nb in self.blocks:
+                pddl_state += [('clear', nb),
+                                ('block', nb),
+                                ('on', nb, self.table)]
+            pddl_state += [('table', self.table)]
         return pddl_state
 
 
@@ -61,18 +76,20 @@ class OrderedBlocksWorld:
         def reset_blocks():
             for pb_block, block_pose in self.orig_poses.items():
                 pb_block.set_base_link_pose(block_pose)
-        self.panda.plan()
-        reset_blocks()
-        self.panda.execute()
-        reset_blocks()
-        self.panda.reset()
+        if self.use_panda:
+            self.panda.plan()
+            reset_blocks()
+            self.panda.execute()
+            reset_blocks()
+            self.panda.reset()
 
 
     def disconnect(self):
-        self.panda.plan()
-        pb_robot.utils.disconnect()
-        self.panda.execute()
-        pb_robot.utils.disconnect()
+        if self.use_panda:
+            self.panda.plan()
+            pb_robot.utils.disconnect()
+            self.panda.execute()
+            pb_robot.utils.disconnect()
 
 
     # world frame aligns with the robot base
@@ -143,9 +160,9 @@ class OrderedBlocksWorld:
 
 
     def generate_random_goal(self, feasible=False):
-        random_top_block = random.choice(list(self.pb_blocks))
+        random_top_block = random.choice(list(self.blocks))
         if feasible:
-            top_block_num = self.pb_blocks[random_top_block]
+            top_block_num = self.blocks[random_top_block]
             random_height = np.random.randint(2, top_block_num+1)
         else:
             random_height = np.random.randint(2, self.num_blocks+1)
@@ -153,23 +170,28 @@ class OrderedBlocksWorld:
 
 
     # TODO: is there a way to sample random actions using PDDL code?
-    def random_actions(self):
-        state = self.init_state
-        # TODO: this doesn't work
-        if self.use_panda:
-            def random_block(cond, state):
-                blocks = list(self.pb_blocks)
-                random.shuffle(blocks)
-                for block in blocks:
-                    if cond(block, state):
+    def random_actions(self, state):
+        state = get_simple_state(state)
+        def random_block(cond, state):
+            blocks = list(self.blocks)
+            random.shuffle(blocks)
+            for block in blocks:
+                if cond(block, state):
+                    if self.use_panda:
                         for fluent in state:
                             if fluent[0] == 'atpose' and fluent[1] == block:
                                 pose = fluent[2]
                                 return block, pose
+                    else:
+                        return block
+            return None
 
-            clear = lambda block, state : ('clear', block) in state
-            on_table_clear = lambda block, state : (('on', block, self.panda.table) in state) and clear(block, state)
+        clear = lambda block, state : ('clear', block) in state
+        on_table_clear = lambda block, state : (('on', block, self.panda.table) in state) and clear(block, state)
 
+        # TODO: this only picks and places a single block. want it to work until
+        # infeasible action is attempted
+        if self.use_panda:
             # pick action
             grasp_fn = get_grasp_gen(self.panda.planning_robot)
             pick_fn = get_ik_fn(self.panda.planning_robot,
@@ -273,69 +295,60 @@ class OrderedBlocksWorld:
             add_fluents = [move_free_pre, pick_pre, place_pre, supported_pre, move_holding_pre]
             return actions, add_fluents
         else:
-            action = None
-            simple_state = get_simple_state(state)
-            table_blocks = [bn for bn in range(1, self.num_blocks+1)
-                    if ('ontable', bn) in simple_state and ('clear', bn) in simple_state]
-            if len(table_blocks) > 0:
-                top_block_idx = np.random.choice(len(table_blocks))
-                top_block_num = table_blocks[top_block_idx]
-                possible_bottom_blocks = []
-                for bn in range(1, self.num_blocks+1):
-                    if ('clear', bn) in simple_state and bn != top_block_num:
-                        possible_bottom_blocks.append(bn)
-                bottom_block_idx = np.random.choice(len(possible_bottom_blocks))
-                bottom_block_num = possible_bottom_blocks[bottom_block_idx]
-                action = Action(name='stack', args=(top_block_num, bottom_block_num))
-            return [action], []
+            top_block = random_block(on_table_clear, state)
+            if top_block:
+                bottom_block = top_block
+                while bottom_block == top_block:
+                    bottom_block = random_block(clear, state)
+                if bottom_block:
+                    return [Action(name='pickplace', args=(top_block, self.table, bottom_block))], []
+            return [None], []
 
 
     def state_to_vec(self, state):
-        simple_state = get_simple_state(state)
-        def block_on_top(bottom_block, state):
-            for top_block in self.pb_blocks:
-                if ('on', top_block, bottom_block) in simple_state:
+        state = get_simple_state(state)
+        def block_on_top(bottom_block):
+            for top_block in self.blocks:
+                if ('on', top_block, bottom_block) in state:
                     return True, top_block
             return False, None
 
         object_features = np.expand_dims(np.arange(self.num_blocks+1), 1)
         edge_features = np.zeros((self.num_blocks+1, self.num_blocks+1, 1))
         # for each block on the table, recursively check which blocks are on top of it
-        for block in self.pb_blocks:
-            if ('on', block, self.panda.table) in simple_state:
-                edge_features[0, self.pb_blocks[block], 0] = 1.
-                is_block_on_top, top_block = block_on_top(block, state)
+        for block in self.blocks:
+            if ('on', block, self.table) in state:
+                edge_features[0, self.blocks[block], 0] = 1.
+                is_block_on_top, top_block = block_on_top(block)
                 bottom_block = block
                 while is_block_on_top:
-                    edge_features[self.pb_blocks[bottom_block], self.pb_blocks[top_block], 0] = 1.
+                    edge_features[self.blocks[bottom_block], self.blocks[top_block], 0] = 1.
                     bottom_block = top_block
                     is_block_on_top, top_block = block_on_top(bottom_block, state)
         return object_features, edge_features
 
 
     def action_to_vec(self, action):
-        if action.name == 'place':
-            top_block_num = self.pb_blocks[action.args[0]]
-            bottom_block_num = self.pb_blocks[action.args[2]]
-        elif action.name == 'stack':
-            top_block_num = action.args[0]
-            bottom_block_num = action.args[1]
+        # NOTE this is a bit hacky. should get indices from param names ?bt and ?bb
+        top_block_num = self.blocks[action.args[0]]
+        bottom_block_num = self.blocks[action.args[2]]
         return np.array([top_block_num, bottom_block_num])
 
 
     # init keys for all potential actions
     def all_optimistic_actions(self):
+        assert (not self.use_panda), 'Cannot enumerate actions in continuous domain'
         actions = []
-        for bb in range(1, self.num_blocks+1):
-            for bt in range(1, self.num_blocks+1):
+        for bb in self.blocks:
+            for bt in self.blocks:
                 if bb != bt:
-                    action = Action(name='stack', args=(bt, bb))
+                    action = Action(name='pickplace', args=(bt, self.table, bb))
                     actions.append(action)
         return actions
 
 
-    def action_args_to_action(self, top_block_num, bottom_block_num):
-        return Action(name='stack', args=(top_block_num, bottom_block_num))
+    def action_args_to_action(self, top_block, bottom_block):
+        return Action(name='pickplace', args=(top_block, self.table, bottom_block))
 
 
     def transition(self, pddl_state, fd_state, pddl_action, fd_action):
@@ -344,7 +357,7 @@ class OrderedBlocksWorld:
             apply_action(new_fd_state, fd_action) # apply action in PDDL model
             if self.use_panda:
                 print('Executing action: ', pddl_action)
-                self.panda.execute_action(pddl_action, self.fixed, world_obstacles=list(self.pb_blocks))
+                self.panda.execute_action(pddl_action, self.fixed, world_obstacles=list(self.blocks))
         pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
         new_pddl_state = [fact_from_fd(sfd) for sfd in new_fd_state]
         return new_pddl_state, new_fd_state, self.valid_transition(pddl_action)
@@ -354,14 +367,27 @@ class OrderedBlocksWorld:
     # we will have to see if the resulting physical state matches the resulting PDDL
     # state. This will require a method of going from the physical world to a PDDL
     # respresentation of the state.
+    # NOTE this is a bit hacky. should get indices from param names ?bt and ?bb
     def valid_transition(self, pddl_action):
-        if pddl_action.name == 'stack':
-            return pddl_action.args[0] == pddl_action.args[1]+1
+        if 'place' in pddl_action.name:
+            return self.blocks[pddl_action.args[0]] == self.blocks[pddl_action.args[2]]+1
         else:
-            if pddl_action.name == 'place':
-                return self.pb_blocks[pddl_action.args[0]] == self.pb_blocks[pddl_action.args[2]]+1
-            else:
-                return True # all other actions are valid
+            return True # all other actions are valid
+
+
+class NumberedBlock:
+    def __init__(self, num):
+        self.num = num
+
+    def __repr__(self):
+        return '{}'.format(self.num % 1000)
+
+class Table:
+    def __init__(self):
+        pass
+
+    def __repr__(self):
+        return 't{}'.format(id(self) % 1000)
 
 int_to_str_dict = {2:'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six',
             7: 'seven', 8: 'eight'}

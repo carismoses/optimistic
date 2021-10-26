@@ -63,7 +63,7 @@ def execute_plan(world, problem, pddl_plan, init_expanded):
 
 def execute_random(world, opt_pddl_info):
     goal = world.generate_random_goal() # placeholder/dummy variable
-    pddl_plan, expanded_states = world.random_actions()
+    pddl_plan, expanded_states = world.random_actions(world.init_state)
     opt_problem = tuple([*opt_pddl_info, world.init_state+expanded_states, goal]) # used in execute_random()
     task = task_from_problem(opt_problem)
     fd_state = set(task.init)
