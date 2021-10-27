@@ -12,7 +12,7 @@ from pddlstream.algorithms.downward import fact_from_fd, apply_action
 from pddlstream.language.generator import from_list_fn, from_fn
 
 from panda_wrapper.panda_agent import PandaAgent
-from tamp.utils import get_simple_state
+from tamp.utils import get_simple_state, get_learned_pddl
 from domains.ordered_blocks.discrete_domain.learned.primitives import get_trust_model
 from domains.ordered_blocks.panda_domain.primitives import get_free_motion_gen, \
     get_holding_motion_gen, get_ik_fn, get_pose_gen_block, get_grasp_gen
@@ -139,7 +139,8 @@ class OrderedBlocksWorld:
             elif pddl_model_type == 'learned':
                 pass # TODO
         else:
-            optimistic_domain_pddl = read('domains/ordered_blocks/discrete_domain/optimistic/domain.pddl')
+            opt_domain_pddl_path = 'domains/ordered_blocks/discrete_domain/optimistic/domain.pddl'
+            optimistic_domain_pddl = read(opt_domain_pddl_path)
             optimistic_stream_pddl = None
             optimistic_stream_map = {}
             if pddl_model_type == 'optimistic':
@@ -147,9 +148,13 @@ class OrderedBlocksWorld:
                 stream_pddl = optimistic_stream_pddl
                 stream_map = optimistic_stream_map
             elif pddl_model_type == 'learned':
-                domain_pddl = read('domains/ordered_blocks/discrete_domain/learned/domain.pddl')
-                stream_pddl = read('domains/ordered_blocks/discrete_domain/learned/streams.pddl')
-                stream_map = {'TrustModel': get_trust_model(self, logger)}
+                domain_pddl, stream_pddl, stream_map = get_learned_pddl(opt_domain_pddl_path,
+                                                                        None,
+                                                                        None,
+                                                                        'domains/ordered_blocks/discrete_domain/add_to_domain.pddl',
+                                                                        self,
+                                                                        logger)
+
         constant_map = {}
         optimistic_pddl_info = [optimistic_domain_pddl,
                                 constant_map,

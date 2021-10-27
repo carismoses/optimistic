@@ -1,8 +1,24 @@
+from shutil import copyfile
+import os
+
 from pddlstream.algorithms.algorithm import parse_problem
 from pddlstream.algorithms.downward import task_from_domain_problem, get_action_instances, \
                                             get_problem, parse_action
 from pddlstream.language.conversion import Object, transform_plan_args
 from pddlstream.algorithms.downward import fact_from_fd, is_applicable
+from pddlstream.utils import read
+
+from learning.datasets import model_forward
+
+def get_trust_model(world, logger):
+    def test(top_block, bottom_block, fluents=[]):
+        model = logger.load_trans_model()
+        vec_state = world.state_to_vec(fluents)
+        vec_action = world.action_to_vec(world.action_args_to_action(top_block, bottom_block))
+        trust_model = model_forward(model, [*vec_state, vec_action]).round().squeeze()
+        return trust_model
+    return test
+
 
 def postprocess_plan(problem, plan, init_facts_expanded):
     # replace init in problem with init_expanded
@@ -96,3 +112,61 @@ def execute_random(world, opt_pddl_info):
             pddl_state = get_simple_state(pddl_state)
             ai += 1
     return trajectory
+
+# The only requirements for these files are that action: is before pre: for each pair
+# and there is not space between the 2 lines (there can be spaces between the pairs)
+# and that there is a single space after the :
+def get_add_to_pddl_info(add_to_pddl_path):
+    actions =[]
+    pres = []
+    with open(add_to_pddl_path, 'r') as add_to_pddl_file:
+        lines = add_to_pddl_file.readlines()
+        for li, line in enumerate(lines):
+            if 'action:' in line:
+                action = line.replace('action: ', '').replace('\n', '')
+                pre = lines[li+1].replace('pre: ', '').replace('\n', '')
+                actions.append(action)
+                pres.append(pre)
+    return actions, pres
+
+
+# NOTE!! This assumes that there are at least 2 preconditions in the action.
+# If that is not true then the parenthesis won't work
+def add_to_action_precondition(domain_pddl_path, add_to_pddl_path):
+    actions, pres = get_add_to_pddl_info(add_to_pddl_path)
+    domain_pddl_path_dir = os.path.dirname(domain_pddl_path)
+    learned_domain_pddl_path = os.path.join(domain_pddl_path_dir, 'tmp', 'learned_domain.pddl')
+    #wd = os.getcwd()
+    os.makedirs(os.path.dirname(learned_domain_pddl_path), exist_ok=True)
+    #copyfile(domain_pddl_path, os.path.join(wd, learned_domain_pddl_path))
+    copyfile(domain_pddl_path, learned_domain_pddl_path)
+    new_learned_domain_pddl = []
+    with open(learned_domain_pddl_path, 'r') as learned_domain_pddl_file:
+        lines = learned_domain_pddl_file.readlines()
+        found_action = False
+        ai = None
+        for line in lines:
+            new_learned_domain_pddl.append(line)
+            if ':action' in line:
+                for i, action in enumerate(actions):
+                    if action in line:
+                        found_action = True
+                        ai = i
+            if ':precondition' in line and found_action:
+                new_learned_domain_pddl.append(pres[i]+'\n')
+                found_action = False
+            if ':predicates' in line:
+                new_learned_domain_pddl.append('\n'.join(pres)+'\n')
+
+    with open(learned_domain_pddl_path, 'w') as learned_domain_pddl_file:
+        learned_domain_pddl_file.writelines(new_learned_domain_pddl)
+
+    return learned_domain_pddl_path
+
+
+def get_learned_pddl(opt_domain_pddl_path, opt_stream_pddl_path, opt_stream_map, \
+                    add_to_domain_pddl_path, world, logger):
+    learned_domain_pddl_path = add_to_action_precondition(opt_domain_pddl_path, add_to_domain_pddl_path)
+    learned_stream_pddl_path = 'domains/ordered_blocks/discrete_domain/learned/streams.pddl'
+    stream_map = {'TrustModel': get_trust_model(world, logger)}
+    return read(learned_domain_pddl_path), read(learned_stream_pddl_path), stream_map
