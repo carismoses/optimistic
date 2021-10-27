@@ -155,3 +155,4 @@ class PandaAgent:
             input("start?")
             for e in executionItems:
                 e.execute(realRobot=arm, obstacles=obstacles)
+        self.plan()

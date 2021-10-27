@@ -171,23 +171,22 @@ class OrderedBlocksWorld:
 
     # TODO: is there a way to sample random actions using PDDL code?
     def random_actions(self, state):
-        state = get_simple_state(state)
-        def random_block(cond, state):
+        def random_block(cond):
             blocks = list(self.blocks)
             random.shuffle(blocks)
             for block in blocks:
-                if cond(block, state):
+                if cond(block):
                     if self.use_panda:
                         for fluent in state:
                             if fluent[0] == 'atpose' and fluent[1] == block:
                                 pose = fluent[2]
                                 return block, pose
                     else:
-                        return block
-            return None
+                        return block, None
+            return None, None
 
-        clear = lambda block, state : ('clear', block) in state
-        on_table_clear = lambda block, state : (('on', block, self.panda.table) in state) and clear(block, state)
+        clear = lambda block : ('clear', block) in state
+        on_table_clear = lambda block : (('on', block, self.table) in state) and clear(block)
 
         # TODO: this only picks and places a single block. want it to work until
         # infeasible action is attempted
@@ -199,10 +198,11 @@ class OrderedBlocksWorld:
                                 approach_frame='gripper',
                                 backoff_frame='global')
 
+            top_block, top_block_pose = random_block(on_table_clear)
+            if not top_block:
+                return [], []
 
-            top_block, top_block_pose = random_block(on_table_clear, state)
             grasps = grasp_fn(top_block)
-            i = 0
             while True:
                 try:
                     grasp_i = np.random.randint(len(grasps))
@@ -210,10 +210,10 @@ class OrderedBlocksWorld:
                     pick_init_conf, pick_final_conf, pick_traj = pick_fn(top_block,
                                                                     top_block_pose,
                                                                     grasp)
-                    print('Found successful grasp.')
+                    print('Found successful pick grasp and traj.')
                     break
                 except:
-                    i += 1
+                    print('Searching for pick grasp and traj.')
                     pass
 
             pick_pre = ('pickkin',
@@ -240,11 +240,21 @@ class OrderedBlocksWorld:
 
             bottom_block = top_block
             while bottom_block == top_block:
-                bottom_block, bottom_block_pose = random_block(clear, state)
-            top_block_place_pose = supported_fn(top_block, bottom_block, bottom_block_pose)[0]
-            place_init_conf, place_final_conf, place_traj = place_fn(top_block,
+                bottom_block, bottom_block_pose = random_block(clear)
+                if not bottom_block:
+                    return [], []
+
+            while True:
+                try:
+                    top_block_place_pose = supported_fn(top_block, bottom_block, bottom_block_pose)[0]
+                    place_init_conf, place_final_conf, place_traj = place_fn(top_block,
                                                                     top_block_place_pose,
                                                                     grasp)
+                    print('Found successful place traj.')
+                    break
+                except:
+                    print('Searching for place traj.')
+                    pass
 
             place_pre = ('placekin',
                         top_block,
@@ -268,17 +278,36 @@ class OrderedBlocksWorld:
                                                         place_traj))
 
             # move free action
+            move_free_fn = get_free_motion_gen(self.panda.planning_robot, self.fixed)
+
             for fluent in state:
                 if fluent[0] == 'atconf':
                     init_conf = fluent[1]
-            move_free_fn = get_free_motion_gen(self.panda.planning_robot, self.fixed)
-            move_free_traj = move_free_fn(init_conf, pick_init_conf)[0]
+
+            while True:
+                try:
+                    move_free_traj = move_free_fn(init_conf, pick_init_conf)[0]
+                    print('Found successful move free traj.')
+                    break
+                except:
+                    print('Searching for move free traj.')
+                    pass
+
             move_free_pre = ('freemotion', init_conf, move_free_traj, pick_init_conf)
             move_free_action = Action(name='move_free', args=(init_conf, pick_init_conf, move_free_traj))
 
             # move holding action
             move_holding_fn = get_holding_motion_gen(self.panda.planning_robot, self.fixed)
-            move_holding_traj = move_holding_fn(pick_final_conf, place_init_conf, top_block, grasp)[0]
+
+            while True:
+                try:
+                    move_holding_traj = move_holding_fn(pick_final_conf, place_init_conf, top_block, grasp)[0]
+                    print('Found successful move holding traj.')
+                    break
+                except:
+                    print('Searching for move holding traj.')
+                    pass
+
             move_holding_pre = ('holdingmotion',
                                 pick_final_conf,
                                 move_holding_traj,
@@ -295,14 +324,14 @@ class OrderedBlocksWorld:
             add_fluents = [move_free_pre, pick_pre, place_pre, supported_pre, move_holding_pre]
             return actions, add_fluents
         else:
-            top_block = random_block(on_table_clear, state)
+            top_block, _ = random_block(on_table_clear)
             if top_block:
                 bottom_block = top_block
                 while bottom_block == top_block:
-                    bottom_block = random_block(clear, state)
+                    bottom_block, _ = random_block(clear)
                 if bottom_block:
                     return [Action(name='pickplace', args=(top_block, self.table, bottom_block))], []
-            return [None], []
+            return [], []
 
 
     def state_to_vec(self, state):
@@ -324,7 +353,7 @@ class OrderedBlocksWorld:
                 while is_block_on_top:
                     edge_features[self.blocks[bottom_block], self.blocks[top_block], 0] = 1.
                     bottom_block = top_block
-                    is_block_on_top, top_block = block_on_top(bottom_block, state)
+                    is_block_on_top, top_block = block_on_top(bottom_block)
         return object_features, edge_features
 
 
@@ -353,14 +382,16 @@ class OrderedBlocksWorld:
 
     def transition(self, pddl_state, fd_state, pddl_action, fd_action):
         new_fd_state = copy(fd_state)
-        if self.valid_transition(pddl_action):
+        valid_transition = self.valid_transition(pddl_action)
+        if valid_transition:
             apply_action(new_fd_state, fd_action) # apply action in PDDL model
             if self.use_panda:
                 print('Executing action: ', pddl_action)
                 self.panda.execute_action(pddl_action, self.fixed, world_obstacles=list(self.blocks))
+                print('Action successfully executed.')
         pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
         new_pddl_state = [fact_from_fd(sfd) for sfd in new_fd_state]
-        return new_pddl_state, new_fd_state, self.valid_transition(pddl_action)
+        return new_pddl_state, new_fd_state, valid_transition
 
 
     # NOTE: in physical domains, to evaluate if a transition matched the optimistic model,
@@ -387,7 +418,7 @@ class Table:
         pass
 
     def __repr__(self):
-        return 't{}'.format(id(self) % 1000)
+        return 'table'
 
 int_to_str_dict = {2:'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six',
             7: 'seven', 8: 'eight'}

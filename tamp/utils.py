@@ -30,12 +30,18 @@ def task_from_problem(problem):
 def get_simple_state(state):
     simple_state = []
     for pddl_predicate in state:
-        simple_pddl_predicate = [pddl_predicate[0]]
+        pre = pddl_predicate[0]
+        # NOTE: the obj_from_value_expression() treats the 2 arguments
+        # to = as other expressions, but they are just pb_robot.bodies so it
+        # crashes. Remove as they aren't important predicates anyway
+        if pre == '=':
+            continue
+        simple_pddl_predicate = [pre]
         for arg in pddl_predicate[1:]:
-            if isinstance(arg, int):
-                simple_pddl_predicate.append(arg)
-            elif isinstance(arg, Object):
+            if isinstance(arg, Object):
                 simple_pddl_predicate.append(arg.value)
+            else:
+                simple_pddl_predicate.append(arg)
         simple_state.append(tuple(simple_pddl_predicate))
     return simple_state
 
@@ -63,26 +69,30 @@ def execute_plan(world, problem, pddl_plan, init_expanded):
 
 def execute_random(world, opt_pddl_info):
     goal = world.generate_random_goal() # placeholder/dummy variable
-    pddl_plan, expanded_states = world.random_actions(world.init_state)
-    opt_problem = tuple([*opt_pddl_info, world.init_state+expanded_states, goal]) # used in execute_random()
-    task = task_from_problem(opt_problem)
-    fd_state = set(task.init)
-    trajectory = []
-    ai = 0
     valid_transition = True
+    pddl_state = world.init_state
+    trajectory = []
     while valid_transition:
-        pddl_action = pddl_plan[ai]
-        print('Random action: ', pddl_action)
-        fd_action = get_fd_action(task, pddl_action)
-        assert is_applicable(fd_state, fd_action), 'Something wrong with random action planning.'
-        pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
-        new_pddl_state, new_fd_state, valid_transition = world.transition(pddl_state,
-                                                                            fd_state,
-                                                                            pddl_action,
-                                                                            fd_action)
-        trajectory.append((pddl_state, pddl_action, new_pddl_state, valid_transition))
-        fd_state = new_fd_state
-        #pddl_state = new_pddl_state
-        valid_transition = valid_transition and ai < len(pddl_plan)-1 # stop when fail action or at end of trajectory
-        ai += 1
+        pddl_state = get_simple_state(pddl_state)
+        pddl_plan, expanded_states = world.random_actions(pddl_state)
+        if not pddl_plan:
+            break
+        opt_problem = tuple([*opt_pddl_info, pddl_state+expanded_states, goal]) # used in execute_random()
+        task = task_from_problem(opt_problem)
+        fd_state = set(task.init)
+        ai = 0
+        while valid_transition and ai < len(pddl_plan):
+            pddl_action = pddl_plan[ai]
+            print('Random action: ', pddl_action)
+            fd_action = get_fd_action(task, pddl_action)
+            pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
+            new_pddl_state, new_fd_state, valid_transition = world.transition(pddl_state,
+                                                                                fd_state,
+                                                                                pddl_action,
+                                                                                fd_action)
+            trajectory.append((pddl_state, pddl_action, new_pddl_state, valid_transition))
+            fd_state = new_fd_state
+            pddl_state = new_pddl_state
+            pddl_state = get_simple_state(pddl_state)
+            ai += 1
     return trajectory

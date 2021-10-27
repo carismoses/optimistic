@@ -44,10 +44,10 @@ def train_class(args, trans_dataset, logger):
             raise NotImplementedError
         goal = world.generate_random_goal() # ignored if execute_random()
         print('Init: ', world.init_state)
-        print('Goal: ', goal)
         if 'goals' in args.data_collection_mode:
+            print('Goal: ', goal)
             if world.use_panda:
-                world.panda.add_text('Planning')
+                world.panda.add_text('Planning with Goal: (%s, %s)' % goal)
             # generate plan (using PDDLStream) to reach random goal
             problem = tuple([*pddl_info, world.init_state, goal])
             ic = 2 if world.use_panda else 0
