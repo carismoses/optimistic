@@ -13,8 +13,7 @@ from pddlstream.language.generator import from_list_fn, from_fn
 
 from panda_wrapper.panda_agent import PandaAgent
 from tamp.utils import get_simple_state, get_learned_pddl
-from domains.ordered_blocks.discrete_domain.learned.primitives import get_trust_model
-from domains.ordered_blocks.panda_domain.primitives import get_free_motion_gen, \
+from domains.ordered_blocks.panda.primitives import get_free_motion_gen, \
     get_holding_motion_gen, get_ik_fn, get_pose_gen_block, get_grasp_gen
 
 class OrderedBlocksWorld:
@@ -114,9 +113,9 @@ class OrderedBlocksWorld:
     def get_pddl_info(self, pddl_model_type, logger):
         if self.use_panda:
             robot = self.panda.planning_robot
-            optimistic_domain_pddl = read('domains/ordered_blocks/panda_domain/optimistic/domain.pddl')
-            optimistic_stream_pddl = read('domains/ordered_blocks/panda_domain/optimistic/streams.pddl')
-            optimistic_stream_map = {
+            optimistic_domain_pddl = read('domains/ordered_blocks/panda/optimistic/domain.pddl')
+            optimistic_streams_pddl = read('domains/ordered_blocks/panda/optimistic/streams.pddl')
+            optimistic_streams_map = {
                 'plan-free-motion': from_fn(get_free_motion_gen(robot,
                                                                 self.fixed)),
                 'plan-holding-motion': from_fn(get_holding_motion_gen(robot,
@@ -134,34 +133,36 @@ class OrderedBlocksWorld:
                 }
             if pddl_model_type == 'optimistic':
                 domain_pddl = optimistic_domain_pddl
-                stream_pddl = optimistic_stream_pddl
-                stream_map = optimistic_stream_map
+                streams_pddl = optimistic_streams_pddl
+                streams_map = optimistic_streams_map
             elif pddl_model_type == 'learned':
                 pass # TODO
         else:
-            opt_domain_pddl_path = 'domains/ordered_blocks/discrete_domain/optimistic/domain.pddl'
-            optimistic_domain_pddl = read(opt_domain_pddl_path)
-            optimistic_stream_pddl = None
-            optimistic_stream_map = {}
+            opt_domain_pddl_path = 'domains/ordered_blocks/discrete/domain.pddl'
+            opt_streams_pddl_path = None
+            opt_streams_map = {}
+            opt_domain_pddl = read(opt_domain_pddl_path)
+            opt_streams_pddl = None
             if pddl_model_type == 'optimistic':
-                domain_pddl = optimistic_domain_pddl
-                stream_pddl = optimistic_stream_pddl
-                stream_map = optimistic_stream_map
+                domain_pddl = opt_domain_pddl
+                streams_pddl = opt_streams_pddl
+                streams_map = opt_streams_map
             elif pddl_model_type == 'learned':
-                domain_pddl, stream_pddl, stream_map = get_learned_pddl(opt_domain_pddl_path,
-                                                                        None,
-                                                                        None,
-                                                                        'domains/ordered_blocks/discrete_domain/add_to_domain.pddl',
-                                                                        self,
-                                                                        logger)
-
+                add_to_domain_path = 'domains/ordered_blocks/discrete/add_to_domain.pddl'
+                add_to_streams_path = 'domains/ordered_blocks/discrete/add_to_streams.pddl'
+                domain_pddl, streams_pddl = get_learned_pddl(opt_domain_pddl_path,
+                                                            opt_streams_pddl_path,
+                                                            add_to_domain_path,
+                                                            add_to_streams_path)
+                from domains.ordered_blocks.discrete.add_to_primitives import get_trust_model
+                streams_map = {'TrustModel': get_trust_model(self, logger)}
         constant_map = {}
-        optimistic_pddl_info = [optimistic_domain_pddl,
-                                constant_map,
-                                optimistic_stream_pddl,
-                                optimistic_stream_map]
-        pddl_info = [domain_pddl, constant_map, stream_pddl, stream_map]
-        return optimistic_pddl_info, pddl_info
+        opt_pddl_info = [opt_domain_pddl,
+                        constant_map,
+                        opt_streams_pddl,
+                        opt_streams_map]
+        pddl_info = [domain_pddl, constant_map, streams_pddl, streams_map]
+        return opt_pddl_info, pddl_info
 
 
     def generate_random_goal(self, feasible=False):

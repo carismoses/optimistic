@@ -10,15 +10,6 @@ from pddlstream.utils import read
 
 from learning.datasets import model_forward
 
-def get_trust_model(world, logger):
-    def test(top_block, bottom_block, fluents=[]):
-        model = logger.load_trans_model()
-        vec_state = world.state_to_vec(fluents)
-        vec_action = world.action_to_vec(world.action_args_to_action(top_block, bottom_block))
-        trust_model = model_forward(model, [*vec_state, vec_action]).round().squeeze()
-        return trust_model
-    return test
-
 
 def postprocess_plan(problem, plan, init_facts_expanded):
     # replace init in problem with init_expanded
@@ -116,7 +107,7 @@ def execute_random(world, opt_pddl_info):
 # The only requirements for these files are that action: is before pre: for each pair
 # and there is not space between the 2 lines (there can be spaces between the pairs)
 # and that there is a single space after the :
-def get_add_to_pddl_info(add_to_pddl_path):
+def get_add_to_domain_pddl_info(add_to_pddl_path):
     actions =[]
     pres = []
     with open(add_to_pddl_path, 'r') as add_to_pddl_file:
@@ -130,15 +121,25 @@ def get_add_to_pddl_info(add_to_pddl_path):
     return actions, pres
 
 
+# NOTE: This assumes that all add to stream predicates are 2 lines
+# and start with :predicate
+def get_add_to_streams_pddl_info(add_to_streams_path):
+    new_streams = []
+    with open(add_to_streams_path, 'r') as add_to_streams_file:
+        lines = add_to_streams_file.readlines()
+        for li, line in enumerate(lines):
+            if ':predicate' in line:
+                new_streams.append(line)
+                new_streams.append(lines[li+1])
+    return new_streams
+
+
 # NOTE!! This assumes that there are at least 2 preconditions in the action.
 # If that is not true then the parenthesis won't work
-def add_to_action_precondition(domain_pddl_path, add_to_pddl_path):
-    actions, pres = get_add_to_pddl_info(add_to_pddl_path)
-    domain_pddl_path_dir = os.path.dirname(domain_pddl_path)
+def add_to_domain(domain_pddl_path, add_to_pddl_path, domain_pddl_path_dir):
+    actions, pres = get_add_to_domain_pddl_info(add_to_pddl_path)
     learned_domain_pddl_path = os.path.join(domain_pddl_path_dir, 'tmp', 'learned_domain.pddl')
-    #wd = os.getcwd()
     os.makedirs(os.path.dirname(learned_domain_pddl_path), exist_ok=True)
-    #copyfile(domain_pddl_path, os.path.join(wd, learned_domain_pddl_path))
     copyfile(domain_pddl_path, learned_domain_pddl_path)
     new_learned_domain_pddl = []
     with open(learned_domain_pddl_path, 'r') as learned_domain_pddl_file:
@@ -164,9 +165,29 @@ def add_to_action_precondition(domain_pddl_path, add_to_pddl_path):
     return learned_domain_pddl_path
 
 
-def get_learned_pddl(opt_domain_pddl_path, opt_stream_pddl_path, opt_stream_map, \
-                    add_to_domain_pddl_path, world, logger):
-    learned_domain_pddl_path = add_to_action_precondition(opt_domain_pddl_path, add_to_domain_pddl_path)
-    learned_stream_pddl_path = 'domains/ordered_blocks/discrete_domain/learned/streams.pddl'
-    stream_map = {'TrustModel': get_trust_model(world, logger)}
-    return read(learned_domain_pddl_path), read(learned_stream_pddl_path), stream_map
+# NOTE: This assumes the streams file being added to just has a single close
+# parenthesis on the last line
+def add_to_streams(streams_pddl_path, add_to_streams_path, domain_pddl_path_dir):
+    new_streams = get_add_to_streams_pddl_info(add_to_streams_path)
+    learned_streams_pddl_path = os.path.join(domain_pddl_path_dir, 'tmp', 'learned_streams.pddl')
+    os.makedirs(os.path.dirname(learned_streams_pddl_path), exist_ok=True)
+    new_learned_streams_pddl = []
+    if streams_pddl_path:
+        raise NotImplementedError('Need to handle case where streams are added to')
+        copyfile(streams_pddl_path, learned_streams_pddl_path)
+    else:
+        new_learned_streams_pddl += ['(define (stream tmp)\n']
+        new_learned_streams_pddl += new_streams
+        new_learned_streams_pddl += [')\n']
+
+    with open(learned_streams_pddl_path, 'w') as learned_streams_pddl_file:
+        learned_streams_pddl_file.writelines(new_learned_streams_pddl)
+
+    return learned_streams_pddl_path
+
+def get_learned_pddl(opt_domain_pddl_path, opt_streams_pddl_path, \
+                    add_to_domain_path, add_to_streams_path):
+    domain_pddl_path_dir = os.path.dirname(opt_domain_pddl_path)
+    learned_domain_pddl_path = add_to_domain(opt_domain_pddl_path, add_to_domain_path, domain_pddl_path_dir)
+    learned_streams_pddl_path = add_to_streams(opt_streams_pddl_path, add_to_streams_path, domain_pddl_path_dir)
+    return read(learned_domain_pddl_path), read(learned_streams_pddl_path)

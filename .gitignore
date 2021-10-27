@@ -17,3 +17,4 @@ venv/
 pddlstream
 pb_robot
 temp/
+domains/ordered_blocks/discrete/tmp
