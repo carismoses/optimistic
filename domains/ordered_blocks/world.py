@@ -203,6 +203,7 @@ class OrderedBlocksWorld:
 
         # TODO: this only picks and places a single block. want it to work until
         # infeasible action is attempted
+        timeout = 15
         if self.use_panda:
             # pick action
             grasp_fn = get_grasp_gen(self.panda.planning_robot)
@@ -216,7 +217,8 @@ class OrderedBlocksWorld:
                 return [], []
 
             grasps = grasp_fn(top_block)
-            while True:
+            t = 0
+            while t < timeout:
                 try:
                     grasp_i = np.random.randint(len(grasps))
                     grasp = grasps[grasp_i][0]
@@ -226,6 +228,7 @@ class OrderedBlocksWorld:
                     print('Found successful pick grasp and traj.')
                     break
                 except:
+                    t += 1
                     print('Searching for pick grasp and traj.')
                     pass
 
@@ -257,7 +260,8 @@ class OrderedBlocksWorld:
                 if not bottom_block:
                     return [], []
 
-            while True:
+            t = 0
+            while t < timeout:
                 try:
                     top_block_place_pose = supported_fn(top_block, bottom_block, bottom_block_pose)[0]
                     place_init_conf, place_final_conf, place_traj = place_fn(top_block,
@@ -266,6 +270,7 @@ class OrderedBlocksWorld:
                     print('Found successful place traj.')
                     break
                 except:
+                    t += 1
                     print('Searching for place traj.')
                     pass
 
@@ -297,12 +302,14 @@ class OrderedBlocksWorld:
                 if fluent[0] == 'atconf':
                     init_conf = fluent[1]
 
-            while True:
+            t = 0
+            while t < timeout:
                 try:
                     move_free_traj = move_free_fn(init_conf, pick_init_conf)[0]
                     print('Found successful move free traj.')
                     break
                 except:
+                    t += 1
                     print('Searching for move free traj.')
                     pass
 
@@ -312,12 +319,14 @@ class OrderedBlocksWorld:
             # move holding action
             move_holding_fn = get_holding_motion_gen(self.panda.planning_robot, self.fixed)
 
-            while True:
+            t = 0
+            while t < timeout:
                 try:
                     move_holding_traj = move_holding_fn(pick_final_conf, place_init_conf, top_block, grasp)[0]
                     print('Found successful move holding traj.')
                     break
                 except:
+                    t += 1
                     print('Searching for move holding traj.')
                     pass
 
@@ -379,12 +388,17 @@ class OrderedBlocksWorld:
 
     # init keys for all potential actions
     def all_optimistic_actions(self):
-        assert (not self.use_panda), 'Cannot enumerate actions in continuous domain'
+        if self.use_panda:
+            print('WARNING: world.all_optimistic_actions() only enumerates place' \
+                    'actions and doesn\'t ground all variables')
         actions = []
         for bb in self.blocks:
             for bt in self.blocks:
                 if bb != bt:
-                    action = Action(name='pickplace', args=(bt, self.table, bb))
+                    if self.use_panda:
+                        action = Action(name='place', args=(bt, None, bb, None, None, None, None, None))
+                    else:
+                        action = Action(name='pickplace', args=(bt, self.table, bb))
                     actions.append(action)
         return actions
 

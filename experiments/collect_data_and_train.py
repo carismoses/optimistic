@@ -19,6 +19,7 @@ from domains.ordered_blocks.world import OrderedBlocksWorld, block_colors
 
 
 def train_class(args, trans_dataset, logger):
+    im = None
     pddl_model_type = 'learned' if 'learned' in args.data_collection_mode else 'optimistic'
 
     # save initial (empty) dataset
@@ -44,13 +45,14 @@ def train_class(args, trans_dataset, logger):
             raise NotImplementedError
         goal, goal_feas = world.generate_random_goal(ret_goal_feas=True) # ignored if execute_random()
         print('Init: ', world.init_state)
+        if world.use_panda:
+            world.panda.add_text('Iteration %i |dataset| = %i' % (i, len(trans_dataset)),
+                                position=(0, -1.15, 1.1),
+                                size=1,
+                                counter=True)
         if 'goals' in args.data_collection_mode:
             print('Goal: ', goal)
             if world.use_panda:
-                world.panda.add_text('Iteration %i |dataset| = %i' % (i, len(trans_dataset)),
-                                    position=(0, -1.15, 1.1),
-                                    size=1,
-                                    counter=True)
                 world.panda.add_text('Planning with Goal: (%s, %s)' % (goal[0], block_colors[world.blocks[goal[1]]][0]),
                                     position=(0, -1, 1),
                                     size=1.5,
@@ -109,6 +111,7 @@ def train_class(args, trans_dataset, logger):
         print('Training model.')
         trans_dataloader = DataLoader(trans_dataset, batch_size=args.batch_size, shuffle=True)
         train(trans_dataloader, trans_model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
+        im = show_model_accuracy(im, trans_model, world)
 
         # save new model and dataset
         i += 1
@@ -131,6 +134,43 @@ def add_trajectory_to_dataset(args, trans_dataset, trajectory, world):
                                             next_edge_features,
                                             delta_edge_features,
                                             opt_accuracy)
+
+
+import matplotlib.pyplot as plt
+from learning.datasets import model_forward
+plt.ion()
+def show_model_accuracy(im, model, world):
+    first = im is None
+    if first:
+        self_fig, self_axes = plt.subplots()
+    # NOTE: we test all actions from initial state assuming that the network is ignoring the state
+    preds = np.zeros((world.num_blocks, world.num_blocks))
+    all_actions = world.all_optimistic_actions()
+    world.use_panda = False
+    init_state = world.get_init_state()
+    vof, vef = world.state_to_vec(init_state)
+    for action in all_actions:
+        va = world.action_to_vec(action)
+        model_pred = model_forward(model, [vof, vef, va]).squeeze()#.round().squeeze()
+        preds[va[0]-1][va[1]-1] = model_pred
+    print(preds)
+    if first:
+        im = self_axes.imshow(preds, cmap=plt.get_cmap('RdYlGn'), vmin=0, vmax=1)
+        self_axes.set_aspect('equal')
+        self_fig.colorbar(im, orientation='vertical')
+        self_axes.set_title('Feasibility Predictions')
+        self_axes.set_xlabel('Bottom Block')
+        self_axes.set_xticks([0,1,2,3])
+        self_axes.set_xticklabels(['red', 'orange', 'yellow', 'green'])
+        self_axes.set_ylabel('Top Block')
+        self_axes.set_yticks([0,1,2,3])
+        self_axes.set_yticklabels(['red', 'orange', 'yellow', 'green'])
+        plt.show()
+    else:
+        im.set_data(preds)
+        plt.draw()
+    world.use_panda = True
+    return im
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
