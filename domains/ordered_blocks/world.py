@@ -113,9 +113,9 @@ class OrderedBlocksWorld:
     def get_pddl_info(self, pddl_model_type, logger):
         if self.use_panda:
             robot = self.panda.planning_robot
-            optimistic_domain_pddl = read('domains/ordered_blocks/panda/optimistic/domain.pddl')
-            optimistic_streams_pddl = read('domains/ordered_blocks/panda/optimistic/streams.pddl')
-            optimistic_streams_map = {
+            opt_domain_pddl = read('domains/ordered_blocks/panda/optimistic/domain.pddl')
+            opt_streams_pddl = read('domains/ordered_blocks/panda/optimistic/streams.pddl')
+            opt_streams_map = {
                 'plan-free-motion': from_fn(get_free_motion_gen(robot,
                                                                 self.fixed)),
                 'plan-holding-motion': from_fn(get_holding_motion_gen(robot,
@@ -132,11 +132,15 @@ class OrderedBlocksWorld:
                 'sample-grasp': from_list_fn(get_grasp_gen(robot)),
                 }
             if pddl_model_type == 'optimistic':
-                domain_pddl = optimistic_domain_pddl
-                streams_pddl = optimistic_streams_pddl
-                streams_map = optimistic_streams_map
+                domain_pddl = opt_domain_pddl
+                streams_pddl = opt_streams_pddl
+                streams_map = opt_streams_map
             elif pddl_model_type == 'learned':
-                pass # TODO
+                domain_pddl = read('domains/ordered_blocks/panda/learned/domain.pddl')
+                streams_pddl = read('domains/ordered_blocks/panda/learned/streams.pddl')
+                streams_map = opt_streams_map
+                from domains.ordered_blocks.panda.primitives import get_trust_model
+                streams_map['TrustModel'] = get_trust_model(self, logger)
         else:
             opt_domain_pddl_path = 'domains/ordered_blocks/discrete/domain.pddl'
             opt_streams_pddl_path = None
