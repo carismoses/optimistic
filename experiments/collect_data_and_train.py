@@ -15,7 +15,7 @@ from learning.utils import ExperimentLogger
 from learning.models.gnn import TransitionGNN
 from learning.train import train
 from tamp.utils import execute_random, execute_plan
-from domains.ordered_blocks.world import OrderedBlocksWorld
+from domains.ordered_blocks.world import OrderedBlocksWorld, block_colors
 
 
 def train_class(args, trans_dataset, logger):
@@ -42,12 +42,20 @@ def train_class(args, trans_dataset, logger):
                                                                     logger)
         else:
             raise NotImplementedError
-        goal = world.generate_random_goal() # ignored if execute_random()
+        goal, goal_feas = world.generate_random_goal(ret_goal_feas=True) # ignored if execute_random()
         print('Init: ', world.init_state)
         if 'goals' in args.data_collection_mode:
             print('Goal: ', goal)
             if world.use_panda:
-                world.panda.add_text('Planning with Goal: (%s, %s)' % goal)
+                world.panda.add_text('Iteration %i |dataset| = %i' % (i, len(trans_dataset)),
+                                    position=(0, -1.15, 1.1),
+                                    size=1,
+                                    counter=True)
+                world.panda.add_text('Planning with Goal: (%s, %s)' % (goal[0], block_colors[world.blocks[goal[1]]][0]),
+                                    position=(0, -1, 1),
+                                    size=1.5,
+                                    color = (0, 255, 0, 1) if goal_feas else (255, 0 , 0, 1))
+
             # generate plan (using PDDLStream) to reach random goal
             problem = tuple([*pddl_info, world.init_state, goal])
             ic = 2 if world.use_panda else 0
@@ -62,16 +70,26 @@ def train_class(args, trans_dataset, logger):
             print('Plan: ', pddl_plan)
             if pddl_plan is not None and len(pddl_plan) > 0:
                 if world.use_panda:
-                    world.panda.add_text('Executing plan')
-                trajectory = execute_plan(world, problem, pddl_plan, init_expanded)
+                    world.panda.add_text('Executing found plan',
+                                        position=(0, -1, 1),
+                                        size=1.5)
+                trajectory, valid_transition = execute_plan(world, problem, pddl_plan, init_expanded)
+                if not valid_transition:
+                    world.panda.add_text('Infeasible plan',
+                                        position=(0, -1, 1),
+                                        size=1.5)
             else:
                 # if plan not found, execute random actions
                 if world.use_panda:
-                    world.panda.add_text('Planning failed. Executing random action')
+                    world.panda.add_text('Planning failed. Executing random actions',
+                                        position=(0, -1, 1),
+                                        size=1.5)
                 trajectory = execute_random(world, opt_pddl_info)
         elif args.data_collection_mode == 'random-actions':
             if world.use_panda:
-                world.panda.add_text('Executing random actions')
+                world.panda.add_text('Executing random actions',
+                                    position=(0, -1, 1),
+                                    size=1.5)
             trajectory = execute_random(world, opt_pddl_info)
 
         # disconnect from world

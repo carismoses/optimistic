@@ -76,7 +76,7 @@ if __name__ == '__main__':
                                                         verbose=False,
                                                         unit_costs=True)
                     if pddl_plan is not None:
-                        trajectory = execute_plan(world, problem, pddl_plan, init_expanded)
+                        trajectory, valid_transition = execute_plan(world, problem, pddl_plan, init_expanded)
                         if len(trajectory) == len(pddl_plan):
                             successes += 1
                 if method_name == 'opt':

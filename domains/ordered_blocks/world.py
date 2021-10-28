@@ -169,14 +169,17 @@ class OrderedBlocksWorld:
         return opt_pddl_info, pddl_info
 
 
-    def generate_random_goal(self, feasible=False):
+    def generate_random_goal(self, feasible=False, ret_goal_feas=False):
         random_top_block = random.choice(list(self.blocks))
         if feasible:
             top_block_num = self.blocks[random_top_block]
             random_height = np.random.randint(2, top_block_num+1)
         else:
             random_height = np.random.randint(2, self.num_blocks+1)
-        return ('height%s' % int_to_str(random_height), random_top_block)
+        goal = ('height%s' % int_to_str(random_height), random_top_block)
+        if ret_goal_feas:
+            return goal, self.blocks[random_top_block] >= random_height
+        return goal
 
 
     # TODO: is there a way to sample random actions using PDDL code?
@@ -435,13 +438,18 @@ int_to_str_dict = {2:'two', 3: 'three', 4: 'four', 5: 'five', 6: 'six',
 def int_to_str(int):
     return int_to_str_dict[int]
 
-block_colors = [(255, 0 , 0, 1), (255, 1, 0, 1), (255, 255, 0, 1),
-                    (0, 255, 0, 1), (0, 0, 255, 1), (148, 0, 130, 1), (1, 0, 211, 1)]
+block_colors = {1:('red', (255, 0 , 0, 1)),
+                2: ('orange', (255, 1, 0, 1)),
+                3: ('yellow', (255, 255, 0, 1)),
+                4: ('green', (0, 255, 0, 1)),
+                5: ('blue', (0, 0, 255, 1)),
+                6: ('indigo', (148, 0, 130, 1)),
+                7: ('violet', (1, 0, 211, 1))}
 def block_to_urdf(block_num):
     I = 0.001
     side = 0.05
     mass = 0.1
-    color = block_colors[(block_num % len(block_colors)) -1]
+    color = block_colors[(block_num % len(block_colors))][1]
     link_urdf = odio_urdf.Link(str(block_num),
                   odio_urdf.Inertial(
                       odio_urdf.Origin(xyz=(0, 0, 0), rpy=(0, 0, 0)),

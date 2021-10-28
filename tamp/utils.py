@@ -59,7 +59,7 @@ def execute_plan(world, problem, pddl_plan, init_expanded):
     trajectory = []
     ai = 0
     valid_transition = True
-    while valid_transition:
+    while valid_transition and ai < len(fd_plan):
         fd_action, pddl_action = fd_plan[ai], pddl_plan[ai]
         assert is_applicable(fd_state, fd_action), 'Something wrong with planner. An invalid action is in the plan.'
         pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
@@ -69,9 +69,8 @@ def execute_plan(world, problem, pddl_plan, init_expanded):
                                                                             fd_action)
         trajectory.append((pddl_state, pddl_action, new_pddl_state, valid_transition))
         fd_state = new_fd_state
-        valid_transition = valid_transition and ai < len(fd_plan)-1 # stop when fail action or at end of trajectory
         ai += 1
-    return trajectory
+    return trajectory, valid_transition
 
 
 def execute_random(world, opt_pddl_info):

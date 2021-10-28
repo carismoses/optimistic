@@ -37,6 +37,9 @@ class PandaAgent:
         self.execution_robot.set_transform(np.eye(4))
         self.add_table()
 
+        self.remove_txt = []
+        self.counter_id = None
+
         self.plan()
 
 
@@ -55,10 +58,17 @@ class PandaAgent:
         return table
 
 
-    def add_text(self, txt):
+    def add_text(self, txt, position, size, color=(0,0,0), counter=False):
         self.execute()
-        pb_robot.viz.remove_all_debug()
-        self.txt_id = pb_robot.viz.add_text(txt, position=(0, 0.25, 0.75), size=2)
+        for id in self.remove_txt:
+            pb_robot.viz.remove_debug(id)
+        if counter and self.counter_id:
+            pb_robot.viz.remove_debug(self.counter_id)
+        txt_id = pb_robot.viz.add_text(txt, position=position, size=size, color=color)
+        if counter:
+            self.counter_id = txt_id
+        else:
+            self.remove_txt += [txt_id]
         self.plan()
 
 
