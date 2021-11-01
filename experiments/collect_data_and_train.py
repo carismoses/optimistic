@@ -53,7 +53,7 @@ def train_class(args, trans_dataset, logger):
         if 'goals' in args.data_collection_mode:
             print('Goal: ', goal)
             if world.use_panda:
-                world.panda.add_text('Planning with Goal: (%s, %s)' % (goal[0], block_colors[world.blocks[goal[1]]][0]),
+                world.panda.add_text('Planning for Goal: (%s, %s)' % (goal[0], block_colors[world.blocks[goal[1]]][0]),
                                     position=(0, -1, 1),
                                     size=1.5,
                                     color = (0, 255, 0, 1) if goal_feas else (255, 0 , 0, 1))
@@ -70,23 +70,44 @@ def train_class(args, trans_dataset, logger):
                                                 unit_costs=True,
                                                 initial_complexity=ic)  # don't set complexity=2 in simple (non-robot) domain
             print('Plan: ', pddl_plan)
+            trajectory = []
             if pddl_plan is not None and len(pddl_plan) > 0:
                 if world.use_panda:
                     world.panda.add_text('Executing found plan',
                                         position=(0, -1, 1),
                                         size=1.5)
                 trajectory, valid_transition = execute_plan(world, problem, pddl_plan, init_expanded)
-                if not valid_transition:
+                if not valid_transition and world.use_panda:
                     world.panda.add_text('Infeasible plan',
                                         position=(0, -1, 1),
                                         size=1.5)
             else:
                 # if plan not found, execute random actions
                 if world.use_panda:
-                    world.panda.add_text('Planning failed. Executing random actions',
+                    world.panda.add_text('Planning failed. Planning with optimistic model',
                                         position=(0, -1, 1),
                                         size=1.5)
-                trajectory = execute_random(world, opt_pddl_info)
+                problem = tuple([*opt_pddl_info, world.init_state, goal])
+                ic = 2 if world.use_panda else 0
+                pddl_plan, cost, init_expanded = solve_focused(problem,
+                                                    success_cost=INF,
+                                                    max_skeletons=2,
+                                                    search_sample_ratio=1.0,
+                                                    max_time=INF,
+                                                    verbose=False,
+                                                    unit_costs=True,
+                                                    initial_complexity=ic)  # don't set complexity=2 in simple (non-robot) domain
+                print('Plan: ', pddl_plan)
+                if pddl_plan is not None and len(pddl_plan) > 0:
+                    if world.use_panda:
+                        world.panda.add_text('Executing found plan',
+                                            position=(0, -1, 1),
+                                            size=1.5)
+                    trajectory, valid_transition = execute_plan(world, problem, pddl_plan, init_expanded)
+                    if not valid_transition and world.use_panda:
+                        world.panda.add_text('Infeasible plan',
+                                            position=(0, -1, 1),
+                                            size=1.5)
         elif args.data_collection_mode == 'random-actions':
             if world.use_panda:
                 world.panda.add_text('Executing random actions',
@@ -98,26 +119,28 @@ def train_class(args, trans_dataset, logger):
         world.disconnect()
 
         # add to dataset and save
-        print('Adding trajectory to dataset.')
-        add_trajectory_to_dataset(args, trans_dataset, trajectory, world)
+        if trajectory:
+            print('Adding trajectory to dataset.')
+            add_trajectory_to_dataset(args, trans_dataset, trajectory, world)
 
-        # initialize and train new model
-        trans_model = TransitionGNN(n_of_in=1,
-                                    n_ef_in=1,
-                                    n_af_in=2,
-                                    n_hidden=args.n_hidden,
-                                    pred_type=args.pred_type)
-        trans_dataset.set_pred_type(args.pred_type)
-        print('Training model.')
-        trans_dataloader = DataLoader(trans_dataset, batch_size=args.batch_size, shuffle=True)
-        train(trans_dataloader, trans_model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
-        im = show_model_accuracy(im, trans_model, world)
+            # initialize and train new model
+            trans_model = TransitionGNN(n_of_in=1,
+                                        n_ef_in=1,
+                                        n_af_in=2,
+                                        n_hidden=args.n_hidden,
+                                        pred_type=args.pred_type)
+            trans_dataset.set_pred_type(args.pred_type)
+            print('Training model.')
+            trans_dataloader = DataLoader(trans_dataset, batch_size=args.batch_size, shuffle=True)
+            train(trans_dataloader, trans_model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
+            im = show_model_accuracy(im, trans_model, world)
 
-        # save new model and dataset
+            # save new model and dataset
+            logger.save_trans_dataset(trans_dataset, i=i)
+            logger.save_trans_model(trans_model, i=i)
+            print('Saved model to %s' % logger.exp_path)
+
         i += 1
-        logger.save_trans_dataset(trans_dataset, i=i)
-        logger.save_trans_model(trans_model, i=i)
-        print('Saved model to %s' % logger.exp_path)
 
 
 def add_trajectory_to_dataset(args, trans_dataset, trajectory, world):
