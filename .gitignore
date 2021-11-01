@@ -18,3 +18,4 @@ pddlstream
 pb_robot
 temp/
 domains/ordered_blocks/discrete/tmp
+domains/ordered_blocks/panda/tmp

@@ -172,8 +172,10 @@ def add_to_streams(streams_pddl_path, add_to_streams_path, domain_pddl_path_dir)
     os.makedirs(os.path.dirname(learned_streams_pddl_path), exist_ok=True)
     new_learned_streams_pddl = []
     if streams_pddl_path:
-        raise NotImplementedError('Need to handle case where streams are added to')
         copyfile(streams_pddl_path, learned_streams_pddl_path)
+        with open(learned_streams_pddl_path, 'r') as learned_streams_pddl_file:
+            lines = learned_streams_pddl_file.readlines()
+            new_learned_streams_pddl = lines[:-1]+new_streams+[')\n']
     else:
         new_learned_streams_pddl += ['(define (stream tmp)\n']
         new_learned_streams_pddl += new_streams

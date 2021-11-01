@@ -15,6 +15,7 @@ from panda_wrapper.panda_agent import PandaAgent
 from tamp.utils import get_simple_state, get_learned_pddl
 from domains.ordered_blocks.panda.primitives import get_free_motion_gen, \
     get_holding_motion_gen, get_ik_fn, get_pose_gen_block, get_grasp_gen
+from domains.ordered_blocks.add_to_primitives import get_trust_model
 
 class OrderedBlocksWorld:
     @staticmethod
@@ -59,7 +60,7 @@ class OrderedBlocksWorld:
                             ('block', b),
                             ('on', b, self.table)]
             if self.use_panda:
-                pose = pb_robot.vobj.BodyPose(pb, pb.get_base_link_pose())
+                pose = pb_robot.vobj.BodyPose(b, b.get_base_link_pose())
                 pddl_state += [('pose', b, pose),
                                 ('atpose', b, pose),
                                 ('clear', b)]
@@ -110,10 +111,12 @@ class OrderedBlocksWorld:
 
 
     def get_pddl_info(self, pddl_model_type, logger):
+        add_to_domain_path = 'domains/ordered_blocks/add_to_domain.pddl'
+        add_to_streams_path = 'domains/ordered_blocks/add_to_streams.pddl'
         if self.use_panda:
             robot = self.panda.planning_robot
-            opt_domain_pddl = read('domains/ordered_blocks/panda/optimistic/domain.pddl')
-            opt_streams_pddl = read('domains/ordered_blocks/panda/optimistic/streams.pddl')
+            opt_domain_pddl_path = 'domains/ordered_blocks/panda/domain.pddl'
+            opt_streams_pddl_path = 'domains/ordered_blocks/panda/streams.pddl'
             opt_streams_map = {
                 'plan-free-motion': from_fn(get_free_motion_gen(robot,
                                                                 self.fixed)),
@@ -130,40 +133,27 @@ class OrderedBlocksWorld:
                 'sample-pose-block': from_fn(get_pose_gen_block(self.fixed)),
                 'sample-grasp': from_list_fn(get_grasp_gen(robot)),
                 }
-            if pddl_model_type == 'optimistic':
-                domain_pddl = opt_domain_pddl
-                streams_pddl = opt_streams_pddl
-                streams_map = opt_streams_map
-            elif pddl_model_type == 'learned':
-                domain_pddl = read('domains/ordered_blocks/panda/learned/domain.pddl')
-                streams_pddl = read('domains/ordered_blocks/panda/learned/streams.pddl')
-                streams_map = opt_streams_map
-                from domains.ordered_blocks.panda.primitives import get_trust_model
-                streams_map['TrustModel'] = get_trust_model(self, logger)
         else:
             opt_domain_pddl_path = 'domains/ordered_blocks/discrete/domain.pddl'
             opt_streams_pddl_path = None
             opt_streams_map = {}
-            opt_domain_pddl = read(opt_domain_pddl_path)
-            opt_streams_pddl = None
-            if pddl_model_type == 'optimistic':
-                domain_pddl = opt_domain_pddl
-                streams_pddl = opt_streams_pddl
-                streams_map = opt_streams_map
-            elif pddl_model_type == 'learned':
-                add_to_domain_path = 'domains/ordered_blocks/discrete/add_to_domain.pddl'
-                add_to_streams_path = 'domains/ordered_blocks/discrete/add_to_streams.pddl'
-                domain_pddl, streams_pddl = get_learned_pddl(opt_domain_pddl_path,
-                                                            opt_streams_pddl_path,
-                                                            add_to_domain_path,
-                                                            add_to_streams_path)
-                from domains.ordered_blocks.discrete.add_to_primitives import get_trust_model
-                streams_map = {'TrustModel': get_trust_model(self, logger)}
+
+        opt_domain_pddl = read(opt_domain_pddl_path)
+        opt_streams_pddl = read(opt_streams_pddl_path) if opt_streams_pddl_path else None
+        if pddl_model_type == 'optimistic':
+            domain_pddl = opt_domain_pddl
+            streams_pddl = opt_streams_pddl
+            streams_map = opt_streams_map
+        elif pddl_model_type == 'learned':
+            domain_pddl, streams_pddl = get_learned_pddl(opt_domain_pddl_path,
+                                                        opt_streams_pddl_path,
+                                                        add_to_domain_path,
+                                                        add_to_streams_path)
+            streams_map = opt_streams_map
+            streams_map['TrustModel'] = get_trust_model(self, logger)
+
         constant_map = {}
-        opt_pddl_info = [opt_domain_pddl,
-                        constant_map,
-                        opt_streams_pddl,
-                        opt_streams_map]
+        opt_pddl_info = [opt_domain_pddl, constant_map, opt_streams_pddl, opt_streams_map]
         pddl_info = [domain_pddl, constant_map, streams_pddl, streams_map]
         return opt_pddl_info, pddl_info
 
