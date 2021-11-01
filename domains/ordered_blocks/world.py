@@ -55,15 +55,14 @@ class OrderedBlocksWorld:
         pddl_state = []
         shuffled_blocks = list(self.blocks)
         random.shuffle(shuffled_blocks)
-        for b in self.blocks:
+        for b in shuffled_blocks:
             pddl_state += [('clear', b),
                             ('block', b),
                             ('on', b, self.table)]
             if self.use_panda:
                 pose = pb_robot.vobj.BodyPose(b, b.get_base_link_pose())
                 pddl_state += [('pose', b, pose),
-                                ('atpose', b, pose),
-                                ('clear', b)]
+                                ('atpose', b, pose)]
         pddl_state += [('table', self.table)]
         if self.use_panda:
             pddl_state += self.panda.get_init_state()
