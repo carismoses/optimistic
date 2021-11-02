@@ -1,6 +1,8 @@
 from shutil import copyfile
 import os
 
+import odio_urdf
+
 from pddlstream.algorithms.algorithm import parse_problem
 from pddlstream.algorithms.downward import task_from_domain_problem, get_action_instances, \
                                             get_problem, parse_action
@@ -211,11 +213,11 @@ def transition(world, pddl_state, fd_state, pddl_action, fd_action):
     return new_pddl_state, new_fd_state, valid_transition
 
 
-def block_to_urdf(urdf_name, color):
+def block_to_urdf(obj_name, urdf_path, color):
     I = 0.001
     side = 0.05
     mass = 0.1
-    link_urdf = odio_urdf.Link(urdf_name,
+    link_urdf = odio_urdf.Link(obj_name,
                   odio_urdf.Inertial(
                       odio_urdf.Origin(xyz=(0, 0, 0), rpy=(0, 0, 0)),
                       odio_urdf.Mass(mass),
@@ -246,9 +248,6 @@ def block_to_urdf(urdf_name, color):
                                     )
                   ))
 
-    block_urdf = odio_urdf.Robot(link_urdf, name=urdf_name)
-    file_name = '%s.urdf' % urdf_name
-    path = os.path.join('pb_robot', 'models', file_name)
-    with open(path, 'w') as handle:
+    block_urdf = odio_urdf.Robot(link_urdf, name=obj_name)
+    with open(urdf_path, 'w') as handle:
         handle.write(str(block_urdf))
-    return file_name

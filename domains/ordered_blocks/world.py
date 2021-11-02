@@ -1,5 +1,4 @@
 import os
-import odio_urdf
 import numpy as np
 from copy import copy
 import random
@@ -99,8 +98,11 @@ class OrderedBlocksWorld:
         pb_blocks = {}
         orig_poses = {}
         for block_num, xy_point in zip(range(1, self.num_blocks+1), xy_points):
-            file_name = block_to_urdf(str(block_num), block_colors[(block_num % len(block_colors))][1])
-            pb_block = pb_robot.body.createBody(os.path.join('models', file_name))
+            fname = '%i.urdf' % block_num
+            block_to_urdf(str(block_num),
+                            os.path.join('tamp/urdf_models', fname),
+                            block_colors[(block_num % len(block_colors))][1])
+            pb_block = pb_robot.body.createBody(os.path.join('models', fname))
             # NOTE: for now assumes no relative rotation between robot base/world frame and object
             z = pb_robot.placements.stable_z(pb_block, self.panda.table)
             block_pose = ((*xy_point, z), (0., 0., 0., 1.))
