@@ -1,13 +1,11 @@
 import os
 import numpy as np
-from copy import copy
 import random
 
 import pb_robot
 
 from pddlstream.language.constants import Action
 from pddlstream.utils import read
-from pddlstream.algorithms.downward import fact_from_fd, apply_action
 from pddlstream.language.generator import from_list_fn, from_fn
 
 from panda_wrapper.panda_agent import PandaAgent

@@ -1,13 +1,14 @@
 from shutil import copyfile
 import os
+from copy import copy
 
 import odio_urdf
 
 from pddlstream.algorithms.algorithm import parse_problem
 from pddlstream.algorithms.downward import task_from_domain_problem, get_action_instances, \
-                                            get_problem, parse_action
+                                            get_problem, parse_action, \
+                                            fact_from_fd, apply_action, is_applicable
 from pddlstream.language.conversion import Object, transform_plan_args
-from pddlstream.algorithms.downward import fact_from_fd, is_applicable
 from pddlstream.utils import read
 
 from learning.datasets import model_forward
