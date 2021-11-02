@@ -54,7 +54,11 @@ def get_holding_motion_gen(robot, fixed=[]):
 
 def get_ik_fn(robot, fixed=[], num_attempts=4, approach_frame='gripper', backoff_frame='global'):
     def fn(obj, pose, grasp, return_grasp_q=False, check_robust=False):
-        obstacles = fixed + [obj]
+        if approach_frame == 'global': # grasp object for collision checking on place action
+            orig_pose = obj.get_base_link_pose()
+            robot.arm.Grab(obj, grasp.grasp_objF)
+
+        obstacles = fixed
         obj_worldF = pb_robot.geometry.tform_from_pose(pose.pose)
         grasp_worldF = np.dot(obj_worldF, grasp.grasp_objF)
         grasp_worldR = grasp_worldF[:3,:3]
@@ -160,6 +164,9 @@ def get_ik_fn(robot, fixed=[], num_attempts=4, approach_frame='gripper', backoff
             command = [pb_robot.vobj.MoveToTouch(robot.arm, q_approach, q_grasp, grasp, obj),
                        grasp,
                        pb_robot.vobj.MoveFromTouch(robot.arm, q_backoff)]
+            if approach_frame == 'global':
+                robot.arm.Release(obj)
+                obj.set_base_link_pose(orig_pose)
 
             if return_grasp_q:
                 return (pb_robot.vobj.BodyConf(robot, q_grasp),)

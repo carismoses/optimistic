@@ -32,7 +32,7 @@ class ToolsWorld:
         self.panda.execute()
         self.place_objects()
         self.panda.plan()
-        self.fixed = [self.panda.table]#, self.objects['tunnel']]
+        self.fixed = [self.panda.table, self.objects['tunnel']]
         self.obstacles = list(self.objects.values())
         self.init_state = self.get_init_state()
 
@@ -82,16 +82,15 @@ class ToolsWorld:
         init_state = []
 
         # tool
-        '''
         tool_name = 'tool'
         tool, pose = place_object(tool_name, 'tamp/urdf_models/%s.urdf' % tool_name, (0.3, -0.4))
         init_state += [('tool', tool), ('on', tool, self.panda.table), ('clear', tool), \
                         ('atpose', tool, pose), ('pose', tool, pose), ('freeobj', tool)]
-        '''
+
         # blocks
         blocks = [('red_block', (1.0, 0.0, 0.0, 1.0), (0.9, 0.0)),
-                    ('blue_block', (0.0, 0.0, 1.0, 1.0), (0.3, 0.4)),#(0.3, 0.4)),
-                    ('yellow_block', (1.0, 1.0, 0.0, 1.0), (0.3, -0.3))]#(0.7, -0.3))]
+                    ('blue_block', (0.0, 0.0, 1.0, 1.0), (0.3, 0.4)),
+                    ('yellow_block', (1.0, 1.0, 0.0, 1.0), (0.4, -0.3))]# (0.7, -0.3))]
         for name, color, pos_xy in blocks:
             urdf_path = 'tamp/urdf_models/%s.urdf' % name
             block_to_urdf(name, urdf_path, color)
@@ -100,15 +99,12 @@ class ToolsWorld:
                             ('atpose', block, pose), ('pose', block, pose), ('freeobj', block)]
 
         # tunnel
-        '''
         tunnel_name = 'tunnel'
         tunnel, pose = place_object(tunnel_name, 'tamp/urdf_models/%s.urdf' % tunnel_name, (0.3, 0.4))
         init_state += [('tunnel', tunnel)]#, ('on', tunnel, self.panda.table), ('clear', block), \
                         #('atpose', tunnel, pose), ('pose', tunnel, pose)]
-        '''
 
         # patches
-        '''
         patches = [('green_patch', (0.4, -0.3)), ('violet_patch', (0.7, 0.4))]
         for name, pos_xy in patches:
             patch, pose = place_object(name,
@@ -116,7 +112,7 @@ class ToolsWorld:
                             pos_xy)
             init_state += [('patch', patch), ('clear', patch), ('atpose', patch, pose), \
                             ('pose', patch, pose)]#, ('on', patch, self.panda.table)]
-        '''
+
         return pb_objects, orig_poses, init_state
 
 
