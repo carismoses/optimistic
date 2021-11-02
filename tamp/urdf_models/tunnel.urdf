@@ -41,7 +41,7 @@
         <box size="0.2 0.01 0.06" />
       </geometry>
       <material name="desert sand">
-        <color rgba="0.375 0.375 0.375 0.4" />
+        <color rgba="0.375 0.375 0.375 0.7" />
       </material>
     </visual>
     <collision>
@@ -67,7 +67,7 @@
         <box size="0.2 0.09 0.01" />
       </geometry>
       <material name="desert sand">
-        <color rgba="0.375 0.375 0.375 0.4" />
+        <color rgba="0.375 0.375 0.375 0.7" />
       </material>
     </visual>
     <collision>
