@@ -14,7 +14,7 @@ def calc_time_step_accs(test_num_blocks, test_dataset, method, model_paths, worl
     all_model_accuracies = []
     # NOTE: this assumes all action validity can be correctly determined from the initial state!
     # this won't always be the case!
-    vof, vef = world.state_to_vec(world.get_init_state())
+    vof, vef = world.state_to_vec(world.get_init_state(), num_blocks=test_num_blocks)
     for model_path in model_paths:
         logger = ExperimentLogger(model_path)
         accuracies = []
@@ -92,11 +92,11 @@ if __name__ == '__main__':
     logger = ExperimentLogger.setup_experiment_directory(args, 'model_accuracy')
 
     # generate dataset for each test_num_blocks
+    world = OrderedBlocksWorld(max(all_test_num_blocks), use_panda=False, vis=False)
     test_datasets = {}
     for test_num_blocks in all_test_num_blocks:
         num_blocks_dataset = []
-        world = OrderedBlocksWorld(test_num_blocks, False)
-        all_opt_actions = world.all_optimistic_actions()
+        all_opt_actions = world.all_optimistic_actions(num_blocks=test_num_blocks)
         for opt_action in all_opt_actions:
             num_blocks_dataset.append([opt_action, world.valid_transition(opt_action)])
         test_datasets[test_num_blocks] = num_blocks_dataset

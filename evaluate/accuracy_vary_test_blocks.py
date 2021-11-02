@@ -7,35 +7,32 @@ from learning.utils import ExperimentLogger
 from learning.datasets import model_forward
 from evaluate.utils import recc_dict, plot_results
 
-def calc_full_trans_accuracy(model_type, test_num_blocks, model):
+def calc_full_trans_accuracy(model_type, test_num_blocks, world, model):
     '''
     :param model_type: in ['learned', 'opt']
     '''
     accuracies = {}
     # NOTE: we test all actions from initial state assuming that the network is ignoring the state
-    world = OrderedBlocksWorld(test_num_blocks, False)
-    all_actions = world.all_optimistic_actions()
+    all_actions = world.all_optimistic_actions(num_blocks=test_num_blocks)
     init_state = world.get_init_state()
-    vof, vef = world.state_to_vec(init_state)
+    vof, vef = world.state_to_vec(init_state, num_blocks=test_num_blocks)
     for action in all_actions:
+        va = world.action_to_vec(action)
         gt_pred = world.valid_transition(action)
         if model_type == 'opt':
             model_pred = 1. # optimistic model always thinks it's right
         else:
-            va = world.action_to_vec(action)
             model_pred = model_forward(model, [vof, vef, va]).round().squeeze()
-        accuracies[(gt_pred, action)] = int(np.array_equal(gt_pred, model_pred))
+        str_a = '(%i, %i)' % (action.args[0].num, action.args[2].num)
+        accuracies[(gt_pred, str_a)] = int(np.array_equal(gt_pred, model_pred))
     return accuracies
 
 def plot_full_accuracies(method, method_full_trans_success_data):
     fig, axes = plt.subplots(len(method_full_trans_success_data), 1, sharex=True)
     fig.set_size_inches(12, 7)
 
-    def action_to_str(action):
-        return '(%i, %i)' % (action.args[0], action.args[1])
-
     def plot_accs(avg_acc, std_acc, action, nb, ni):
-        axes[ni].bar(action_to_str(action),
+        axes[ni].bar(action,
                     avg_acc,
                     color='r' if avg_acc<0.5 else 'g',
                     yerr=std_acc)
@@ -65,16 +62,14 @@ def plot_full_accuracies(method, method_full_trans_success_data):
     plt.savefig('%s/%s.png' % (logger.exp_path, title))
 
 
-def calc_trans_accuracy(model_type, test_dataset, test_num_blocks, model=None):
+def calc_trans_accuracy(model_type, test_dataset, test_num_blocks, world, model=None):
     '''
     :param model_type: in ['learned', 'opt']
     '''
     accuracies = []
-    world = OrderedBlocksWorld(test_num_blocks, False)
-    vof, vef = world.state_to_vec(world.get_init_state())
-    for action, gt_pred in test_dataset:
+    vof, vef = world.state_to_vec(world.get_init_state(), num_blocks=test_num_blocks)
+    for va, gt_pred in test_dataset:
         # get all relevant transition info
-        va = world.action_to_vec(action)
         x = [vof, vef, va]
         if model_type == 'opt':
             model_pred = 1. # optimistic model always thinks it's right
@@ -108,13 +103,14 @@ if __name__ == '__main__':
     ########
 
     # generate dataset for each test_num_blocks
+    world = OrderedBlocksWorld(max(all_test_num_blocks), use_panda=False, vis=False)
     test_datasets = {}
     for test_num_blocks in all_test_num_blocks:
         num_blocks_dataset = []
-        world = OrderedBlocksWorld(test_num_blocks, False)
-        all_opt_actions = world.all_optimistic_actions()
+        all_opt_actions = world.all_optimistic_actions(num_blocks=test_num_blocks)
         for opt_action in all_opt_actions:
-            num_blocks_dataset.append([opt_action, world.valid_transition(opt_action)])
+            num_blocks_dataset.append([world.action_to_vec(opt_action),
+                                        world.valid_transition(opt_action)])
         test_datasets[test_num_blocks] = num_blocks_dataset
 
     trans_success_data = recc_dict()
@@ -130,21 +126,25 @@ if __name__ == '__main__':
                 trans_accuracy = calc_trans_accuracy('learned',
                                                 test_dataset,
                                                 test_num_blocks,
+                                                world,
                                                 model=trans_model)
                 full_trans_success_data[method][test_num_blocks][model_path] = \
                                         calc_full_trans_accuracy('learned',
                                                                 test_num_blocks,
-                                                                model=trans_model)
+                                                                world,
+                                                                trans_model)
                 trans_success_data[method][test_num_blocks][model_path] = trans_accuracy
 
     if compare_opt:
         for test_num_blocks, test_dataset in test_datasets.items():
             trans_success_data['opt'][test_num_blocks] = calc_trans_accuracy('opt',
                                                                     test_dataset,
-                                                                    test_num_blocks)
+                                                                    test_num_blocks,
+                                                                    world)
             full_trans_success_data['opt'][test_num_blocks] = calc_full_trans_accuracy('opt',
                                                             test_num_blocks,
-                                                            model=trans_model)
+                                                            world,
+                                                            trans_model)
 
     # Save data to logger
     logger = ExperimentLogger.setup_experiment_directory(args, 'model_accuracy')

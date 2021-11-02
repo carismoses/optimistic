@@ -12,7 +12,7 @@ from pddlstream.algorithms.downward import fact_from_fd, apply_action
 from pddlstream.language.generator import from_list_fn, from_fn
 
 from panda_wrapper.panda_agent import PandaAgent
-from tamp.utils import get_simple_state, get_learned_pddl
+from tamp.utils import get_simple_state, get_learned_pddl, block_to_urdf
 from domains.ordered_blocks.panda.primitives import get_free_motion_gen, \
     get_holding_motion_gen, get_ik_fn, get_pose_gen_block, get_grasp_gen
 from domains.ordered_blocks.add_to_primitives import get_trust_model
@@ -39,6 +39,7 @@ class OrderedBlocksWorld:
             self.place_blocks()
             self.panda.plan()
             self.fixed = [self.panda.table]
+            self.obstacles = list(self.pb_blocks)
         else:
             self.nb_blocks = {}
             for n in range(1,self.num_blocks+1):
@@ -98,7 +99,7 @@ class OrderedBlocksWorld:
         pb_blocks = {}
         orig_poses = {}
         for block_num, xy_point in zip(range(1, self.num_blocks+1), xy_points):
-            file_name = block_to_urdf(block_num)
+            file_name = block_to_urdf(str(block_num), block_colors[(block_num % len(block_colors))][1])
             pb_block = pb_robot.body.createBody(os.path.join('models', file_name))
             # NOTE: for now assumes no relative rotation between robot base/world frame and object
             z = pb_robot.placements.stable_z(pb_block, self.panda.table)
@@ -344,24 +345,29 @@ class OrderedBlocksWorld:
             return [], []
 
 
-    def state_to_vec(self, state):
+    def state_to_vec(self, state, num_blocks=None):
+        if not num_blocks: num_blocks = self.num_blocks
+        assert num_blocks <= self.num_blocks, 'can\'t ask for more block states than ' \
+                                                'there are blocks in the world'
+        blocks = {block : block_num for block, block_num in self.blocks.items() \
+                                                if block_num <= num_blocks}
         state = get_simple_state(state)
         def block_on_top(bottom_block):
-            for top_block in self.blocks:
+            for top_block in blocks:
                 if ('on', top_block, bottom_block) in state:
                     return True, top_block
             return False, None
 
-        object_features = np.expand_dims(np.arange(self.num_blocks+1), 1)
-        edge_features = np.zeros((self.num_blocks+1, self.num_blocks+1, 1))
+        object_features = np.expand_dims(np.arange(num_blocks+1), 1)
+        edge_features = np.zeros((num_blocks+1, num_blocks+1, 1))
         # for each block on the table, recursively check which blocks are on top of it
-        for block in self.blocks:
+        for block in blocks:
             if ('on', block, self.table) in state:
-                edge_features[0, self.blocks[block], 0] = 1.
+                edge_features[0, blocks[block], 0] = 1.
                 is_block_on_top, top_block = block_on_top(block)
                 bottom_block = block
                 while is_block_on_top:
-                    edge_features[self.blocks[bottom_block], self.blocks[top_block], 0] = 1.
+                    edge_features[blocks[bottom_block], blocks[top_block], 0] = 1.
                     bottom_block = top_block
                     is_block_on_top, top_block = block_on_top(bottom_block)
         return object_features, edge_features
@@ -375,13 +381,18 @@ class OrderedBlocksWorld:
 
 
     # init keys for all potential actions
-    def all_optimistic_actions(self):
+    def all_optimistic_actions(self, num_blocks=None):
         if self.use_panda:
             print('WARNING: world.all_optimistic_actions() only enumerates place' \
                     'actions and doesn\'t ground all variables')
         actions = []
-        for bb in self.blocks:
-            for bt in self.blocks:
+        if not num_blocks: num_blocks = self.num_blocks
+        assert num_blocks <= self.num_blocks, 'can\'t ask for more block actions than ' \
+                                                'there are blocks in the world'
+        blocks = {block : block_num for block, block_num in self.blocks.items() \
+                                                if block_num <= num_blocks}
+        for bb in blocks:
+            for bt in blocks:
                 if bb != bt:
                     if self.use_panda:
                         action = Action(name='place', args=(bt, None, bb, None, None, None, None, None))
@@ -393,20 +404,6 @@ class OrderedBlocksWorld:
 
     def action_args_to_action(self, top_block, bottom_block):
         return Action(name='pickplace', args=(top_block, self.table, bottom_block))
-
-
-    def transition(self, pddl_state, fd_state, pddl_action, fd_action):
-        new_fd_state = copy(fd_state)
-        valid_transition = self.valid_transition(pddl_action)
-        if valid_transition:
-            apply_action(new_fd_state, fd_action) # apply action in PDDL model
-            if self.use_panda:
-                print('Executing action: ', pddl_action)
-                self.panda.execute_action(pddl_action, self.fixed, world_obstacles=list(self.blocks))
-                print('Action successfully executed.')
-        pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
-        new_pddl_state = [fact_from_fd(sfd) for sfd in new_fd_state]
-        return new_pddl_state, new_fd_state, valid_transition
 
 
     # NOTE: in physical domains, to evaluate if a transition matched the optimistic model,
@@ -447,45 +444,3 @@ block_colors = {1:('red', (255, 0 , 0, 1)),
                 5: ('blue', (0, 0, 255, 1)),
                 6: ('indigo', (148, 0, 130, 1)),
                 7: ('violet', (1, 0, 211, 1))}
-def block_to_urdf(block_num):
-    I = 0.001
-    side = 0.05
-    mass = 0.1
-    color = block_colors[(block_num % len(block_colors))][1]
-    link_urdf = odio_urdf.Link(str(block_num),
-                  odio_urdf.Inertial(
-                      odio_urdf.Origin(xyz=(0, 0, 0), rpy=(0, 0, 0)),
-                      odio_urdf.Mass(mass),
-                      odio_urdf.Inertia(ixx=I,
-                                        ixy=0,
-                                        ixz=0,
-                                        iyy=I,
-                                        iyz=0,
-                                        izz=I)
-                  ),
-                  odio_urdf.Collision(
-                      odio_urdf.Origin(xyz=(0, 0, 0), rpy=(0, 0, 0)),
-                      odio_urdf.Geometry(
-                          odio_urdf.Box(size=(side,
-                                            side,
-                                            side))
-                      )
-                  ),
-                  odio_urdf.Visual(
-                      odio_urdf.Origin(xyz=(0, 0, 0), rpy=(0, 0, 0)),
-                      odio_urdf.Geometry(
-                          odio_urdf.Box(size=(side,
-                                                side,
-                                                side))
-                      ),
-                      odio_urdf.Material('color',
-                                    odio_urdf.Color(rgba=color)
-                                    )
-                  ))
-
-    block_urdf = odio_urdf.Robot(link_urdf, name=str(block_num))
-    file_name = '%i.urdf' % block_num
-    path = os.path.join('pb_robot', 'models', file_name)
-    with open(path, 'w') as handle:
-        handle.write(str(block_urdf))
-    return file_name

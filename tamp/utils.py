@@ -63,10 +63,11 @@ def execute_plan(world, problem, pddl_plan, init_expanded):
         fd_action, pddl_action = fd_plan[ai], pddl_plan[ai]
         assert is_applicable(fd_state, fd_action), 'Something wrong with planner. An invalid action is in the plan.'
         pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
-        new_pddl_state, new_fd_state, valid_transition = world.transition(pddl_state,
-                                                                            fd_state,
-                                                                            pddl_action,
-                                                                            fd_action)
+        new_pddl_state, new_fd_state, valid_transition = transition(world,
+                                                                    pddl_state,
+                                                                    fd_state,
+                                                                    pddl_action,
+                                                                    fd_action)
         trajectory.append((pddl_state, pddl_action, new_pddl_state, valid_transition))
         fd_state = new_fd_state
         ai += 1
@@ -92,10 +93,11 @@ def execute_random(world, opt_pddl_info):
             print('Random action: ', pddl_action)
             fd_action = get_fd_action(task, pddl_action)
             pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
-            new_pddl_state, new_fd_state, valid_transition = world.transition(pddl_state,
-                                                                                fd_state,
-                                                                                pddl_action,
-                                                                                fd_action)
+            new_pddl_state, new_fd_state, valid_transition = transition(world,
+                                                                        pddl_state,
+                                                                        fd_state,
+                                                                        pddl_action,
+                                                                        fd_action)
             trajectory.append((pddl_state, pddl_action, new_pddl_state, valid_transition))
             fd_state = new_fd_state
             pddl_state = new_pddl_state
@@ -186,9 +188,67 @@ def add_to_streams(streams_pddl_path, add_to_streams_path, domain_pddl_path_dir)
 
     return learned_streams_pddl_path
 
+
 def get_learned_pddl(opt_domain_pddl_path, opt_streams_pddl_path, \
                     add_to_domain_path, add_to_streams_path):
     domain_pddl_path_dir = os.path.dirname(opt_domain_pddl_path)
     learned_domain_pddl_path = add_to_domain(opt_domain_pddl_path, add_to_domain_path, domain_pddl_path_dir)
     learned_streams_pddl_path = add_to_streams(opt_streams_pddl_path, add_to_streams_path, domain_pddl_path_dir)
     return read(learned_domain_pddl_path), read(learned_streams_pddl_path)
+
+
+def transition(world, pddl_state, fd_state, pddl_action, fd_action):
+    new_fd_state = copy(fd_state)
+    valid_transition = world.valid_transition(pddl_action)
+    if valid_transition:
+        apply_action(new_fd_state, fd_action) # apply action in PDDL model
+        if world.use_panda:
+            print('Executing action: ', pddl_action)
+            world.panda.execute_action(pddl_action, world.fixed, world_obstacles=world.obstacles)
+            print('Action successfully executed.')
+    pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
+    new_pddl_state = [fact_from_fd(sfd) for sfd in new_fd_state]
+    return new_pddl_state, new_fd_state, valid_transition
+
+
+def block_to_urdf(urdf_name, color):
+    I = 0.001
+    side = 0.05
+    mass = 0.1
+    link_urdf = odio_urdf.Link(urdf_name,
+                  odio_urdf.Inertial(
+                      odio_urdf.Origin(xyz=(0, 0, 0), rpy=(0, 0, 0)),
+                      odio_urdf.Mass(mass),
+                      odio_urdf.Inertia(ixx=I,
+                                        ixy=0,
+                                        ixz=0,
+                                        iyy=I,
+                                        iyz=0,
+                                        izz=I)
+                  ),
+                  odio_urdf.Collision(
+                      odio_urdf.Origin(xyz=(0, 0, 0), rpy=(0, 0, 0)),
+                      odio_urdf.Geometry(
+                          odio_urdf.Box(size=(side,
+                                            side,
+                                            side))
+                      )
+                  ),
+                  odio_urdf.Visual(
+                      odio_urdf.Origin(xyz=(0, 0, 0), rpy=(0, 0, 0)),
+                      odio_urdf.Geometry(
+                          odio_urdf.Box(size=(side,
+                                                side,
+                                                side))
+                      ),
+                      odio_urdf.Material('color',
+                                    odio_urdf.Color(rgba=color)
+                                    )
+                  ))
+
+    block_urdf = odio_urdf.Robot(link_urdf, name=urdf_name)
+    file_name = '%s.urdf' % urdf_name
+    path = os.path.join('pb_robot', 'models', file_name)
+    with open(path, 'w') as handle:
+        handle.write(str(block_urdf))
+    return file_name

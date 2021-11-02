@@ -68,8 +68,21 @@ new_new_curric_25 = ['logs/experiments/curric_new_25_not_random_curric_goal-2021
                     'logs/experiments/curric_new_25_not_random_curric_goal-20210920-150904',
                     'logs/experiments/curric_new_25_not_random_curric_goal-20210920-151747']
 
+'''
 model_paths = {#'random-goals-learned': random_goals_learned_6,
                 #'random-actions': random_actions_6,
                 'curriculum-goals-learned': curriculum_goals_learned_6,
                 'new-curric': new_curric_25,
                 'new-new-curric': new_new_curric_25}
+'''
+
+# 4 blocks (fixed so opt planning generates different plans for same goal)
+fixed_opt = ['logs/experiments/random-goals-learned-fixed-20211101-113354',
+                'logs/experiments/random-goals-opt-20211101-142226',
+                'logs/experiments/random-goals-opt-20211101-144408',
+                'logs/experiments/random-goals-opt-20211101-150659',
+                'logs/experiments/random-goals-opt-20211101-152928']
+
+model_paths = {'random-goals-learned': long_horizon_goals_learned,
+                'random-goals-opt': fixed_opt,
+                'random-actions': random_actions}
