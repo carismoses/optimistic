@@ -1,6 +1,5 @@
 import os
 import numpy as np
-from copy import copy
 import random
 from shutil import copyfile
 
@@ -8,20 +7,20 @@ import pb_robot
 
 from pddlstream.language.constants import Action
 from pddlstream.utils import read
-from pddlstream.algorithms.downward import fact_from_fd, apply_action
 from pddlstream.language.generator import from_list_fn, from_fn
 
 from panda_wrapper.panda_agent import PandaAgent
 from tamp.utils import get_simple_state, get_learned_pddl, block_to_urdf
-#from domains.tools.primitives import get_free_motion_gen, \
-#    get_holding_motion_gen, get_ik_fn, get_pose_gen_block, get_grasp_gen
+from domains.tools.primitives import get_free_motion_gen, \
+    get_holding_motion_gen, get_ik_fn, get_pose_gen_block, get_tool_grasp_gen, \
+    get_block_grasp_gen
 #from domains.tools.add_to_primitives import get_trust_model
 
 class ToolsWorld:
     @staticmethod
     def init(domain_args, pddl_model_type, vis, logger=None):
         world = ToolsWorld(vis)
-        opt_pddl_info, pddl_info = None, None#world.get_pddl_info(pddl_model_type, logger)
+        opt_pddl_info, pddl_info = world.get_pddl_info(pddl_model_type, logger)
         return world, opt_pddl_info, pddl_info
 
 
@@ -29,27 +28,20 @@ class ToolsWorld:
         self.use_panda = True
         self.panda = PandaAgent(vis)
         self.panda.plan()
-        self.objects, self.orig_poses = self.place_objects()
+        self.objects, self.orig_poses, self.obj_init_state = self.place_objects()
         self.panda.execute()
         self.place_objects()
         self.panda.plan()
-        self.fixed = [self.panda.table]#, self.tunnel]
+        self.fixed = [self.panda.table]#, self.objects['tunnel']]
+        self.obstacles = list(self.objects.values())
         self.init_state = self.get_init_state()
 
 
     def get_init_state(self):
-        pddl_state = []
-        shuffled_objects = list(self.objects.values())
-        random.shuffle(shuffled_objects)
-        for o in shuffled_objects:
-            pose = pb_robot.vobj.BodyPose(o, o.get_base_link_pose())
-            pddl_state += [#o.get_type_fluent(),
-                            ('clear', o),
-                            ('on', o, self.panda.table),
-                            ('pose', o, pose),
-                            ('atpose', o, pose)]
+        pddl_state = self.obj_init_state
         pddl_state += [('table', self.panda.table)]
         pddl_state += self.panda.get_init_state()
+        random.shuffle(pddl_state)
         return pddl_state
 
 
@@ -74,44 +66,58 @@ class ToolsWorld:
 
     # world frame aligns with the robot base
     def place_objects(self):
-        # tool
-        tool_name = 'tool'
-        tool_info = (tool_name, 'tamp/urdf_models/%s.urdf' % tool_name, (0.3, -0.4))
-
-        # blocks
-        blocks = [('red_block', (1.0, 0.0, 0.0, 1.0), (0.9, 0.0)),
-                    ('blue_block', (0.0, 0.0, 1.0, 1.0), (0.3, 0.4)),
-                    ('yellow_block', (1.0, 1.0, 0.0, 1.0), (0.7, -0.3))]
-        blocks_info = []
-        for name, color, pos_xy in blocks:
-            urdf_path = 'tamp/urdf_models/%s.urdf' % name
-            block_to_urdf(name, urdf_path, color)
-            blocks_info.append((name, urdf_path, pos_xy))
-
-        # tunnel
-        tunnel_name = 'tunnel'
-        tunnel_info = (tunnel_name, 'tamp/urdf_models/%s.urdf' % tunnel_name, (0.3, 0.4))
-
-        # patches
-        patches_info = []
-        for name, pos_xy in [('green_patch', (0.4, -0.3)), ('violet_patch', (0.7, 0.4))]:
-            patches_info.append((name,
-                            'tamp/urdf_models/%s.urdf' % name,
-                            pos_xy))
-
-        pb_objects = {}
-        orig_poses = {}
-        object_info = [tool_info]+blocks_info+[tunnel_info]+patches_info
-        for obj_name, path, pos_xy in object_info:
+        pb_objects, orig_poses = {}, {}
+        def place_object(obj_name, path, pos_xy):
             fname = os.path.basename(path)
             copyfile(path, os.path.join('pb_robot/models', fname))
             obj = pb_robot.body.createBody(os.path.join('models', fname))
             z = pb_robot.placements.stable_z(obj, self.panda.table)
             obj_pose = ((*pos_xy, z), (0., 0., 0., 1.))
             obj.set_base_link_pose(obj_pose)
+            pb_pose = pb_robot.vobj.BodyPose(obj, obj.get_base_link_pose())
             pb_objects[obj_name] = obj
-            orig_poses[obj_name] = obj_pose
-        return pb_objects, orig_poses
+            orig_poses[obj_name] = pb_pose
+            return obj, pb_pose
+
+        init_state = []
+
+        # tool
+        '''
+        tool_name = 'tool'
+        tool, pose = place_object(tool_name, 'tamp/urdf_models/%s.urdf' % tool_name, (0.3, -0.4))
+        init_state += [('tool', tool), ('on', tool, self.panda.table), ('clear', tool), \
+                        ('atpose', tool, pose), ('pose', tool, pose), ('freeobj', tool)]
+        '''
+        # blocks
+        blocks = [('red_block', (1.0, 0.0, 0.0, 1.0), (0.9, 0.0)),
+                    ('blue_block', (0.0, 0.0, 1.0, 1.0), (0.3, 0.4)),#(0.3, 0.4)),
+                    ('yellow_block', (1.0, 1.0, 0.0, 1.0), (0.3, -0.3))]#(0.7, -0.3))]
+        for name, color, pos_xy in blocks:
+            urdf_path = 'tamp/urdf_models/%s.urdf' % name
+            block_to_urdf(name, urdf_path, color)
+            block, pose = place_object(name, urdf_path, pos_xy)
+            init_state += [('block', block), ('on', block, self.panda.table), ('clear', block), \
+                            ('atpose', block, pose), ('pose', block, pose), ('freeobj', block)]
+
+        # tunnel
+        '''
+        tunnel_name = 'tunnel'
+        tunnel, pose = place_object(tunnel_name, 'tamp/urdf_models/%s.urdf' % tunnel_name, (0.3, 0.4))
+        init_state += [('tunnel', tunnel)]#, ('on', tunnel, self.panda.table), ('clear', block), \
+                        #('atpose', tunnel, pose), ('pose', tunnel, pose)]
+        '''
+
+        # patches
+        '''
+        patches = [('green_patch', (0.4, -0.3)), ('violet_patch', (0.7, 0.4))]
+        for name, pos_xy in patches:
+            patch, pose = place_object(name,
+                            'tamp/urdf_models/%s.urdf' % name,
+                            pos_xy)
+            init_state += [('patch', patch), ('clear', patch), ('atpose', patch, pose), \
+                            ('pose', patch, pose)]#, ('on', patch, self.panda.table)]
+        '''
+        return pb_objects, orig_poses, init_state
 
 
     def get_pddl_info(self, pddl_model_type, logger):
@@ -134,7 +140,8 @@ class ToolsWorld:
                                                             approach_frame='global',
                                                             backoff_frame='gripper')),
             'sample-pose-block': from_fn(get_pose_gen_block(self.fixed)),
-            'sample-grasp': from_list_fn(get_grasp_gen(robot)),
+            'sample-block-grasp': from_list_fn(get_block_grasp_gen(robot)),
+            'sample-tool-grasp': from_list_fn(get_tool_grasp_gen(robot)),
             }
 
         opt_domain_pddl = read(opt_domain_pddl_path)
@@ -210,14 +217,27 @@ class ToolsWorld:
     # NOTE this is a bit hacky. should get indices from param names ?bt and ?bb
     def valid_transition(self, pddl_action):
         # TODO
-        return None
+        return True
 
 # just for testing
 if __name__ == '__main__':
     import pybullet as p
     import time
+    from pddlstream.utils import INF
+    from pddlstream.algorithms.focused import solve_focused
+    from tamp.utils import execute_plan
+    import pdb; pdb.set_trace()
 
-    world, _, _ = ToolsWorld.init(None, 'optimistic', True, logger=None)
-    while True:
-        p.stepSimulation(physicsClientId=world.panda._execution_client_id)
-        time.sleep(.1)
+    world, opt_pddl_info, pddl_info = ToolsWorld.init(None, 'optimistic', True, logger=None)
+    goal = ('on', world.objects['yellow_block'], world.objects['blue_block'])
+    problem = tuple([*pddl_info, world.init_state, goal])
+    print('Init: ', world.init_state)
+    pddl_plan, cost, init_expanded = solve_focused(problem,
+                                        success_cost=INF,
+                                        max_skeletons=2,
+                                        search_sample_ratio=1.0,
+                                        max_time=INF,
+                                        verbose=False,
+                                        unit_costs=True)
+    print('Plan: ', pddl_plan)
+    execute_plan(world, problem, pddl_plan, init_expanded)
