@@ -1,0 +1,94 @@
+<?xml version="1.0"?>
+<robot name="tunnel">
+  <link name="left_wall">
+  <contact>
+      <lateral_friction value="1"/>
+  </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="100.0"/>
+       <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <box size="0.2 0.01 0.06" />
+      </geometry>
+      <material name="desert sand">
+        <color rgba="0.375 0.375 0.375 0.4" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <box size="0.2 0.01 0.06" />
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="right_wall">
+  <contact>
+      <lateral_friction value="1"/>
+  </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="100.0"/>
+       <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <box size="0.2 0.01 0.06" />
+      </geometry>
+      <material name="desert sand">
+        <color rgba="0.375 0.375 0.375 0.4" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <box size="0.2 0.01 0.06" />
+      </geometry>
+    </collision>
+  </link>
+
+  <link name="top_wall">
+  <contact>
+      <lateral_friction value="1"/>
+  </contact>
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+       <mass value="100.0"/>
+       <inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/>
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <box size="0.2 0.09 0.01" />
+      </geometry>
+      <material name="desert sand">
+        <color rgba="0.375 0.375 0.375 0.4" />
+      </material>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0" />
+      <geometry>
+        <box size="0.2 0.09 0.01" />
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- Everything is in reference to the first vertical support. It is infront and left of the robot (from the robot perspective). -->
+  <joint name="top_left" type="fixed">
+    <origin xyz="0.0 -0.04 -0.035" rpy="0 0 0" />
+    <parent link="top_wall" />
+    <child link="left_wall" />
+  </joint>
+
+  <joint name="top_right" type="fixed">
+    <origin xyz="0.0 0.04 -0.035" rpy="0 0 0" />
+    <parent link="top_wall" />
+    <child link="right_wall" />
+  </joint>
+
+</robot>
