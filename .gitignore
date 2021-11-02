@@ -19,3 +19,6 @@ pb_robot
 temp/
 domains/ordered_blocks/discrete/tmp
 domains/ordered_blocks/panda/tmp
+tamp/urdf_models/red_block.urdf
+tamp/urdf_models/blue_block.urdf
+tamp/urdf_models/yello_block.urdf
