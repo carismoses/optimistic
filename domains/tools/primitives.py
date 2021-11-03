@@ -2,9 +2,21 @@ import numpy as np
 
 import pb_robot
 from pb_robot.tsrs.panda_box import ComputePrePose
-
+from tsr.tsr import TSR
 
 DEBUG_FAILURE = False
+
+
+from tamp.utils import vis_frame
+import pybullet as p
+import time
+def pause():
+    try:
+        while True:
+            p.stepSimulation()
+            time.sleep(.01)
+    except KeyboardInterrupt:
+        pass
 
 
 def get_free_motion_gen(robot, fixed=[]):
@@ -231,20 +243,25 @@ def get_block_grasp_gen(robot, add_slanted_grasps=True, add_orthogonal_grasps=Tr
 
 
 def get_tool_grasp_gen(robot, add_slanted_grasps=True, add_orthogonal_grasps=True):
-    # add_slanted_grasps = True
-    # I opt to use TSR to define grasp sets but you could replace this
-    # with your favorite grasp generator
     def gen(tool):
-        grasp_tsr = pb_robot.tsrs.panda_box.grasp(tool,
-            add_slanted_grasps=add_slanted_grasps, add_orthogonal_grasps=add_orthogonal_grasps)
-        grasps = []
+        tool_thickness = 0.03
+        ee_to_palm_distance = 0.1034
+        offset = ee_to_palm_distance + tool_thickness/2
+        p0_w = tool.get_base_link_pose()
+        T0_w = pb_robot.geometry.tform_from_pose(p0_w)
 
-        for sampled_tsr in grasp_tsr:
-            grasp_worldF = sampled_tsr.sample()
-            grasp_objF = np.dot(np.linalg.inv(tool.get_base_link_transform()), grasp_worldF)
-            tool_grasp = pb_robot.vobj.BodyGrasp(tool, grasp_objF, robot.arm)
-            grasps.append((tool_grasp,))
-        return grasps
+        # top down grasp at tool origin
+        print(offset)
+        Tw_e = np.array([[ 1., 0.,  0., 0.0],
+                                  [ 0.,-1.,  0., 0.0],
+                                  [ 0., 0., -1., offset], # Added tmp.
+                                  [ 0., 0.,  0., 1.]])
+        Bw = np.zeros((6,2))
+        tool_tsr = TSR(T0_w = T0_w, Tw_e = Tw_e, Bw = Bw)
+        grasp_worldF = tool_tsr.sample()
+        grasp_objF = np.dot(np.linalg.inv(tool.get_base_link_transform()), grasp_worldF)
+        tool_grasp = pb_robot.vobj.BodyGrasp(tool, grasp_objF, robot.arm)
+        return [(tool_grasp,)]
     return gen
 
 
