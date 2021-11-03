@@ -1,8 +1,11 @@
 from shutil import copyfile
 import os
 from copy import copy
+import numpy as np
 
 import odio_urdf
+import pybullet as p
+import pb_robot
 
 from pddlstream.algorithms.algorithm import parse_problem
 from pddlstream.algorithms.downward import task_from_domain_problem, get_action_instances, \
@@ -252,3 +255,19 @@ def block_to_urdf(obj_name, urdf_path, color):
     block_urdf = odio_urdf.Robot(link_urdf, name=obj_name)
     with open(urdf_path, 'w') as handle:
         handle.write(str(block_urdf))
+
+def vis_frame(pb_pose, client, length=0.2, lifeTime=0.):
+    pos, quat = pb_pose
+    print(pos)
+    obj_tform = pb_robot.geometry.tform_from_pose(pb_pose)
+
+    for dim in [0,1,2]:
+        dim_tform = np.eye(4)
+        dim_tform[dim,3] = 1.
+        unit_vec = np.zeros(3)
+        unit_vec[dim] = 1
+        p.addUserDebugLine(pos,
+                            (dim_tform@obj_tform)[:3,3],
+                            unit_vec,
+                            lifeTime=lifeTime,
+                            physicsClientId=client)
