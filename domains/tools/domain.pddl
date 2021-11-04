@@ -16,13 +16,10 @@
     (FreeMotion ?q1 ?t ?q2)
     (HoldingMotion ?q1 ?t ?q2 ?o ?g)
     (ContactMotion ?o1 ?c ?p1 ?p2 ?o2 ?g ?q1 ?q2 ?t)
-    (MakeContactMotion ?o1 ?g ?o2 ?p2 ?c ?q1 ?q2 ?t)
+    (MakeContactMotion ?o1 ?g ?o2 ?p ?c ?q1 ?q2 ?t)
     (PickKin ?o ?p ?g ?q1 ?q2 ?t)
     (PlaceKin ?o ?p ?g ?q1 ?q2 ?t)
     (Supported ?ot ?pt ?ob ?pb)
-
-    (PickGraspKin ?o ?g ?q2)
-    (PlaceGraspKin ?o ?g ?q2)
 
     ; Fluents
     (On ?ot ?ob)
@@ -32,6 +29,7 @@
     (AtGrasp ?o ?g)
     (AtPose ?o ?p)
     (AtContact ?o1 ?o2 ?c)
+    (InContact ?o1 ?o2)
     (FreeObj ?o)
     (Held ?o)
   )
@@ -67,6 +65,7 @@
                        (AtContact ?o1 ?o2 ?c))
     :effect (and (AtConf ?q2)
                  (AtPose ?o2 ?p2)
+                 (not (InContact ?o1 ?o2))
                  (not (AtContact ?o1 ?o2 ?c))
                  (not (AtPose ?o2 ?p1))
                  (not (AtConf ?q1)))
@@ -74,14 +73,15 @@
 
   ; Make contact ?c between ?o1 being help by robot and ?o2 (at ?p2)
   (:action make_contact
-    :parameters (?o1 ?c ?p2 ?o2 ?g ?q1 ?q2 ?t)
-    :precondition (and (MakeContactMotion ?o1 ?g ?o2 ?p2 ?c ?q1 ?q2 ?t)
+    :parameters (?o1 ?c ?p ?o2 ?g ?q1 ?q2 ?t)
+    :precondition (and (MakeContactMotion ?o1 ?g ?o2 ?p ?c ?q1 ?q2 ?t)
                        (AtConf ?q1)
-                       (AtPose ?o2 ?p2)
-                       (AtGrasp ?o2 ?g)
+                       (AtPose ?o2 ?p)
+                       (AtGrasp ?o1 ?g)
                        (FreeObj ?o2))
     :effect (and (AtContact ?o1 ?o2 ?c)
                  (AtConf ?q2)
+                 (InContact ?o1 ?o2)
                  (not (AtConf ?q1)))
   )
 

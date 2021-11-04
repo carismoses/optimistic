@@ -229,9 +229,19 @@ if __name__ == '__main__':
     from pddlstream.algorithms.focused import solve_focused
     from tamp.utils import execute_plan, vis_frame
     #import pdb; pdb.set_trace()
-    world, opt_pddl_info, pddl_info = ToolsWorld.init(None, 'optimistic', True, logger=None)
-    goal = ('held', world.objects['tool'])
-    problem = tuple([*pddl_info, world.init_state, goal])
+    vis = False
+    world, opt_pddl_info, pddl_info = ToolsWorld.init(None, 'optimistic', vis, logger=None)
+    goal = ('incontact', world.objects['tool'], world.objects['yellow_block'])
+    # TODO: can remove fluents that were used for testing: held, incontact, types?
+    #goal = ('held', world.objects['tool'])
+    #goal = ('freeobj', world.objects['yellow_block'])
+    #contact_gen = get_contact_gen(world.panda)
+    #contacts = contact_gen(world.objects['tool'], world.objects['yellow_block'])
+    init = world.init_state
+    #for contact in contacts:
+    #    init += [('contact', world.objects['tool'], world.objects['yellow_block'], contact[0])]
+    #goal = ('atcontact', world.objects['tool'], world.objects['yellow_block'], contacts[3][0])
+    problem = tuple([*pddl_info, init, goal])
     print('Init: ', world.init_state)
     pddl_plan, cost, init_expanded = solve_focused(problem,
                                         success_cost=INF,

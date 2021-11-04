@@ -15,7 +15,7 @@ class PandaAgent:
         self.real = False # TODO: update to command line arg when use real robot
         robot_pose = np.eye(4)
         # Setup PyBullet instance to run in the background and handle planning/collision checking.
-        self._planning_client_id = pb_robot.utils.connect(use_gui=True)
+        self._planning_client_id = pb_robot.utils.connect(use_gui=False)
         self.plan()
         pb_robot.utils.set_default_camera()
         pb_robot.utils.set_camera(90, -15, 1.5)
@@ -28,7 +28,7 @@ class PandaAgent:
 
         # Setup PyBullet instance that only visualizes plan execution.
         # State needs to match the planning instance.
-        self._execution_client_id = pb_robot.utils.connect(use_gui=False)
+        self._execution_client_id = pb_robot.utils.connect(use_gui=True)
         self.execute()
         pb_robot.utils.set_default_camera()
         pb_robot.utils.set_camera(90, -15, 1.5)

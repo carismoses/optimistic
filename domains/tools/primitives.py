@@ -5,7 +5,7 @@ import pb_robot
 from pb_robot.tsrs.panda_box import ComputePrePose
 from tsr.tsr import TSR
 
-from tamp.utils import pause, Contact
+from tamp.utils import pause, Contact, vis_frame
 
 DEBUG_FAILURE = False
 
@@ -22,13 +22,13 @@ def get_contact_gen(robot):
 
         rel_z = 0
         # for now defining 4 contact points
-        rel_points_xy = [(half_length+half_b, 0),
-                        (-(half_length-tool_thickness-half_b), (half_tool+half_b)),
-                        (-(half_length+half_b), (half_width)),
-                        (-(half_length-half_tool), (tool_width-half_tool+half_b))]
+        rel_points_xy = [(-(half_length+half_b), 0),
+                        ((half_length-tool_thickness-half_b), -(half_tool+half_b)),
+                        ((half_length+half_b), -(half_width)),
+                        ((half_length-half_tool), -(tool_width-half_tool+half_b))]
 
         # and sample 4 push directions perpendicular to the z axis
-        dirs = [(1., 0., 0.), (-1., 0., 0.), (0., 1., 0.), (0., -1., 0.)]
+        dirs = np.array([(1., 0., 0.), (-1., 0., 0.), (0., 1., 0.), (0., -1., 0.)])
 
         contacts = []
         for rel_point_xy in rel_points_xy:
@@ -54,10 +54,63 @@ def get_contact_motion_gen(robot, fixed=[]):
     return fn
 
 
-def get_make_contact_motion_gen(robot, fixed=[]):
-    def fn(obj1, grasp, obj2, pose2, cont):
+def get_make_contact_motion_gen(robot, fixed=[], num_attempts=4):
+    def fn(obj1, grasp, obj2, pose, cont):
+        obj1_contact_world = pb_robot.geometry.tform_from_pose(pose.pose)@\
+                            pb_robot.geometry.tform_from_pose(cont.rel_pose)
+        ee_contact_world = obj1_contact_world@grasp.grasp_objF
 
-        return (conf1, conf2, command)
+        approach_dist = 0.1
+        approach = np.eye(4)
+        approach[:3,3] = .1*cont.dir
+        obj1_approach_point_world = pose.pose[0]+approach_dist*cont.dir
+        obj1_approach_orn_world = pb_robot.geometry.pose_from_tform(obj1_contact_world )[1]
+        obj1_approach_world = pb_robot.geometry.tform_from_pose((obj1_approach_point_world, \
+                                                                obj1_approach_orn_world))
+        ee_approach_world = obj1_approach_world@grasp.grasp_objF
+
+        ## debugging
+        #tforms = [pb_robot.geometry.tform_from_pose(pose.pose),
+        #            obj1_contact_world,
+        #            ee_contact_world,
+        #            obj1_approach_world,
+        #            ee_approach_world]
+        #for ti, tform in enumerate(tforms):
+        #    vis_frame(pb_robot.geometry.pose_from_tform(tform), 0)
+        #    if ti in [1, 3]:
+        #        obj1.set_base_link_pose(pb_robot.geometry.pose_from_tform(tform))
+        #    pause()
+        ##
+
+        obstacles = fixed
+        for ax in range(num_attempts):
+            q_contact = robot.arm.ComputeIK(ee_contact_world)
+            if (q_contact is None):
+                if DEBUG_FAILURE: input('No Grasp IK')
+                continue
+            if not robot.arm.IsCollisionFree(q_contact, obstacles=obstacles, debug=DEBUG_FAILURE):
+                if DEBUG_FAILURE: input('Grasp collision')
+                continue
+            conf_contact = pb_robot.vobj.BodyConf(robot, q_contact)
+
+            q_approach = robot.arm.ComputeIK(ee_approach_world, seed_q=q_contact)
+            if (q_approach is None):
+                if DEBUG_FAILURE: input('No approach IK')
+                continue
+            if not robot.arm.IsCollisionFree(q_approach, obstacles=obstacles, debug=DEBUG_FAILURE):
+                if DEBUG_FAILURE: input('Approach motion collision')
+                continue
+            conf_approach = pb_robot.vobj.BodyConf(robot, q_approach)
+
+            path_approach = robot.arm.snap.PlanToConfiguration(robot.arm, q_approach, q_contact, obstacles=obstacles)
+            if path_approach is None:
+                if DEBUG_FAILURE: input('Approach motion failed')
+                continue
+
+            # TODO: make a MoveToContact action or change parts of code that use the .grasp field
+            command = [pb_robot.vobj.MoveToTouch(robot.arm, q_approach, q_contact, None, obj2)]
+            return (conf_approach, conf_contact, command)
+        return None
     return fn
 
 

@@ -10,7 +10,7 @@
   ; Generate a motion for the robot while it is holding Object ?o in Grasp ?g
   (:stream plan-holding-motion
     :inputs (?q1 ?q2 ?o ?g)
-    :domain (and (Conf ?q1) (Conf ?q2) (PickGraspKin ?o ?g ?q1) (PlaceGraspKin ?o ?g ?q2))
+    :domain (and (Conf ?q1) (Conf ?q2) (Grasp ?o ?g))
     :fluents (AtPose)
     :outputs (?t)
     :certified (HoldingMotion ?q1 ?t ?q2 ?o ?g)
@@ -20,14 +20,14 @@
     :inputs (?o ?p ?g)
     :domain (and (Pose ?o ?p) (Grasp ?o ?g))
     :outputs (?q1 ?q2 ?t)
-    :certified (and (Conf ?q1) (Conf ?q2) (PickGraspKin ?o ?g ?q2) (PickKin ?o ?p ?g ?q1 ?q2 ?t))
+    :certified (and (Conf ?q1) (Conf ?q2) (PickKin ?o ?p ?g ?q1 ?q2 ?t))
   )
   ; Generate a place trajectory
   (:stream place-inverse-kinematics
     :inputs (?o ?p ?g)
     :domain (and (Pose ?o ?p) (Grasp ?o ?g))
     :outputs (?q1 ?q2 ?t)
-    :certified (and (Conf ?q1) (PlaceGraspKin ?o ?g ?q1) (Conf ?q2) (PlaceKin ?o ?p ?g ?q1 ?q2 ?t))
+    :certified (and (Conf ?q1) (Conf ?q2) (PlaceKin ?o ?p ?g ?q1 ?q2 ?t))
   )
   ; Sample a pose for Block ?bt when placed on top of Object ?ob at Pose ?pb.
   (:stream sample-pose-block
@@ -69,9 +69,9 @@
   ; Generate a motion for the robot to make contact ?c1 between ?o1 at ?p1 and ?o2
   ; which is being held at grasp ?g
   (:stream plan-make-contact-motion
-    :inputs (?o1 ?g ?o2 ?p2 ?c)
-    :domain (and (Grasp ?o1 ?g) (Block ?o2) (Pose ?o2 ?p2) (Contact ?o1 ?o2 ?c)); TODO: remove Block constraint
+    :inputs (?o1 ?g ?o2 ?p ?c)
+    :domain (and (Grasp ?o1 ?g) (Block ?o2) (Pose ?o2 ?p) (Contact ?o1 ?o2 ?c)); TODO: remove Block constraint
     :outputs (?q1 ?q2 ?t)
-    :certified (and (Conf ?q1) (Conf ?q2) (MakeContactMotion ?o1 ?g ?o2 ?p2 ?c ?q1 ?q2 ?t))
+    :certified (and (Conf ?q1) (Conf ?q2) (MakeContactMotion ?o1 ?g ?o2 ?p ?c ?q1 ?q2 ?t))
   )
 )

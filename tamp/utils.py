@@ -19,8 +19,8 @@ from learning.datasets import model_forward
 
 
 class Contact(object):
-    # rel_pose is the pose from body1 (tool) to body2 (block)
-    # dir is the push direction in body1's frame
+    # rel_pose is the pose from body2 (block) to body1 (tool)
+    # dir is the push direction in body2's frame
     def __init__(self, body1, body2, rel_pose, dir):
         self.body1 = body1
         self.body2 = body2
