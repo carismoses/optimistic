@@ -230,14 +230,9 @@ if __name__ == '__main__':
     from tamp.utils import execute_plan, vis_frame
     #import pdb; pdb.set_trace()
     world, opt_pddl_info, pddl_info = ToolsWorld.init(None, 'optimistic', True, logger=None)
-    pose = world.objects['tool'].get_base_link_pose()
-    #vis_frame(pose, world.panda._planning_client_id)
-    #goal = ('held', world.objects['tool'])
     goal = ('held', world.objects['tool'])
     problem = tuple([*pddl_info, world.init_state, goal])
     print('Init: ', world.init_state)
-    #from domains.tools.primitives import pause
-    #pause()
     pddl_plan, cost, init_expanded = solve_focused(problem,
                                         success_cost=INF,
                                         max_skeletons=2,

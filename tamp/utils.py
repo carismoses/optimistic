@@ -2,6 +2,7 @@ from shutil import copyfile
 import os
 from copy import copy
 import numpy as np
+import time
 
 import odio_urdf
 import pybullet as p
@@ -15,6 +16,28 @@ from pddlstream.language.conversion import Object, transform_plan_args
 from pddlstream.utils import read
 
 from learning.datasets import model_forward
+
+
+class Contact(object):
+    # rel_pose is the pose from body1 (tool) to body2 (block)
+    # dir is the push direction in body1's frame
+    def __init__(self, body1, body2, rel_pose, dir):
+        self.body1 = body1
+        self.body2 = body2
+        self.rel_pose = rel_pose
+        self.dir = dir
+    def __repr__(self):
+        return 'c{}'.format(id(self) % 1000)
+
+
+def pause():
+    print('pausing')
+    try:
+        while True:
+            p.stepSimulation()
+            time.sleep(.01)
+    except KeyboardInterrupt:
+        pass
 
 
 def postprocess_plan(problem, plan, init_facts_expanded):

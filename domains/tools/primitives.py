@@ -5,25 +5,43 @@ import pb_robot
 from pb_robot.tsrs.panda_box import ComputePrePose
 from tsr.tsr import TSR
 
+from tamp.utils import pause, Contact
+
 DEBUG_FAILURE = False
 
 
-from tamp.utils import vis_frame
-import pybullet as p
-import time
-def pause():
-    print('pausing')
-    try:
-        while True:
-            p.stepSimulation()
-            time.sleep(.01)
-    except KeyboardInterrupt:
-        pass
-
 def get_contact_gen(robot):
     def gen(obj1, obj2):
-        cont = None
-        return cont
+        # for now this only handles the case where obj1 is a tool and obj2 is a block
+        block_dim = obj2.get_dimensions()[0] # block is a cuboid
+        half_b = block_dim/2
+        tool_thickness = 0.03
+        half_tool = tool_thickness/2
+        tool_length, tool_width = 0.4, 0.2+tool_thickness
+        half_length, half_width = tool_length/2, tool_width/2
+
+        rel_z = 0
+        # for now defining 4 contact points
+        rel_points_xy = [(half_length+half_b, 0),
+                        (-(half_length-tool_thickness-half_b), (half_tool+half_b)),
+                        (-(half_length+half_b), (half_width)),
+                        (-(half_length-half_tool), (tool_width-half_tool+half_b))]
+
+        # and sample 4 push directions perpendicular to the z axis
+        dirs = [(1., 0., 0.), (-1., 0., 0.), (0., 1., 0.), (0., -1., 0.)]
+
+        contacts = []
+        for rel_point_xy in rel_points_xy:
+            for dir in dirs:
+                rel_pose = ((*rel_point_xy, rel_z), (0., 0., 0., 1.))
+                contact = Contact(obj1, obj2, rel_pose, dir)
+                contacts.append((contact,))
+                ## for debugging
+                #cont_tform = obj1.get_base_link_transform()@pb_robot.geometry.tform_from_pose(rel_pose)
+                #obj2.set_base_link_pose(pb_robot.geometry.pose_from_tform(cont_tform))
+                #pause()
+                ##
+        return contacts
     return gen
 
 
@@ -37,11 +55,9 @@ def get_contact_motion_gen(robot, fixed=[]):
 
 
 def get_make_contact_motion_gen(robot, fixed=[]):
-    def fn(obj1, pose1, pose2, obj2, grasp):
-        # contact is the pose of obj1 in frame of obj2 (relative pose in contact)
-        cont = pb_robot.vobj.RelativePose(obj1, obj2, cont_pose)
+    def fn(obj1, grasp, obj2, pose2, cont):
 
-        return (cont, conf1, conf2, command)
+        return (conf1, conf2, command)
     return fn
 
 
@@ -230,25 +246,6 @@ def get_pose_gen_block(fixed=[]):
         return (top_block_pose,)
     return fn
 
-'''
-# placement pose for tool
-def get_pose_gen_tool(fixed=[]):
-    def fn(top_block, bottom_block, bottom_block_pose):
-        # NOTE: this assumes we want all blocks at the same orientation always (when not held)
-        # and that all blocks start off at orn (0,0,0,1)
-        bottom_block_tform = pb_robot.geometry.tform_from_pose(bottom_block_pose.pose)
-        rel_z_pose = bottom_block.get_dimensions()[2]/2+top_block.get_dimensions()[2]/2
-        rel_tform = np.array([[1.  , 0.  , 0.  , 0.  ],
-                            [0.  , 1.  , 0.  , 0.  ],
-                            [0.  , 0.  , 1.  , rel_z_pose],
-                            [0.  , 0.  , 0.  , 1.  ]])
-        top_block_tform = bottom_block_tform@rel_tform
-        top_block_pose = pb_robot.geometry.pose_from_tform(top_block_tform)
-        top_block_pose  = pb_robot.vobj.BodyPose(top_block, top_block_pose)
-        return (top_block_pose,)
-    return fn
-'''
-
 
 def get_block_grasp_gen(robot, add_slanted_grasps=True, add_orthogonal_grasps=True):
     # add_slanted_grasps = True
@@ -318,13 +315,13 @@ def get_tool_grasp_gen(robot, add_slanted_grasps=True, add_orthogonal_grasps=Tru
             grasp_objF = np.dot(np.linalg.inv(tool.get_base_link_transform()), grasp_worldF)
             tool_grasp = pb_robot.vobj.BodyGrasp(tool, grasp_objF, robot.arm)
             ## for debugging
-            try:
-                q_grasp = robot.arm.ComputeIK(grasp_worldF)
-                conf = pb_robot.vobj.BodyConf(robot, q_grasp)
-                robot.arm.SetJointValues(conf.configuration)
-                pause()
-            except:
-                input('impossible grasp IK')
+            #try:
+            #    q_grasp = robot.arm.ComputeIK(grasp_worldF)
+            #    conf = pb_robot.vobj.BodyConf(robot, q_grasp)
+            #    robot.arm.SetJointValues(conf.configuration)
+            #    pause()
+            #except:
+            #    input('impossible grasp IK')
             ##
             grasps.append((tool_grasp,))
         return grasps
