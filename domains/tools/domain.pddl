@@ -11,9 +11,12 @@
     (Grasp ?o ?g)
     (Conf ?q)
     (Pose ?o ?p)
+    (Contact ?o1 ?o2 ?c)
 
     (FreeMotion ?q1 ?t ?q2)
     (HoldingMotion ?q1 ?t ?q2 ?o ?g)
+    (ContactMotion ?o1 ?c ?p1 ?p2 ?o2 ?g ?q1 ?q2 ?t)
+    (MakeContactMotion ?o1 ?c ?p1 ?o2 ?g ?q1 ?q2 ?t)
     (PickKin ?o ?p ?g ?q1 ?q2 ?t)
     (PlaceKin ?o ?p ?g ?q1 ?q2 ?t)
     (Supported ?ot ?pt ?ob ?pb)
@@ -28,7 +31,9 @@
     (HandEmpty)
     (AtGrasp ?o ?g)
     (AtPose ?o ?p)
+    (AtContact ?o1 ?o2 ?c)
     (FreeObj ?o)
+    (Held ?o)
   )
 
   ; Move in free space while not holing anything
@@ -51,6 +56,36 @@
                  (not (AtConf ?q1)))
   )
 
+  ; Move while holding Object ?o in Grasp ?g
+  (:action move_contact
+    :parameters (?o1 ?c ?p1 ?p2 ?o2 ?g ?q1 ?q2 ?t)
+    :precondition (and (ContactMotion ?o1 ?c ?p1 ?p2 ?o2 ?g ?q1 ?q2 ?t)
+                       (AtConf ?q1)
+                       (AtPose ?o1 ?p1)
+                       (AtGrasp ?o2 ?g)
+                       (FreeObj ?o1)
+                       (AtContact ?o1 ?o2 ?c))
+    :effect (and (AtConf ?q2)
+                 (AtPose ?o1 ?p2)
+                 (not (AtContact ?o1 ?o2 ?c))
+                 (not (AtPose ?o1 ?p1))
+                 (not (AtConf ?q1)))
+  )
+
+  ; Make contact ?c between ?o1 (at ?p1) and ?o2 being help by robot
+  (:action make_contact
+    :parameters (?o1 ?c ?p1 ?o2 ?g ?q1 ?q2 ?t)
+    :precondition (and (MakeContactMotion ?o1 ?c ?p1 ?o2 ?g ?q1 ?q2 ?t)
+                       (AtConf ?q1)
+                       (AtPose ?o1 ?p1)
+                       (AtGrasp ?o2 ?g)
+                       (FreeObj ?o1))
+    :effect (and (AtContact ?o1 ?o2 ?c)
+                 (AtConf ?q2)
+                 (not (AtPose ?o1 ?p1))
+                 (not (AtConf ?q1)))
+  )
+
   ; Pick up Object ?ot at Pose ?pt from Object ?ob
   (:action pick
     :parameters (?ot ?pt ?ob ?g ?q1 ?q2 ?t)
@@ -63,6 +98,7 @@
                        (FreeObj ?ot))
     :effect (and (AtGrasp ?ot ?g)
                  (AtConf ?q2)
+                 (Held ?ot)
                  (not (AtConf ?q1))
                  (not (AtPose ?ot ?pt))
                  (not (HandEmpty))

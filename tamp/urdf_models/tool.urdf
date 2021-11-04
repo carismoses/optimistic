@@ -54,7 +54,7 @@
 
 
   <joint name="connect_handles" type="fixed">
-    <origin xyz="-0.185 0.085 0.0" rpy="0 0 0" />
+    <origin xyz="-0.185 0.115 0.0" rpy="0 0 0" />
     <parent link="long_handle" />
     <child link="short_handle" />
   </joint>

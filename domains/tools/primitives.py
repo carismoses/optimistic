@@ -1,4 +1,5 @@
 import numpy as np
+from copy import copy
 
 import pb_robot
 from pb_robot.tsrs.panda_box import ComputePrePose
@@ -11,12 +12,37 @@ from tamp.utils import vis_frame
 import pybullet as p
 import time
 def pause():
+    print('pausing')
     try:
         while True:
             p.stepSimulation()
             time.sleep(.01)
     except KeyboardInterrupt:
         pass
+
+def get_contact_gen(robot):
+    def gen(obj1, obj2):
+        cont = None
+        return cont
+    return gen
+
+
+def get_contact_motion_gen(robot, fixed=[]):
+    def fn(obj1, cont, pose1, pose2, obj2, grasp):
+        conf1 = None
+        conf2 = None
+        command = None
+        return (conf1, conf2, command)
+    return fn
+
+
+def get_make_contact_motion_gen(robot, fixed=[]):
+    def fn(obj1, pose1, pose2, obj2, grasp):
+        # contact is the pose of obj1 in frame of obj2 (relative pose in contact)
+        cont = pb_robot.vobj.RelativePose(obj1, obj2, cont_pose)
+
+        return (cont, conf1, conf2, command)
+    return fn
 
 
 def get_free_motion_gen(robot, fixed=[]):
@@ -246,22 +272,62 @@ def get_tool_grasp_gen(robot, add_slanted_grasps=True, add_orthogonal_grasps=Tru
     def gen(tool):
         tool_thickness = 0.03
         ee_to_palm_distance = 0.1034
-        offset = ee_to_palm_distance + tool_thickness/2
+        z_offset = ee_to_palm_distance + tool_thickness/2
         p0_w = tool.get_base_link_pose()
         T0_w = pb_robot.geometry.tform_from_pose(p0_w)
 
-        # top down grasp at tool origin
-        print(offset)
-        Tw_e = np.array([[ 1., 0.,  0., 0.0],
-                                  [ 0.,-1.,  0., 0.0],
-                                  [ 0., 0., -1., offset], # Added tmp.
-                                  [ 0., 0.,  0., 1.]])
+        # top down grasp transforms (grasp face perpendicular to z-axis)
+        Tw_e_side1 = np.array([[ 1., 0.,  0., 0.0],
+                                [ 0.,-1.,  0., 0.0],
+                                [ 0., 0., -1., z_offset], # Added tmp.
+                                [ 0., 0.,  0., 1.]])
+
+        Tw_e_side2 = np.array([[ 1., 0., 0., 0.0],
+                                [ 0., 1., 0., 0.0],
+                                [ 0., 0., 1., -z_offset],
+                                [ 0., 0., 0., 1.]])
+
+        Tw_e_side3 = np.array([[ 0., 1.,  0., 0.0],
+                                [ 1., 0.,  0., 0.0],
+                                [ 0., 0., -1., z_offset],
+                                [ 0., 0.,  0., 1.]])
+
+        Tw_e_side4 = np.array([[ 0., 1., 0., 0.0],
+                                [-1., 0., 0., 0.0],
+                                [ 0., 0., 1., -z_offset],
+                                [ 0., 0., 0., 1.]])
+
+        # hook grasps
+        hook_offset_xy = (0.1, 0.0)
+
+        # poke grasps
+        poke_offset_xy = (-.185, 0.115)
+
         Bw = np.zeros((6,2))
-        tool_tsr = TSR(T0_w = T0_w, Tw_e = Tw_e, Bw = Bw)
-        grasp_worldF = tool_tsr.sample()
-        grasp_objF = np.dot(np.linalg.inv(tool.get_base_link_transform()), grasp_worldF)
-        tool_grasp = pb_robot.vobj.BodyGrasp(tool, grasp_objF, robot.arm)
-        return [(tool_grasp,)]
+        grasp_tsrs = []
+        for Tw_e in [Tw_e_side1, Tw_e_side2, Tw_e_side3, Tw_e_side4]:
+            for x_offset, y_offset in [hook_offset_xy, poke_offset_xy]:
+                Tw_e_adjust = copy(Tw_e)
+                Tw_e_adjust[0][3] += x_offset
+                Tw_e_adjust[1][3] += y_offset
+                grasp_tsrs.append(TSR(T0_w = T0_w, Tw_e = Tw_e_adjust, Bw = Bw))
+
+        grasps = []
+        for tsr in grasp_tsrs:
+            grasp_worldF = tsr.sample()
+            grasp_objF = np.dot(np.linalg.inv(tool.get_base_link_transform()), grasp_worldF)
+            tool_grasp = pb_robot.vobj.BodyGrasp(tool, grasp_objF, robot.arm)
+            ## for debugging
+            try:
+                q_grasp = robot.arm.ComputeIK(grasp_worldF)
+                conf = pb_robot.vobj.BodyConf(robot, q_grasp)
+                robot.arm.SetJointValues(conf.configuration)
+                pause()
+            except:
+                input('impossible grasp IK')
+            ##
+            grasps.append((tool_grasp,))
+        return grasps
     return gen
 
 

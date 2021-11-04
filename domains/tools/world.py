@@ -13,7 +13,7 @@ from panda_wrapper.panda_agent import PandaAgent
 from tamp.utils import get_simple_state, get_learned_pddl, block_to_urdf
 from domains.tools.primitives import get_free_motion_gen, \
     get_holding_motion_gen, get_ik_fn, get_pose_gen_block, get_tool_grasp_gen, \
-    get_block_grasp_gen
+    get_block_grasp_gen, get_contact_motion_gen, get_make_contact_motion_gen, get_contact_gen
 #from domains.tools.add_to_primitives import get_trust_model
 
 class ToolsWorld:
@@ -90,7 +90,7 @@ class ToolsWorld:
         # blocks
         blocks = [('red_block', (1.0, 0.0, 0.0, 1.0), (0.9, 0.0)),
                     ('blue_block', (0.0, 0.0, 1.0, 1.0), (0.3, 0.4)),
-                    ('yellow_block', (1.0, 1.0, 0.0, 1.0), (0.4, -0.3))]# (0.7, -0.3))]
+                    ('yellow_block', (1.0, 1.0, 0.0, 1.0), (0.4, -0.3))]
         for name, color, pos_xy in blocks:
             urdf_path = 'tamp/urdf_models/%s.urdf' % name
             block_to_urdf(name, urdf_path, color)
@@ -105,6 +105,7 @@ class ToolsWorld:
                         #('atpose', tunnel, pose), ('pose', tunnel, pose)]
 
         # patches
+
         patches = [('green_patch', (0.4, -0.3)), ('violet_patch', (0.7, 0.4))]
         for name, pos_xy in patches:
             patch, pose = place_object(name,
@@ -138,6 +139,11 @@ class ToolsWorld:
             'sample-pose-block': from_fn(get_pose_gen_block(self.fixed)),
             'sample-block-grasp': from_list_fn(get_block_grasp_gen(robot)),
             'sample-tool-grasp': from_list_fn(get_tool_grasp_gen(robot)),
+            'plan-contact-motion': from_fn(get_contact_motion_gen(robot,
+                                                                    self.fixed)),
+            'plan-make-contact-motion': from_fn(get_make_contact_motion_gen(robot,
+                                                                    self.fixed)),
+            'sample-contact': from_list_fn(get_contact_gen(robot))
             }
 
         opt_domain_pddl = read(opt_domain_pddl_path)
@@ -221,13 +227,17 @@ if __name__ == '__main__':
     import time
     from pddlstream.utils import INF
     from pddlstream.algorithms.focused import solve_focused
-    from tamp.utils import execute_plan
-    import pdb; pdb.set_trace()
-
+    from tamp.utils import execute_plan, vis_frame
+    #import pdb; pdb.set_trace()
     world, opt_pddl_info, pddl_info = ToolsWorld.init(None, 'optimistic', True, logger=None)
-    goal = ('on', world.objects['yellow_block'], world.objects['blue_block'])
+    pose = world.objects['tool'].get_base_link_pose()
+    #vis_frame(pose, world.panda._planning_client_id)
+    #goal = ('held', world.objects['tool'])
+    goal = ('held', world.objects['tool'])
     problem = tuple([*pddl_info, world.init_state, goal])
     print('Init: ', world.init_state)
+    #from domains.tools.primitives import pause
+    #pause()
     pddl_plan, cost, init_expanded = solve_focused(problem,
                                         success_cost=INF,
                                         max_skeletons=2,
@@ -236,4 +246,7 @@ if __name__ == '__main__':
                                         verbose=False,
                                         unit_costs=True)
     print('Plan: ', pddl_plan)
-    execute_plan(world, problem, pddl_plan, init_expanded)
+    if pddl_plan:
+        execute_plan(world, problem, pddl_plan, init_expanded)
+    else:
+        print('No plan found.')

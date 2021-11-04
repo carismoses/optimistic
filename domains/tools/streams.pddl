@@ -50,4 +50,28 @@
     :outputs (?g)
     :certified (Grasp ?to ?g)
   )
+  ; Sample a contact (relative pose) between ?o1 and ?o2
+  (:stream sample-contact
+    :inputs (?o1 ?o2)
+    :domain (and (Block ?o1) (Tool ?o2))
+    :outputs (?c)
+    :certified (Contact ?o1 ?o2 ?c)
+  )
+  ; Generate a motion for the robot to push object ?o1 from ?p1 to ?p2 while holding
+  ; object ?o2 in grasp ?g with ?o2 in contact ?c with ?o1
+  (:stream plan-contact-motion
+    :inputs (?o1 ?c ?p1 ?p2 ?o2 ?g ?q1 ?q2)
+    :domain (and (Conf ?q1) (Conf ?q2) (Contact ?o1 ?o2 ?c) (Pose ?o1 ?p1) (Pose ?o1 ?p2) (Grasp ?o2 ?g))
+    :fluents (AtPose)
+    :outputs (?t)
+    :certified (and (ContactMotion ?o1 ?c ?p1 ?p2 ?o2 ?g ?q1 ?q2 ?t))
+  )
+  ; Generate a motion for the robot to make contact ?c1 between ?o1 at ?p1 and ?o2
+  ; which is being held at grasp ?g
+  (:stream plan-make-contact-motion
+    :inputs (?o1 ?p1 ?p2 ?o2 ?g ?c)
+    :domain (and (Pose ?o1 ?p1) (Pose ?o1 ?p2) (Contact ?o1 ?o2 ?c) (Grasp ?o2 ?g) (Block ?o1)); TODO: remove Block constraint
+    :outputs (?q1 ?q2 ?t)
+    :certified (and (Conf ?q1) (Conf ?q2) (MakeContactMotion ?o1 ?c ?p1  ?o2 ?g ?q1 ?q2 ?t))
+  )
 )
