@@ -55,21 +55,31 @@
   )
 
   ; Move while holding Object ?o in Grasp ?g
-  (:action move_contact
-    :parameters (?o1 ?c ?p1 ?p2 ?o2 ?g ?q1 ?q2 ?t)
-    :precondition (and (ContactMotion ?o1 ?c ?p1 ?p2 ?o2 ?g ?q1 ?q2 ?t)
-                       (AtConf ?q1)
-                       (AtPose ?o2 ?p1)
-                       (AtGrasp ?o1 ?g)
-                       (FreeObj ?o2)
-                       (AtContact ?o1 ?o2 ?c))
-    :effect (and (AtConf ?q2)
-                 (AtPose ?o2 ?p2)
-                 (not (InContact ?o1 ?o2))
-                 (not (AtContact ?o1 ?o2 ?c))
-                 (not (AtPose ?o2 ?p1))
-                 (not (AtConf ?q1)))
-  )
+  ;(:action move_contact
+  ;  :parameters (?q1 ?o2 ?p1 ?p2 ?o1 ?c)
+  ;  :precondition (and (AtConf ?q1)
+  ;                     (AtPose ?o2 ?p1)
+  ;                     (FreeObj ?o2)
+  ;                     (AtContact ?o1 ?o2 ?c))
+  ;  :effect (and (AtPose ?o2 ?p2))
+  ;)
+
+  ; Move while holding Object ?o in Grasp ?g
+  ;(:action move_contact
+  ;  :parameters (?o1 ?c ?p1 ?p2 ?o2 ?g ?q1 ?q2 ?t)
+  ;  :precondition (and (ContactMotion ?o1 ?c ?p1 ?p2 ?o2 ?g ?q1 ?q2 ?t)
+  ;                     (AtConf ?q1)
+  ;                     (AtPose ?o2 ?p1)
+  ;                     (AtGrasp ?o1 ?g)
+  ;                     (FreeObj ?o2)
+  ;                     (AtContact ?o1 ?o2 ?c))
+  ;  :effect (and (AtConf ?q2)
+  ;               (AtPose ?o2 ?p2)
+  ;               (not (InContact ?o1 ?o2))
+  ;               (not (AtContact ?o1 ?o2 ?c))
+  ;               (not (AtPose ?o2 ?p1))
+  ;               (not (AtConf ?q1)))
+  ;)
 
   ; Make contact ?c between ?o1 being help by robot and ?o2 (at ?p2)
   (:action make_contact

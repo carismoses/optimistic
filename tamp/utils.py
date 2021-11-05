@@ -21,11 +21,10 @@ from learning.datasets import model_forward
 class Contact(object):
     # rel_pose is the pose from body2 (block) to body1 (tool)
     # dir is the push direction in body2's frame
-    def __init__(self, body1, body2, rel_pose, dir):
+    def __init__(self, body1, body2, rel_pose):
         self.body1 = body1
         self.body2 = body2
         self.rel_pose = rel_pose
-        self.dir = dir
     def __repr__(self):
         return 'c{}'.format(id(self) % 1000)
 
