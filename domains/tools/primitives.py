@@ -42,59 +42,44 @@ def get_contact_gen(robot):
     return gen
 
 
-def get_contact_motion_gen(robot, fixed=[]):
-    def fn(obj1, cont, pose1, pose2, obj2, grasp):
-        conf1 = None
-        # make traj from conf1 (where obj1 in grasp and in cont with obj2)
-        # to conf2 with obj2 at pose2
+# try IK and collisions of EE contact pose
+def ee_ik(ee_pose_world, robot, obstacles, seed_q=None):
+    q = robot.arm.ComputeIK(ee_pose_world, seed_q=seed_q)
+    if (q is None):
+        if DEBUG_FAILURE: input('No Grasp IK')
+        return None
+    if not robot.arm.IsCollisionFree(q, obstacles=obstacles, debug=DEBUG_FAILURE):
+        if DEBUG_FAILURE: input('Grasp collision')
+        return None
+    conf = pb_robot.vobj.BodyConf(robot, q)
+    return conf
+
+
+def get_contact_motion_gen(robot, fixed=[], num_attempts=20):
+    # obj1 is tool in grasp, obj2 is at pose1, cont is in obj2 frame
+    def fn(obj1, grasp, obj2, pose1, pose2, cont):
+        # ee pose at contact
+        obj2_world = pb_robot.geometry.tform_from_pose(pose1.pose)
+        cont_tform = pb_robot.geometry.tform_from_pose(cont.rel_pose)
+        obj1_contact_world = obj2_world@cont_tform
+        ee_contact_world = obj1_contact_world@grasp.grasp_objF
+
+        # ee pose at beginning of approach
+        approach_dist = 0.1
+        dir = pose2.pose[0]-pose1.pose[0] # in obj2 pose1 frame
+        unit_dir = dir/np.linalg.norm(dir)
+        approach = np.eye(4)
+        approach[:3,3] = approach_dist*unit_dir
+        obj1_approach_world = obj2_world@approach@cont_tform
+        ee_approach_world = obj1_approach_world@grasp.grasp_objF
+
+        # ee pose at end of push path
         obj1_pose2_world = pb_robot.geometry.tform_from_pose(pose2.pose)@\
                             pb_robot.geometry.tform_from_pose(cont.rel_pose)
         ee_pose2_world = obj1_pose2_world@grasp.grasp_objF
 
         obstacles = fixed
         for ax in range(num_attempts):
-            q_final = robot.arm.ComputeIK(ee_pose2_world)
-            if (q_final is None):
-                if DEBUG_FAILURE: input('No final push pose IK')
-                continue
-            if not robot.arm.IsCollisionFree(q_final, obstacles=obstacles, debug=DEBUG_FAILURE):
-                if DEBUG_FAILURE: input('Final push pose collision')
-                continue
-            conf_contact = pb_robot.vobj.BodyConf(robot, q_final)
-
-            # TODO: constrain path to be straight line
-            push_path = robot.arm.birrt.PlanToConfiguration(robot.arm, conf1.configuration, conf2.configuration, obstacles=obstacles)
-            if push_path is None:
-                if DEBUG_FAILURE: input('Push motion failed')
-                continue
-
-            conf2 = pb_robot.vobj.BodyConf(robot, q_final)
-            command = [pb_robot.vobj.JointSpacePath(robot.arm, push_path)]
-            return (conf1, conf2, command)
-        return None
-    return fn
-
-
-def get_make_contact_motion_gen(robot, fixed=[], num_attempts=20):
-    # obj1 is tool in grasp, obj2 is at pose, cont is in obj2 frame
-    def fn(obj1, grasp, obj2, pose, cont):
-        obj2_world = pb_robot.geometry.tform_from_pose(pose.pose)
-        cont_tform = pb_robot.geometry.tform_from_pose(cont.rel_pose)
-        obj1_contact_world = obj2_world@cont_tform
-        ee_contact_world = obj1_contact_world@grasp.grasp_objF
-
-        obstacles = fixed
-        approach_dist = 0.1
-        unit_dirs = [(1., 0., 0.), (0., 1., 0.), (-1., 0., 0.), (0., -1., 0.)] # in obj2 frame
-        for ax in range(num_attempts):
-
-            # calculate the approach pose of the EE
-            dir = random.choice(unit_dirs)
-            approach = np.eye(4)
-            approach[:3,3] = approach_dist*np.array(dir)
-            obj1_approach_world = obj2_world@approach@cont_tform
-            ee_approach_world = obj1_approach_world@grasp.grasp_objF
-
             ## debugging
             #tforms = [pb_robot.geometry.tform_from_pose(pose.pose),
             #            obj1_contact_world,
@@ -108,35 +93,54 @@ def get_make_contact_motion_gen(robot, fixed=[], num_attempts=20):
             #    pause()
             ##
 
-            # try IK and collisions of EE contact pose
-            q_contact = robot.arm.ComputeIK(ee_contact_world)
-            if (q_contact is None):
-                if DEBUG_FAILURE: input('No Grasp IK')
-                continue
-            if not robot.arm.IsCollisionFree(q_contact, obstacles=obstacles, debug=DEBUG_FAILURE):
-                if DEBUG_FAILURE: input('Grasp collision')
-                continue
-            conf_contact = pb_robot.vobj.BodyConf(robot, q_contact)
+            # calculate all configurations from poses
+            conf_contact = ee_ik(ee_contact_world, robot, obstacles)
+            if not conf_contact: continue
+            conf_approach = ee_ik(ee_approach_world, robot, obstacles, seed_q=conf_contact.configuration)
+            if not conf_approach: continue
+            conf_pose2 = ee_ik(ee_pose2_world, robot, obstacles)
+            if not conf_pose2: continue
 
-            # try IK and collisions of EE approach pose
-            q_approach = robot.arm.ComputeIK(ee_approach_world, seed_q=q_contact)
-            if (q_approach is None):
-                if DEBUG_FAILURE: input('No approach IK')
-                continue
-            if not robot.arm.IsCollisionFree(q_approach, obstacles=obstacles, debug=DEBUG_FAILURE):
-                if DEBUG_FAILURE: input('Approach motion collision')
-                continue
-            conf_approach = pb_robot.vobj.BodyConf(robot, q_approach)
+            # contact motion
+            # TODO: constrain path to be straight line (I think I can add constraints to birrt call
+            # but unsure the proper way to do so, so for now interpolate between
+            # ee positions assuming orientation is constant)
+            #push_path = robot.arm.birrt.PlanToConfiguration(robot.arm,
+            #                                                conf_contact.configuration,
+            #                                                conf_pose2.configuration,
+            #                                                obstacles=obstacles)
+            #if push_path is None:
+            #    if DEBUG_FAILURE: input('Push motion failed')
+            #    continue
+            path_len = 5
+            push_ee_positions = np.linspace(ee_contact_world[:3,3],
+                                    ee_pose2_world[:3,3],
+                                    path_len)
+            push_ee_orn = ee_contact_world[1]
+            push_path = [conf_contact.configuration]
+            seed_q = conf_contact.configuration
+            for ee_pos in push_ee_positions[1:-1]:
+                ee_tform = copy(ee_contact_world)
+                ee_tform[:3,3] = ee_pos
+                for _ in range(num_attempts):
+                    push_conf = ee_ik(ee_tform, robot, obstacles, seed_q=seed_q)
+                    if push_conf:
+                        break
+                push_path.append(push_conf.configuration)
+                seed_q = push_conf.configuration
+            push_path.append(conf_pose2.configuration)
+            push_path = np.array(push_path)
 
-            # plan path from approach to contact
-            path_approach = robot.arm.snap.PlanToConfiguration(robot.arm, q_approach, q_contact, obstacles=obstacles)
-            if path_approach is None:
-                if DEBUG_FAILURE: input('Approach motion failed')
-                continue
 
-            # TODO: make a MoveToContact action or change parts of code that use the .grasp field
-            command = [pb_robot.vobj.MoveToTouch(robot.arm, q_approach, q_contact, None, obj2)]
-            return (conf_approach, conf_contact, command)
+            # TODO: add a path that breaks contact from the object
+            command = [pb_robot.vobj.MoveToTouch(robot.arm,
+                                                    conf_approach.configuration,
+                                                    conf_contact.configuration,
+                                                    None,
+                                                    obj2),
+                        pb_robot.vobj.JointSpacePath(robot.arm,
+                                                    push_path)]
+            return (conf_approach, conf_pose2, command)
         return None
     return fn
 

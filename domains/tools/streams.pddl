@@ -57,21 +57,12 @@
     :outputs (?c)
     :certified (Contact ?o1 ?o2 ?c)
   )
-  ; Generate a motion for the robot to push object ?o1 from ?p1 to ?p2 while holding
-  ; object ?o2 in grasp ?g with ?o2 in contact ?c with ?o1
-  ;(:stream plan-contact-motion
-  ;  :inputs (?o1 ?c ?p1 ?p2 ?o2 ?g)
-  ;  :domain (and (Contact ?o1 ?o2 ?c) (Pose ?o2 ?p1) (Pose ?o2 ?p2) (Grasp ?o2 ?g))
-  ;  :fluents (AtPose)
-  ;  :outputs (?q1 ?q2 ?t)
-  ;  :certified (and (Conf ?q1) (Conf ?q2) (ContactMotion ?o1 ?c ?p1 ?p2 ?o2 ?g ?q1 ?q2 ?t))
-  ;)
-  ; Generate a motion for the robot to make contact ?c1 between ?o1 at ?p1 and ?o2
-  ; which is being held at grasp ?g
-  (:stream plan-make-contact-motion
-    :inputs (?o1 ?g ?o2 ?p ?c)
-    :domain (and (Grasp ?o1 ?g) (Block ?o2) (Pose ?o2 ?p) (Contact ?o1 ?o2 ?c)); TODO: remove Block constraint
+  ; Generate a motion for the robot to make contact ?c between ?o1 at grasp ?g
+  ; and ?o2 to move ?o2 from ?p1 to ?p2
+  (:stream plan-contact-motion
+    :inputs (?o1 ?g ?o2 ?p1 ?p2 ?c)
+    :domain (and (Grasp ?o1 ?g) (Block ?o2) (Pose ?o2 ?p1) (Pose ?o2 ?p2) (Contact ?o1 ?o2 ?c)); TODO: remove Block constraint
     :outputs (?q1 ?q2 ?t)
-    :certified (and (Conf ?q1) (Conf ?q2) (MakeContactMotion ?o1 ?g ?o2 ?p ?c ?q1 ?q2 ?t))
+    :certified (and (Conf ?q1) (Conf ?q2) (ContactMotion ?o1 ?g ?o2 ?p1 ?p2 ?c ?q1 ?q2 ?t))
   )
 )

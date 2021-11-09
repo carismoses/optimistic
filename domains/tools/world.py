@@ -13,7 +13,7 @@ from panda_wrapper.panda_agent import PandaAgent
 from tamp.utils import get_simple_state, get_learned_pddl, block_to_urdf
 from domains.tools.primitives import get_free_motion_gen, \
     get_holding_motion_gen, get_ik_fn, get_pose_gen_block, get_tool_grasp_gen, \
-    get_block_grasp_gen, get_contact_motion_gen, get_make_contact_motion_gen, get_contact_gen
+    get_block_grasp_gen, get_contact_motion_gen, get_contact_gen
 #from domains.tools.add_to_primitives import get_trust_model
 
 class ToolsWorld:
@@ -142,8 +142,6 @@ class ToolsWorld:
             'sample-tool-grasp': from_list_fn(get_tool_grasp_gen(robot)),
             'plan-contact-motion': from_fn(get_contact_motion_gen(robot,
                                                                     self.fixed)),
-            'plan-make-contact-motion': from_fn(get_make_contact_motion_gen(robot,
-                                                                    self.fixed)),
             'sample-contact': from_list_fn(get_contact_gen(robot))
             }
 
@@ -229,8 +227,9 @@ if __name__ == '__main__':
     from pddlstream.utils import INF
     from pddlstream.algorithms.focused import solve_focused
     from tamp.utils import execute_plan, vis_frame
+
     import pdb; pdb.set_trace()
-    vis = False
+    vis = True
     world, opt_pddl_info, pddl_info = ToolsWorld.init(None, 'optimistic', vis, logger=None)
 
     # get initial state

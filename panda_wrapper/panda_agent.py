@@ -31,7 +31,7 @@ class PandaAgent:
         self._execution_client_id = pb_robot.utils.connect(use_gui=vis)
         self.execute()
         pb_robot.utils.set_default_camera()
-        pb_robot.utils.set_camera(90, -15, 1.5)
+        pb_robot.utils.set_camera(0.1, -15, 1)
         self.execution_robot = pb_robot.panda.Panda()
         self.execution_robot.arm.hand.Open()
         self.execution_robot.set_transform(np.eye(4))
