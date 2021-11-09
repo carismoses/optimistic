@@ -88,8 +88,8 @@ class ToolsWorld:
                         ('atpose', tool, pose), ('pose', tool, pose), ('freeobj', tool)]
 
         # blocks
-        blocks = [('red_block', (1.0, 0.0, 0.0, 1.0), (0.9, 0.0)),
-                    ('blue_block', (0.0, 0.0, 1.0, 1.0), (0.3, 0.4)),
+        blocks = [#('red_block', (1.0, 0.0, 0.0, 1.0), (0.9, 0.0)),
+                    #('blue_block', (0.0, 0.0, 1.0, 1.0), (0.3, 0.4)),
                     ('yellow_block', (1.0, 1.0, 0.0, 1.0), (0.4, -0.3))]
         for name, color, pos_xy in blocks:
             urdf_path = 'tamp/urdf_models/%s.urdf' % name
@@ -106,7 +106,7 @@ class ToolsWorld:
                         #('atpose', tunnel, pose), ('pose', tunnel, pose)]
         '''
         # patches
-
+        '''
         patches = [('green_patch', (0.4, -0.3)), ('violet_patch', (0.7, 0.4))]
         for name, pos_xy in patches:
             patch, pose = place_object(name,
@@ -114,7 +114,7 @@ class ToolsWorld:
                             pos_xy)
             init_state += [('patch', patch), ('clear', patch), ('atpose', patch, pose), \
                             ('pose', patch, pose)]#, ('on', patch, self.panda.table)]
-
+        '''
         return pb_objects, orig_poses, init_state
 
 
@@ -140,8 +140,8 @@ class ToolsWorld:
             'sample-pose-block': from_fn(get_pose_gen_block(self.fixed)),
             'sample-block-grasp': from_list_fn(get_block_grasp_gen(robot)),
             'sample-tool-grasp': from_list_fn(get_tool_grasp_gen(robot)),
-            #'plan-contact-motion': from_fn(get_contact_motion_gen(robot,
-            #                                                        self.fixed)),
+            'plan-contact-motion': from_fn(get_contact_motion_gen(robot,
+                                                                    self.fixed)),
             'plan-make-contact-motion': from_fn(get_make_contact_motion_gen(robot,
                                                                     self.fixed)),
             'sample-contact': from_list_fn(get_contact_gen(robot))
@@ -229,36 +229,39 @@ if __name__ == '__main__':
     from pddlstream.utils import INF
     from pddlstream.algorithms.focused import solve_focused
     from tamp.utils import execute_plan, vis_frame
-    #import pdb; pdb.set_trace()
+    import pdb; pdb.set_trace()
     vis = False
     world, opt_pddl_info, pddl_info = ToolsWorld.init(None, 'optimistic', vis, logger=None)
-    goal = ('incontact', world.objects['tool'], world.objects['yellow_block'])
+
+    # get initial state
     initial_point, initial_orn = world.objects['yellow_block'].get_base_link_pose()
     final_pose = (np.add(initial_point, (0.1, 0., 0.)), initial_orn)
     final_yb_pose = pb_robot.vobj.BodyPose(world.objects['yellow_block'], final_pose)
-    #goal = ('on', world.objects['yellow_block'], world.objects['blue_block'])
-    #goal = ('atpose', world.objects['yellow_block'], final_yb_pose)
-    # TODO: can remove fluents that were used for testing: held, incontact, types?
-    #goal = ('held', world.objects['tool'])
-    #goal = ('freeobj', world.objects['yellow_block'])
-    #contact_gen = get_contact_gen(world.panda)
-    #contacts = contact_gen(world.objects['tool'], world.objects['yellow_block'])
     init = world.init_state
-    init += [('pose', world.objects['yellow_block'], final_yb_pose)]
-    #for contact in contacts:
-    #    init += [('contact', world.objects['tool'], world.objects['yellow_block'], contact[0])]
-    #goal = ('atcontact', world.objects['tool'], world.objects['yellow_block'], contacts[3][0])
+    table_pose = pb_robot.vobj.BodyPose(world.panda.table, world.panda.table.get_base_link_pose())
+    init += [('pose', world.objects['yellow_block'], final_yb_pose),
+            ('notheavy', world.objects['tool'])]
+
+    goal = ('atpose', world.objects['yellow_block'], final_yb_pose)
+
     problem = tuple([*pddl_info, init, goal])
-    print('Init: ', world.init_state)
+
+    # call planner
+    print('Init: ', init)
+    print('Goal: ', goal)
     pddl_plan, cost, init_expanded = solve_focused(problem,
                                         success_cost=INF,
                                         max_skeletons=2,
                                         search_sample_ratio=1.0,
                                         max_time=INF,
                                         verbose=False,
-                                        unit_costs=True)
+                                        unit_costs=True)#,
+                                        #constraints=constraints)
     print('Plan: ', pddl_plan)
+
+    # execute plan
     if pddl_plan:
-        execute_plan(world, problem, pddl_plan, init_expanded)
+        trajectory, _ = execute_plan(world, problem, pddl_plan, init_expanded)
+        init = get_simple_state(trajectory[-1][2])
     else:
         print('No plan found.')

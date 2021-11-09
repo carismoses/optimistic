@@ -69,7 +69,7 @@ def get_simple_state(state):
         # NOTE: the obj_from_value_expression() treats the 2 arguments
         # to = as other expressions, but they are just pb_robot.bodies so it
         # crashes. Remove as they aren't important predicates anyway
-        if pre == '=':
+        if pre in ['=', 'identical']:
             continue
         simple_pddl_predicate = [pre]
         for arg in pddl_predicate[1:]:

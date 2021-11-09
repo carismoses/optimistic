@@ -32,6 +32,7 @@
     (InContact ?o1 ?o2)
     (FreeObj ?o)
     (Held ?o)
+    (NotHeavy ?o)
   )
 
   ; Move in free space while not holing anything
@@ -54,47 +55,6 @@
                  (not (AtConf ?q1)))
   )
 
-  ; Move while holding Object ?o in Grasp ?g
-  ;(:action move_contact
-  ;  :parameters (?q1 ?o2 ?p1 ?p2 ?o1 ?c)
-  ;  :precondition (and (AtConf ?q1)
-  ;                     (AtPose ?o2 ?p1)
-  ;                     (FreeObj ?o2)
-  ;                     (AtContact ?o1 ?o2 ?c))
-  ;  :effect (and (AtPose ?o2 ?p2))
-  ;)
-
-  ; Move while holding Object ?o in Grasp ?g
-  ;(:action move_contact
-  ;  :parameters (?o1 ?c ?p1 ?p2 ?o2 ?g ?q1 ?q2 ?t)
-  ;  :precondition (and (ContactMotion ?o1 ?c ?p1 ?p2 ?o2 ?g ?q1 ?q2 ?t)
-  ;                     (AtConf ?q1)
-  ;                     (AtPose ?o2 ?p1)
-  ;                     (AtGrasp ?o1 ?g)
-  ;                     (FreeObj ?o2)
-  ;                     (AtContact ?o1 ?o2 ?c))
-  ;  :effect (and (AtConf ?q2)
-  ;               (AtPose ?o2 ?p2)
-  ;               (not (InContact ?o1 ?o2))
-  ;               (not (AtContact ?o1 ?o2 ?c))
-  ;               (not (AtPose ?o2 ?p1))
-  ;               (not (AtConf ?q1)))
-  ;)
-
-  ; Make contact ?c between ?o1 being help by robot and ?o2 (at ?p2)
-  (:action make_contact
-    :parameters (?o1 ?c ?p ?o2 ?g ?q1 ?q2 ?t)
-    :precondition (and (MakeContactMotion ?o1 ?g ?o2 ?p ?c ?q1 ?q2 ?t)
-                       (AtConf ?q1)
-                       (AtPose ?o2 ?p)
-                       (AtGrasp ?o1 ?g)
-                       (FreeObj ?o2))
-    :effect (and (AtContact ?o1 ?o2 ?c)
-                 (AtConf ?q2)
-                 (InContact ?o1 ?o2)
-                 (not (AtConf ?q1)))
-  )
-
   ; Pick up Object ?ot at Pose ?pt from Object ?ob
   (:action pick
     :parameters (?ot ?pt ?ob ?g ?q1 ?q2 ?t)
@@ -104,6 +64,7 @@
                        (AtConf ?q1)
                        (Clear ?ot)
                        (On ?ot ?ob)
+                       ;(NotHeavy ?ot)
                        (FreeObj ?ot))
     :effect (and (AtGrasp ?ot ?g)
                  (AtConf ?q2)
@@ -130,5 +91,20 @@
                  (not (AtGrasp ?ot ?g))
                  (On ?ot ?ob)
                  (not (Clear ?ob)))
+  )
+
+  ; Make contact ?c between ?o1 being held by robot and ?o2 (at ?p2)
+  (:action move_contact
+    :parameters (?o1 ?g ?o2 ?p1 ?p2 ?c ?q1 ?q2 ?t)
+    :precondition (and (MakeContactMotion ?o1 ?g ?o2 ?p1 ?c ?q1 ?q2 ?t)
+                       (AtConf ?q1)
+                       (AtPose ?o2 ?p1)
+                       (AtGrasp ?o1 ?g)
+                       (Held ?o1)
+                       (FreeObj ?o2))
+    :effect (and (AtPose ?o2 ?p2)
+                 (AtConf ?q2)
+                 (not (AtPose ?o2 ?p1))
+                 (not (AtConf ?q1)))
   )
 )
