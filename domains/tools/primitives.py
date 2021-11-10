@@ -46,10 +46,10 @@ def get_contact_gen(robot):
 def ee_ik(ee_pose_world, robot, obstacles, seed_q=None):
     q = robot.arm.ComputeIK(ee_pose_world, seed_q=seed_q)
     if (q is None):
-        if DEBUG_FAILURE: input('No Grasp IK')
+        if DEBUG_FAILURE: input('No Grasp IK: contact motion')
         return None
     if not robot.arm.IsCollisionFree(q, obstacles=obstacles, debug=DEBUG_FAILURE):
-        if DEBUG_FAILURE: input('Grasp collision')
+        if DEBUG_FAILURE: input('Grasp collision: contact motion')
         return None
     conf = pb_robot.vobj.BodyConf(robot, q)
     return conf
@@ -192,11 +192,12 @@ def get_holding_motion_gen(robot, fixed=[]):
 
 def get_ik_fn(robot, fixed=[], num_attempts=4, approach_frame='gripper', backoff_frame='global'):
     def fn(obj, pose, grasp, return_grasp_q=False, check_robust=False):
+        obstacles = copy(fixed) # for some reason  adding to fixed here changes it in other primitives, so use copy of fixed
         if approach_frame == 'global': # grasp object for collision checking on place action
             orig_pose = obj.get_base_link_pose()
             robot.arm.Grab(obj, grasp.grasp_objF)
-
-        obstacles = fixed
+        else:                           # avoid object to be picked when pick action
+            obstacles += [obj]
         obj_worldF = pb_robot.geometry.tform_from_pose(pose.pose)
         grasp_worldF = np.dot(obj_worldF, grasp.grasp_objF)
         grasp_worldR = grasp_worldF[:3,:3]
@@ -247,10 +248,10 @@ def get_ik_fn(robot, fixed=[], num_attempts=4, approach_frame='gripper', backoff
         for ax in range(num_attempts):
             q_grasp = robot.arm.ComputeIK(grasp_worldF)
             if (q_grasp is None):
-                if DEBUG_FAILURE: input('No Grasp IK')
+                if DEBUG_FAILURE: input('No Grasp IK: pick/place')
                 continue
             if not robot.arm.IsCollisionFree(q_grasp, obstacles=obstacles, debug=DEBUG_FAILURE):
-                if DEBUG_FAILURE: input('Grasp collision')
+                if DEBUG_FAILURE: input('Grasp collision: pick/place')
                 continue
 
             q_approach = robot.arm.ComputeIK(approach_tform, seed_q=q_grasp)
