@@ -12,7 +12,7 @@ git clone git@github.com:carismoses/optimistic.git
 cd optimistic
 xargs -n1 python3 -m pip install < requirements.txt
 ```
-2. Install [`pb_robot`](https://github.com/mike-n-7/pb_robot) using the instructions below, not the ones in the repo's README.
+2. Install [`pb_robot`](https://github.com/carismoses/pb_robot) using the instructions below, not the ones in the repo's README.
 This installs dependecies, clones the repo and compliles the IKFask library for the panda (see Troubleshooting below if the build command fails)
    ```
    pip3 install numpy pybullet recordclass catkin_pkg IPython networkx scipy numpy-quaternion
@@ -22,7 +22,7 @@ This installs dependecies, clones the repo and compliles the IKFask library for 
    cd pb_robot/src/pb_robot/ikfast/franka_panda
    python3 setup.py build
    ```
-3. Install [`pddlstream`](https://github.com/caelan/pddlstream)  using the instructions found there
+3. Install [`pddlstream`](https://github.com/carismoses/pddlstream)  using the instructions found there
 4. Generate a symlink from pddlstream and pb_robot to this directory
 ```
 cd ~/optimistic
