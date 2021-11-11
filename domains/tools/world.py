@@ -84,8 +84,13 @@ class ToolsWorld:
         # tool
         tool_name = 'tool'
         tool, pose = place_object(tool_name, 'tamp/urdf_models/%s.urdf' % tool_name, (0.3, -0.4))
-        init_state += [('tool', tool), ('on', tool, self.panda.table), ('clear', tool), \
-                        ('atpose', tool, pose), ('pose', tool, pose), ('freeobj', tool)]
+        init_state += [('tool', tool),
+                        ('on', tool, self.panda.table),
+                        ('clear', tool), \
+                        ('atpose', tool, pose),
+                        ('pose', tool, pose),
+                        ('freeobj', tool),
+                        ('notheavy', tool)]
 
         # blocks
         blocks = [#('red_block', (1.0, 0.0, 0.0, 1.0), (0.9, 0.0)),
@@ -228,18 +233,17 @@ if __name__ == '__main__':
     from pddlstream.algorithms.focused import solve_focused
     from tamp.utils import execute_plan, vis_frame
 
-    import pdb; pdb.set_trace()
-    vis = True
+    #import pdb; pdb.set_trace()
+    vis = True  # set to visualize pyBullet GUI
     world, opt_pddl_info, pddl_info = ToolsWorld.init(None, 'optimistic', vis, logger=None)
 
-    # get initial state
-    initial_point, initial_orn = world.objects['yellow_block'].get_base_link_pose()
-    final_pose = (np.add(initial_point, (0.1, 0., 0.)), initial_orn)
-    final_yb_pose = pb_robot.vobj.BodyPose(world.objects['yellow_block'], final_pose)
+    # get initial state and add yellow block goal pose to fluents
+    push_distance = 0.2
     init = world.init_state
-    table_pose = pb_robot.vobj.BodyPose(world.panda.table, world.panda.table.get_base_link_pose())
-    init += [('pose', world.objects['yellow_block'], final_yb_pose),
-            ('notheavy', world.objects['tool'])]
+    initial_point, initial_orn = world.objects['yellow_block'].get_base_link_pose()
+    final_pose = (np.add(initial_point, (push_distance, 0., 0.)), initial_orn)
+    final_yb_pose = pb_robot.vobj.BodyPose(world.objects['yellow_block'], final_pose)
+    init += [('pose', world.objects['yellow_block'], final_yb_pose)]
 
     goal = ('atpose', world.objects['yellow_block'], final_yb_pose)
 
@@ -254,13 +258,11 @@ if __name__ == '__main__':
                                         search_sample_ratio=1.0,
                                         max_time=INF,
                                         verbose=False,
-                                        unit_costs=True)#,
-                                        #constraints=constraints)
+                                        unit_costs=True)
     print('Plan: ', pddl_plan)
 
     # execute plan
     if pddl_plan:
         trajectory, _ = execute_plan(world, problem, pddl_plan, init_expanded)
-        init = get_simple_state(trajectory[-1][2])
     else:
         print('No plan found.')
