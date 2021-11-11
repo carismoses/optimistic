@@ -139,9 +139,28 @@ class PandaAgent:
                 e.simulate(timestep=0.1, obstacles=obstacles)
             else:
                 if (name == 'move_contact') and isinstance(e, pb_robot.vobj.JointSpacePath):
-                    e.simulate(timestep=0.5, obstacles=obstacles, control=True)
+                    # if contact aligns with push direction, then add pushed object to grabbedObjects
+                    # so moves with robot and tool (just for simulation)
+                    # TODO: should probably put this in a move_contact action (like PushPath in vobj.py)
+                    tool, grasp_toolF, pb_obj, pose1, pose2, cont_objF, _, _, _ = args
+                    '''
+                    push_dir = pose1.pose[0]-pose2.pose[0]
+                    push_dir_unormal_objF = push_dir/np.linalg.norm(push_dir)
+                    for contPoint in p.getContactPoints(tool.id, pb_obj.id, physicsClientId=self._execution_client_id):
+                        cont_unormal_objF = contPoint[7]/np.linalg.norm(contPoint[7])
+                        if np.dot(cont_unormal_objF, push_dir_unormal_objF) > 0.98:
+                            cont_objF_tform = pb_robot.geometry.tform_from_pose(cont_objF.rel_pose)
+                            self.planning_robot.arm.Grab(pb_obj,
+                                                    grasp_toolF.grasp_objF@cont_objF_tform)
+                            break
+                    '''
+                    for link in tool.all_links:
+                        p.changeDynamics(tool.id, link.linkID, contactStiffness=1e-100, contactDamping=1.)
+                    p.changeDynamics(pb_obj.id, -1, contactStiffness=1e-100, contactDamping=1.)
+                    e.simulate(timestep=0.1, obstacles=obstacles, control=False)
+                    #self.planning_robot.arm.Release(pb_obj)
                 else:
-                    e.simulate(timestep=0.5, obstacles=obstacles)
+                    e.simulate(timestep=0.1, obstacles=obstacles)
 
             # Simulate failures if specified
             if (name in ["pick", "move_free"] and not isinstance(e, pb_robot.vobj.BodyGrasp)
@@ -154,6 +173,8 @@ class PandaAgent:
                         reason=f"Simulated recoverable failure in {e}")
             if pause:
                 time.sleep(0.1)
+        for _ in range(200):
+            p.stepSimulation(physicsClientId=self._execution_client_id)
 
         if self.real:
             input("Execute on Robot?")
