@@ -138,7 +138,10 @@ class PandaAgent:
             if self.real:
                 e.simulate(timestep=0.1, obstacles=obstacles)
             else:
-                e.simulate(timestep=0.5, obstacles=obstacles)
+                if (name == 'move_contact') and isinstance(e, pb_robot.vobj.JointSpacePath):
+                    e.simulate(timestep=0.5, obstacles=obstacles, control=True)
+                else:
+                    e.simulate(timestep=0.5, obstacles=obstacles)
 
             # Simulate failures if specified
             if (name in ["pick", "move_free"] and not isinstance(e, pb_robot.vobj.BodyGrasp)
