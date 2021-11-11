@@ -3,6 +3,8 @@ import numpy as np
 import random
 from shutil import copyfile
 
+import pybullet as p
+
 import pb_robot
 
 from pddlstream.language.constants import Action
@@ -35,6 +37,8 @@ class ToolsWorld:
         self.fixed = [self.panda.table]#, self.objects['tunnel']]
         self.obstacles = list(self.objects.values())
         self.init_state = self.get_init_state()
+
+        p.setGravity(0, 0, -9.81, physicsClientId=self.panda._execution_client_id)
 
 
     def get_init_state(self):
@@ -238,7 +242,7 @@ if __name__ == '__main__':
     world, opt_pddl_info, pddl_info = ToolsWorld.init(None, 'optimistic', vis, logger=None)
 
     # get initial state and add yellow block goal pose to fluents
-    push_distance = 0.2
+    push_distance = 0.15
     init = world.init_state
     initial_point, initial_orn = world.objects['yellow_block'].get_base_link_pose()
     final_pose = (np.add(initial_point, (push_distance, 0., 0.)), initial_orn)

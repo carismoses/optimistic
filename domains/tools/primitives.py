@@ -143,7 +143,7 @@ def get_contact_motion_gen(robot, fixed=[], num_attempts=20):
                                                     conf_contact.configuration,
                                                     None,
                                                     obj2),
-                        pb_robot.vobj.JointSpacePath(robot.arm,
+                        pb_robot.vobj.JointSpacePushPath(robot.arm,
                                                     push_path)]
             return (conf_approach, conf_pose2, command)
         return None
