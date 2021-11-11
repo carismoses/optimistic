@@ -38,6 +38,7 @@ def get_contact_gen(robot):
             #obj2.set_base_link_pose(pb_robot.geometry.pose_from_tform(cont_tform))
             #pause()
             ##
+        random.shuffle(contacts)
         return contacts
     return gen
 
@@ -66,7 +67,7 @@ def get_contact_motion_gen(robot, fixed=[], num_attempts=20):
 
         # ee pose at beginning of approach
         approach_dist = 0.1
-        dir = pose2.pose[0]-pose1.pose[0] # in obj2 pose1 frame
+        dir = pose1.pose[0]-pose2.pose[0]
         unit_dir = dir/np.linalg.norm(dir)
         approach = np.eye(4)
         approach[:3,3] = approach_dist*unit_dir
@@ -78,7 +79,6 @@ def get_contact_motion_gen(robot, fixed=[], num_attempts=20):
                             pb_robot.geometry.tform_from_pose(cont.rel_pose)
         ee_pose2_world = obj1_pose2_world@grasp.grasp_objF
 
-        obstacles = fixed
         for ax in range(num_attempts):
             ## debugging
             #tforms = [pb_robot.geometry.tform_from_pose(pose.pose),
@@ -94,10 +94,13 @@ def get_contact_motion_gen(robot, fixed=[], num_attempts=20):
             ##
 
             # calculate all configurations from poses
+            obstacles = copy(fixed)
             conf_contact = ee_ik(ee_contact_world, robot, obstacles)
             if not conf_contact: continue
+            obstacles = copy(fixed) + [obj2]
             conf_approach = ee_ik(ee_approach_world, robot, obstacles, seed_q=conf_contact.configuration)
             if not conf_approach: continue
+            obstacles = copy(fixed)
             conf_pose2 = ee_ik(ee_pose2_world, robot, obstacles)
             if not conf_pose2: continue
 
@@ -112,7 +115,7 @@ def get_contact_motion_gen(robot, fixed=[], num_attempts=20):
             #if push_path is None:
             #    if DEBUG_FAILURE: input('Push motion failed')
             #    continue
-            path_len = 5
+            path_len = 20
             push_ee_positions = np.linspace(ee_contact_world[:3,3],
                                     ee_pose2_world[:3,3],
                                     path_len)
@@ -126,6 +129,8 @@ def get_contact_motion_gen(robot, fixed=[], num_attempts=20):
                     push_conf = ee_ik(ee_tform, robot, obstacles, seed_q=seed_q)
                     if push_conf:
                         break
+                if not push_conf:
+                    return None
                 push_path.append(push_conf.configuration)
                 seed_q = push_conf.configuration
             push_path.append(conf_pose2.configuration)
@@ -409,6 +414,7 @@ def get_tool_grasp_gen(robot, add_slanted_grasps=True, add_orthogonal_grasps=Tru
             #    input('impossible grasp IK')
             ##
             grasps.append((tool_grasp,))
+        random.shuffle(grasps)
         return grasps
     return gen
 
