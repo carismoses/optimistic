@@ -48,6 +48,11 @@ class OrderedBlocksWorld:
         self.table = self.panda.table if self.use_panda else self.table
         self.init_state = self.get_init_state()
 
+        # GNN model params
+        self.n_of_in = 1
+        self.n_ef_in = 1
+        self.n_af_in = 2
+
 
     def get_init_state(self):
         pddl_state = []
@@ -98,7 +103,7 @@ class OrderedBlocksWorld:
         for block_num, xy_point in zip(range(1, self.num_blocks+1), xy_points):
             fname = '%i.urdf' % block_num
             block_to_urdf(str(block_num),
-                            os.path.join('tamp/urdf_models', fname),
+                            os.path.join('pb_robot/models', fname),
                             block_colors[(block_num % len(block_colors))][1])
             pb_block = pb_robot.body.createBody(os.path.join('models', fname))
             # NOTE: for now assumes no relative rotation between robot base/world frame and object
@@ -158,7 +163,7 @@ class OrderedBlocksWorld:
         return opt_pddl_info, pddl_info
 
 
-    def generate_random_goal(self, feasible=False, ret_goal_feas=False):
+    def generate_random_goal(self, feasible=False):
         random_top_block = random.choice(list(self.blocks))
         if feasible:
             top_block_num = self.blocks[random_top_block]
@@ -166,8 +171,6 @@ class OrderedBlocksWorld:
         else:
             random_height = np.random.randint(2, self.num_blocks+1)
         goal = ('height%s' % int_to_str(random_height), random_top_block)
-        if ret_goal_feas:
-            return goal, self.blocks[random_top_block] >= random_height
         return goal
 
 
@@ -358,8 +361,8 @@ class OrderedBlocksWorld:
                     return True, top_block
             return False, None
 
-        object_features = np.expand_dims(np.arange(num_blocks+1), 1)
-        edge_features = np.zeros((num_blocks+1, num_blocks+1, 1))
+        object_features = np.expand_dims(np.arange(num_blocks+1), self.n_of_in)
+        edge_features = np.zeros((num_blocks+1, num_blocks+1, self.n_ef_in))
         # for each block on the table, recursively check which blocks are on top of it
         for block in blocks:
             if ('on', block, self.table) in state:
@@ -411,12 +414,26 @@ class OrderedBlocksWorld:
     # state. This will require a method of going from the physical world to a PDDL
     # respresentation of the state.
     # NOTE this is a bit hacky. should get indices from param names ?bt and ?bb
-    def valid_transition(self, pddl_action):
+    def valid_transition(self, new_pddl_state, pddl_action):
         if 'place' in pddl_action.name:
             return self.blocks[pddl_action.args[0]] == self.blocks[pddl_action.args[2]]+1
         else:
             return True # all other actions are valid
 
+
+    def add_goal_text(self, goal):
+        height_str = goal[0]
+        for hi, hstr in int_to_str_dict.items():
+            if hstr == height_str[-1*len(hstr):]:
+                height = hi
+        print(height, '!!')
+        top_block_num = self.blocks[goal[1]]
+        goal_feas = top_block_num >= height
+        if self.use_panda:
+            self.panda.add_text('Planning for Goal: (%s, %s)' % (goal[0], block_colors[self.blocks[goal[1]]][0]),
+                position=(0, -1, 1),
+                size=1.5,
+                color = (0, 255, 0, 1) if goal_feas else (255, 0 , 0, 1))
 
 class NumberedBlock:
     def __init__(self, num):
