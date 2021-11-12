@@ -226,17 +226,20 @@ def get_learned_pddl(opt_domain_pddl_path, opt_streams_pddl_path, \
 
 
 def transition(world, pddl_state, fd_state, pddl_action, fd_action):
+    if world.use_panda:
+        print('Executing action: ', pddl_action)
+        world.panda.execute_action(pddl_action, world.fixed, world_obstacles=world.obstacles)
+
     new_fd_state = copy(fd_state)
-    valid_transition = world.valid_transition(pddl_action)
-    if valid_transition:
-        apply_action(new_fd_state, fd_action) # apply action in PDDL model
-        if world.use_panda:
-            print('Executing action: ', pddl_action)
-            world.panda.execute_action(pddl_action, world.fixed, world_obstacles=world.obstacles)
-            print('Action successfully executed.')
-    pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
+    apply_action(new_fd_state, fd_action) # apply action (optimistically) in PDDL action model
     new_pddl_state = [fact_from_fd(sfd) for sfd in new_fd_state]
-    return new_pddl_state, new_fd_state, valid_transition
+    valid_transition = world.valid_transition(new_pddl_state, pddl_action) # check that real state matches opt pddl state
+    if valid_transition:
+        print('Valid transition.')
+    else:
+        print('INVALID transitions.')
+    return new_pddl_state, new_fd_state, valid_transition # TODO: should really just return valid transition
+    # and remove others since aren't used when model type is a classifier
 
 
 def block_to_urdf(obj_name, urdf_path, color):
