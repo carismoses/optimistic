@@ -82,6 +82,9 @@ if __name__ == '__main__':
         import pdb; pdb.set_trace()
 
     #### Parameters ####
+    # This plots the accuracy of the models in results_path.py where the x axis
+    # is the number actions trained on so far
+
     # import train
     from domains.ordered_blocks.results_paths import model_paths
     compare_opt = True  # if want to compare against the optimistic model

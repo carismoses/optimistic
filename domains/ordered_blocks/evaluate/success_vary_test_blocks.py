@@ -26,6 +26,9 @@ if __name__ == '__main__':
         import pdb; pdb.set_trace()
 
     #### Parameters ####
+    # This plots the % Success (out of num_goals set below) of the models in
+    # results_path.py where the x axis is the number of blocks in the test domain
+
     # import train and test datasets
     from domains.ordered_blocks.test_datasets import test_datasets
     from domains.ordered_blocks.results_paths import model_paths

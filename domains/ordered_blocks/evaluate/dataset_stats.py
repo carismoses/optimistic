@@ -15,8 +15,11 @@ if __name__ == '__main__':
         import pdb; pdb.set_trace()
 
 ### Parameters
+# This plots a histogram of the labels (feasible/infeasible), tower heights, and
+# actions attempted in a set of models all trained using the same method (set below
+# with dataset_exp_paths from results_paths.py)
 from domains.ordered_blocks.results_paths import model_paths
-dataset_exp_paths = model_paths['long-horizon-goals-opt']
+dataset_exp_paths = model_paths['random-goals-learned']
 ###
 
 labels = {0: [], 1: []}

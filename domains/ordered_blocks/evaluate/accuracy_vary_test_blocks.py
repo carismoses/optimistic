@@ -96,6 +96,9 @@ if __name__ == '__main__':
         import pdb; pdb.set_trace()
 
     #### Parameters ####
+    # This plots the accuracy of the models in results_path.py where the x axis
+    # is the number of blocks in the test domain
+    
     # import train datasets
     from domains.ordered_blocks.results_paths import model_paths
     all_test_num_blocks = [2, 3, 4, 5, 6, 7, 8]
