@@ -16,8 +16,9 @@ from tamp.utils import get_simple_state, get_learned_pddl, block_to_urdf
 from domains.tools.primitives import get_free_motion_gen, \
     get_holding_motion_gen, get_ik_fn, get_pose_gen_block, get_tool_grasp_gen, \
     get_block_grasp_gen, get_contact_motion_gen, get_contact_gen
-#from domains.tools.add_to_primitives import get_trust_model
+from domains.tools.add_to_primitives import get_trust_model
 
+# TODO: make parent world template class
 class ToolsWorld:
     @staticmethod
     def init(domain_args, pddl_model_type, vis, logger=None):
@@ -38,7 +39,13 @@ class ToolsWorld:
         self.obstacles = list(self.objects.values())
         self.init_state = self.get_init_state()
 
+        # TODO: test without gravity?? maybe will stop robot from jumping around so much
         p.setGravity(0, 0, -9.81, physicsClientId=self.panda._execution_client_id)
+
+        # GNN model params
+        self.n_of_in = 1
+        self.n_ef_in = 7
+        self.n_af_in = 7
 
 
     def get_init_state(self):
@@ -106,6 +113,12 @@ class ToolsWorld:
             block, pose = place_object(name, urdf_path, pos_xy)
             init_state += [('block', block), ('on', block, self.panda.table), ('clear', block), \
                             ('atpose', block, pose), ('pose', block, pose), ('freeobj', block)]
+            ### temporary for testing
+            if name == 'yellow_block':
+                push_distance = 0.15
+                self.goal_pose = (np.add(pose.pose[0], (push_distance, 0., 0.)), pose.pose[1])
+            ###
+
 
         # tunnel
         '''
@@ -124,6 +137,7 @@ class ToolsWorld:
             init_state += [('patch', patch), ('clear', patch), ('atpose', patch, pose), \
                             ('pose', patch, pose)]#, ('on', patch, self.panda.table)]
         '''
+
         return pb_objects, orig_poses, init_state
 
 
@@ -175,11 +189,8 @@ class ToolsWorld:
 
 
     def generate_random_goal(self, feasible=False, ret_goal_feas=False):
-        random_block = random.choice(list(self.pb_blocks))
-        random_patch = random.choice(list(self.patches))
-        goal = ('on', random_block, random_patch)
-        if ret_goal_feas:
-            return goal, True # all goals in this domain are feasible
+        final_yb_pose = pb_robot.vobj.BodyPose(self.objects['yellow_block'], self.goal_pose)
+        goal = ('atpose', self.objects['yellow_block'], final_yb_pose)
         return goal
 
 
@@ -190,44 +201,68 @@ class ToolsWorld:
 
 
     def state_to_vec(self, state):
-        n_state_features = 6    # obj_id, obj_type, clear, free_obj, grasp, pose
-        n_global_features = 2   # hand_empty, at_conf
-        n_edge_features = 1     # on
         state = get_simple_state(state)
-        object_features = np.zeros((len(self.objects), n_state_features))
-        global_features = np.zeros(n_global_features)
-        edge_features = np.zeros((n_edge_features, n_edge_features, 1))
-        for oi, object in enumerate(self.objects):
-            object_features[oi] = self.object_to_vec(object)
 
-        for ai, object_a in self.objects:
-            for bi, object_b in self.objects:
-                if ('on', object_a, object_b) in state:
-                    edge_features[ai, bi, 0] = 1
+        num_objects = len(self.objects)
+        object_features = np.zeros((num_objects, self.n_of_in))
+        for oi, object in enumerate(self.objects.values()):
+            object_features[oi] = object.id
 
-        global_features = None# TODO
-        return object_features, edge_features, global_features
+        edge_features = np.zeros((num_objects, num_objects, self.n_ef_in))
+        for oi, object_i in enumerate(self.objects.values()):
+            for oj, object_j in enumerate(self.objects.values()):
+                if oi == oj:
+                    edge_features[oi,oj,:] = np.zeros(self.n_ef_in)
+                else:
+                    rel_tform = object_i.get_base_link_transform()@np.transpose(object_j.get_base_link_transform())
+                    rel_pos, rel_quat = pb_robot.geometry.pose_from_tform(rel_tform)
+                    edge_features[oi,oj,:3] = rel_pos
+                    edge_features[oi,oj,3:] = rel_quat
+
+        return object_features, edge_features
 
 
     def action_to_vec(self, action):
-        # TODO
-        pass
+        action_vec = np.zeros(self.n_af_in)
+        final_push_pos, final_push_quat = action.args[4].pose
+        action_vec[:3] = final_push_pos
+        action_vec[3:] = final_push_quat
+        return action_vec
 
 
-    def action_args_to_action(self, top_block, bottom_block):
-        #return Action(name='pickplace', args=(top_block, self.table, bottom_block))
-        #TODO
-        pass
+    def pred_args_to_action_vec(obj1, obj2, pose1, pose2, cont):
+        action = Action(name='move_contact', args=(obj1,
+                                                    None,
+                                                    obj2,
+                                                    pose1,
+                                                    pose2,
+                                                    cont,
+                                                    None,
+                                                    None,
+                                                    None))
+        return self.action_to_vec(action)
 
 
-    # NOTE: in physical domains, to evaluate if a transition matched the optimistic model,
-    # we will have to see if the resulting physical state matches the resulting PDDL
-    # state. This will require a method of going from the physical world to a PDDL
-    # respresentation of the state.
-    # NOTE this is a bit hacky. should get indices from param names ?bt and ?bb
-    def valid_transition(self, pddl_action):
-        # TODO
-        return True
+    def valid_transition(self, new_pddl_state, pddl_action):
+        self.panda.execute()
+        valid_transition = True
+        if pddl_action.name == 'move_contact':
+            tol = 0.05
+            # check that block ended up where it was supposed to (with some tolerance)
+            goal_pos2 = pddl_action.args[4].pose[0]
+            true_pos2 = pddl_action.args[2].get_base_link_pose()[0]
+            if np.linalg.norm(goal_pos2-true_pos2) > tol:
+                valid_transition = False
+        self.panda.plan()
+        return valid_transition
+
+
+    def add_goal_text(self, goal):
+        self.panda.add_text('Planning for Goal: (%s, %s, (%f, %f, %f))' % \
+                                            (goal[0], goal[1], *goal[2].pose[0]),
+                        position=(0, -1, 1),
+                        size=1.5)
+
 
 # just for testing
 if __name__ == '__main__':
@@ -237,7 +272,7 @@ if __name__ == '__main__':
     from pddlstream.algorithms.focused import solve_focused
     from tamp.utils import execute_plan, vis_frame
 
-    #import pdb; pdb.set_trace()
+    import pdb; pdb.set_trace()
     vis = True  # set to visualize pyBullet GUI
     world, opt_pddl_info, pddl_info = ToolsWorld.init(None, 'optimistic', vis, logger=None)
 
@@ -247,9 +282,8 @@ if __name__ == '__main__':
     initial_point, initial_orn = world.objects['yellow_block'].get_base_link_pose()
     final_pose = (np.add(initial_point, (push_distance, 0., 0.)), initial_orn)
     final_yb_pose = pb_robot.vobj.BodyPose(world.objects['yellow_block'], final_pose)
-    init += [('pose', world.objects['yellow_block'], final_yb_pose)]
-
     goal = ('atpose', world.objects['yellow_block'], final_yb_pose)
+    init += [('pose', world.objects['yellow_block'], goal[2])]
 
     problem = tuple([*pddl_info, init, goal])
 
