@@ -16,22 +16,39 @@ from learning.models.gnn import TransitionGNN
 from learning.train import train
 from tamp.utils import execute_random, execute_plan
 from domains.ordered_blocks.world import OrderedBlocksWorld, block_colors
-
+from domains.tools.world import ToolsWorld
 
 def train_class(args, trans_dataset, logger):
     im = None
     pddl_model_type = 'learned' if 'learned' in args.data_collection_mode else 'optimistic'
 
+    # TODO: create worlds in parent class
+    if args.domain == 'ordered_blocks':
+        world, opt_pddl_info, pddl_info = OrderedBlocksWorld.init(args.domain_args,
+                                                                pddl_model_type,
+                                                                args.vis,
+                                                                logger)
+    elif args.domain == 'tools':
+        world, opt_pddl_info, pddl_info = ToolsWorld.init(args.domain_args,
+                                                                pddl_model_type,
+                                                                args.vis,
+                                                                logger)
+    else:
+        raise NotImplementedError
+
     # save initial (empty) dataset
     logger.save_trans_dataset(trans_dataset, i=0)
 
     # initialize and save model
-    trans_model = TransitionGNN(n_of_in=1,
-                                n_ef_in=1,
-                                n_af_in=2,
+    trans_model = TransitionGNN(n_of_in=world.n_of_in,
+                                n_ef_in=world.n_ef_in,
+                                n_af_in=world.n_af_in,
                                 n_hidden=args.n_hidden,
                                 pred_type=args.pred_type)
     logger.save_trans_model(trans_model, i=0)
+
+    # NOTE: just made a world to get model params
+    world.disconnect()
 
     i = 0
     while len(trans_dataset) < args.max_transitions:
@@ -41,9 +58,14 @@ def train_class(args, trans_dataset, logger):
                                                                     pddl_model_type,
                                                                     args.vis,
                                                                     logger)
+        elif args.domain == 'tools':
+            world, opt_pddl_info, pddl_info = ToolsWorld.init(args.domain_args,
+                                                                    pddl_model_type,
+                                                                    args.vis,
+                                                                    logger)
         else:
             raise NotImplementedError
-        goal, goal_feas = world.generate_random_goal(ret_goal_feas=True) # ignored if execute_random()
+        goal = world.generate_random_goal() # ignored if execute_random()
         print('Init: ', world.init_state)
         if world.use_panda:
             world.panda.add_text('Iteration %i |dataset| = %i' % (i, len(trans_dataset)),
@@ -52,13 +74,13 @@ def train_class(args, trans_dataset, logger):
                                 counter=True)
         if 'goals' in args.data_collection_mode:
             print('Goal: ', goal)
-            if world.use_panda:
-                world.panda.add_text('Planning for Goal: (%s, %s)' % (goal[0], block_colors[world.blocks[goal[1]]][0]),
-                                    position=(0, -1, 1),
-                                    size=1.5,
-                                    color = (0, 255, 0, 1) if goal_feas else (255, 0 , 0, 1))
+            world.add_goal_text(goal)
 
             # generate plan (using PDDLStream) to reach random goal
+            ## temporary hack! ##
+            #init = world.init_state + [('pose', world.objects['yellow_block'], goal[2])]
+            #problem = tuple([*pddl_info, init, goal])
+            ##
             problem = tuple([*pddl_info, world.init_state, goal])
             ic = 2 if world.use_panda else 0
             pddl_plan, cost, init_expanded = solve_focused(problem,
@@ -115,37 +137,38 @@ def train_class(args, trans_dataset, logger):
                                     size=1.5)
             trajectory = execute_random(world, opt_pddl_info)
 
-        # disconnect from world
-        world.disconnect()
-
         # add to dataset and save
         if trajectory:
             print('Adding trajectory to dataset.')
             add_trajectory_to_dataset(args, trans_dataset, trajectory, world)
 
             # initialize and train new model
-            trans_model = TransitionGNN(n_of_in=1,
-                                        n_ef_in=1,
-                                        n_af_in=2,
+            trans_model = TransitionGNN(n_of_in=world.n_of_in,
+                                        n_ef_in=world.n_ef_in,
+                                        n_af_in=world.n_af_in,
                                         n_hidden=args.n_hidden,
                                         pred_type=args.pred_type)
             trans_dataset.set_pred_type(args.pred_type)
             print('Training model.')
             trans_dataloader = DataLoader(trans_dataset, batch_size=args.batch_size, shuffle=True)
             train(trans_dataloader, trans_model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
-            im = show_model_accuracy(im, trans_model, world)
+            if args.domain == 'ordered_blocks': # TODO: visualize accuracy for other domains
+                im = show_model_accuracy(im, trans_model, world)
 
             # save new model and dataset
             logger.save_trans_dataset(trans_dataset, i=i)
             logger.save_trans_model(trans_model, i=i)
             print('Saved model to %s' % logger.exp_path)
 
+        # disconnect from world
+        world.disconnect()
+
         i += 1
 
 
 def add_trajectory_to_dataset(args, trans_dataset, trajectory, world):
     for (state, pddl_action, next_state, opt_accuracy) in trajectory:
-        if 'place' in pddl_action.name:
+        if pddl_action.name in ['place', 'pickplace', 'move_contact']:
             object_features, edge_features = world.state_to_vec(state)
             action_features = world.action_to_vec(pddl_action)
             # assume object features don't change for now
@@ -203,7 +226,7 @@ if __name__ == '__main__':
                         help='use to run in debug mode')
     parser.add_argument('--domain',
                         type=str,
-                        choices=['ordered_blocks'],
+                        choices=['ordered_blocks', 'tools'],
                         default='ordered_blocks',
                         help='domain to generate data from')
     parser.add_argument('--domain-args',
@@ -250,9 +273,6 @@ if __name__ == '__main__':
 
     if args.debug:
         import pdb; pdb.set_trace()
-
-    if not args.domain == 'ordered_blocks':
-        NotImplementedError('Only Ordered Blocks world works')
 
     if not args.pred_type == 'class':
         NotImplementedError('Prediction types != class have not been tested in a while')
