@@ -91,6 +91,7 @@ class GNN(nn.Module):
         y = self.final_pred(he)
         return y
 
+
 class HeuristicGNN(GNN):
     def __init__(self, n_of_in=7, n_ef_in=7, n_hidden=16):
         """ This network is given three inputs of size (N, K, n_of_in), (N, K, K, n_ef_in), and (N, n_af_in).
@@ -182,11 +183,11 @@ class TransitionGNN(GNN):
                                nn.Linear(n_hidden, n_hidden))
 
         # Final function to get next state edge predictions
-        self.Ef = nn.Sequential(nn.Linear(n_hidden, n_hidden),
+        self.F = nn.Sequential(nn.Linear(n_hidden, n_hidden),
                                 nn.ReLU(),
                                 nn.Linear(n_hidden, n_hidden),
                                 nn.ReLU(),
-                                nn.Linear(n_hidden,n_ef_in))
+                                nn.Linear(n_hidden,1))
 
         self.n_af_in = n_af_in
         self.pred_type = pred_type
@@ -224,21 +225,10 @@ class TransitionGNN(GNN):
     def final_pred(self, he):
         N, K, K, n_hidden = he.shape
 
-        if self.pred_type == 'delta_state' or self.pred_type == 'full_state':
-            # Calculate the final edge predictions
-            # he.shape = (N, K, K, n_hidden) --> (N*K*K, n_hidden)
-            he = he.view(-1, self.n_hidden)
-            y = self.Ef(he).view(N, K, K, self.n_ef_in)
-
-            # if predicting next full state, hidden state is a probability
-            if self.pred_type == 'full_state':
-                y = torch.sigmoid(y)
-        elif self.pred_type == 'class':
-            # Calculate the final edge predictions
-            # he.shape = (N, K, K, n_hidden)
-            # x.shape = (N, n_hidden)
-            # y.shape = (N, 1) --> (N)
-            x = torch.mean(he, dim=(1,2))
-            y = self.Ef(x).view(N)
-            return torch.sigmoid(y)
-        return y
+        # Calculate the final edge predictions
+        # he.shape = (N, K, K, n_hidden)
+        # x.shape = (N, n_hidden)
+        # y.shape = (N, 1) --> (N)
+        x = torch.mean(he, dim=(1,2))
+        y = self.F(x).view(N)
+        return torch.sigmoid(y)
