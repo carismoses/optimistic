@@ -44,7 +44,7 @@ def train_class(args, trans_dataset, logger):
                                 n_ef_in=world.n_ef_in,
                                 n_af_in=world.n_af_in,
                                 n_hidden=args.n_hidden,
-                                pred_type=args.pred_type)
+                                n_layers=args.n_layers)
     logger.save_trans_model(trans_model, i=0)
 
     # NOTE: just made a world to get model params
@@ -81,7 +81,7 @@ def train_class(args, trans_dataset, logger):
             init = world.init_state + [('pose', world.objects['yellow_block'], goal[2])]
             problem = tuple([*pddl_info, init, goal])
             ##
-            problem = tuple([*pddl_info, world.init_state, goal])
+            #problem = tuple([*pddl_info, world.init_state, goal])
             ic = 2 if world.use_panda else 0
             pddl_plan, cost, init_expanded = solve_focused(problem,
                                                 success_cost=INF,
@@ -147,8 +147,7 @@ def train_class(args, trans_dataset, logger):
                                         n_ef_in=world.n_ef_in,
                                         n_af_in=world.n_af_in,
                                         n_hidden=args.n_hidden,
-                                        pred_type=args.pred_type)
-            trans_dataset.set_pred_type(args.pred_type)
+                                        n_layers=args.n_layers)
             print('Training model.')
             trans_dataloader = DataLoader(trans_dataset, batch_size=args.batch_size, shuffle=True)
             train(trans_dataloader, trans_model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
@@ -253,10 +252,6 @@ if __name__ == '__main__':
                         action='store_true',
                         help='use to visualize robot executions.')
     # Training args
-    parser.add_argument('--pred-type',
-                        type=str,
-                        choices=['delta_state', 'full_state', 'class'],
-                        default='class')
     parser.add_argument('--batch-size',
                         type=int,
                         default=16,
@@ -267,15 +262,16 @@ if __name__ == '__main__':
                         help='training epochs')
     parser.add_argument('--n-hidden',
                         type=int,
-                        default=16,
+                        default=32,
                         help='number of hidden units in network')
+    parser.add_argument('--n-layers',
+                        type=int,
+                        default=5,
+                        help='number of layers in GNN node and edge networks')
     args = parser.parse_args()
 
     if args.debug:
         import pdb; pdb.set_trace()
-
-    if not args.pred_type == 'class':
-        NotImplementedError('Prediction types != class have not been tested in a while')
 
     paths = []
     for n in range(args.N):
