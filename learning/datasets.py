@@ -2,7 +2,7 @@ import numpy as np
 import torch
 
 from torch.utils.data import Dataset
-from learning.models.gnn import TransitionGNN, HeuristicGNN
+from learning.models.gnn import TransitionGNN
 
 class TransDataset(Dataset):
     def __init__(self):
@@ -13,11 +13,7 @@ class TransDataset(Dataset):
         self.next_edge_features = torch.tensor([], dtype=torch.float64)
         self.optimistic_accuracy = torch.tensor([], dtype=torch.float64)
 
-    def set_pred_type(self, pred_type):
-        self.pred_type = pred_type
-
     def __getitem__(self, ix, full_info=False):
-        assert self.pred_type, 'Must set pred_type to getitem from TransDataset'
         if full_info:
             return [self.object_features[ix],
                     self.edge_features[ix],
@@ -25,17 +21,7 @@ class TransDataset(Dataset):
                     self.next_edge_features[ix],
                     self.delta_edge_features[ix],
                     self.optimistic_accuracy[ix]]
-        if self.pred_type == 'full_state':
-            return [self.object_features[ix],
-                    self.edge_features[ix],
-                    self.actions[ix]], \
-                    self.next_edge_features[ix]
-        elif self.pred_type == 'delta_state':
-            return [self.object_features[ix],
-                    self.edge_features[ix],
-                    self.actions[ix]], \
-                    self.delta_edge_features[ix]
-        elif self.pred_type == 'class':
+        else:
             return [self.object_features[ix],
                     self.edge_features[ix],
                     self.actions[ix]], \
@@ -77,8 +63,6 @@ class TransDataset(Dataset):
     # balance so equal labels and balanced actions within labels
     # NOTE: only filtering on actions since that's all that matters in simple block domain
     def balance(self):
-        assert self.pred_type == 'class', 'only works for classifier'
-
         # collect unique actions and their indices
         unique_actions = {}
         for i in range(len(self)):
@@ -156,13 +140,7 @@ class HeurDataset(Dataset):
 # TODO: have it detect if a single input or a batch is being passed in
 def model_forward(model, inputs):
     tensor_inputs = []
-    if isinstance(model, TransitionGNN):
-        if model.pred_type != 'class':
-            batch_shape_lens = [3, 4, 2]
-        else:
-            batch_shape_lens = [3, 4, 2]
-    elif isinstance(model, HeuristicGNN):
-        batch_shape_lens = [3, 4, 4]
+    batch_shape_lens = [3, 4, 2]
     for batch_input_shape_len, input in zip(batch_shape_lens, inputs):
         if not torch.is_tensor(input):
             input = torch.tensor(input, dtype=torch.float64)
@@ -178,24 +156,17 @@ def preprocess(args, dataset, type='successful_actions'):
     xs, ys = dataset[:]
     remove_list = []
     # only keep samples with successful actions/edge changes
-    if type == 'successful_actions':
-        for i, ((object_features, edge_features, action), next_edge_features) in enumerate(dataset):
-            if (args.pred_type == 'full_state' and (edge_features == next_edge_features).all()) or \
-                (args.pred_type == 'delta_state' and (next_edge_features.abs().sum() == 0)):
-                remove_list.append(i)
-    # all actions have same frequency in the dataset
-    if type == 'balanced_actions':
-        distinct_actions = []
-        actions_counter = {}
-        for i, ((object_features, edge_features, action), next_edge_features) in enumerate(dataset):
-            a = tuple(action.numpy())
-            if a not in distinct_actions:
-                distinct_actions.append(a)
-                actions_counter[a] = [i]
-            else:
-                actions_counter[a] += [i]
-        min_distinct_actions = min([len(counter) for counter in actions_counter.values()])
-        for a in distinct_actions:
-            remove_list += actions_counter[a][min_distinct_actions:]
+    distinct_actions = []
+    actions_counter = {}
+    for i, ((object_features, edge_features, action), next_edge_features) in enumerate(dataset):
+        a = tuple(action.numpy())
+        if a not in distinct_actions:
+            distinct_actions.append(a)
+            actions_counter[a] = [i]
+        else:
+            actions_counter[a] += [i]
+    min_distinct_actions = min([len(counter) for counter in actions_counter.values()])
+    for a in distinct_actions:
+        remove_list += actions_counter[a][min_distinct_actions:]
 
     dataset.remove_elements(remove_list)

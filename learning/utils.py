@@ -5,7 +5,7 @@ import time
 import torch
 import datetime
 
-from learning.models.gnn import TransitionGNN, HeuristicGNN
+from learning.models.gnn import TransitionGNN
 
 class ExperimentLogger:
 
@@ -96,7 +96,7 @@ class ExperimentLogger:
             fname = 'trans_model.pt'
         self.save_model(model, fname)
 
-    def load_trans_model(self, i=None):
+    def load_trans_model(self, world, i=None):
         # NOTE: returns the highest numbered model if i is not given
         if i is not None:
             fname = 'trans_model_%i.pt' % i
@@ -117,14 +117,10 @@ class ExperimentLogger:
                 fname = 'trans_model_%i.pt' % i
                 #print('Loading model %s.' % fname)
 
-        n_of_in=1
-        n_ef_in=1
-        n_af_in=2
-        model = TransitionGNN(n_of_in=n_of_in,
-                                n_ef_in=n_ef_in,
-                                n_af_in=n_af_in,
-                                n_hidden=self.args.n_hidden,
-                                pred_type=self.args.pred_type)
+        model = TransitionGNN(n_of_in=world.n_of_in,
+                                n_ef_in=world.n_ef_in,
+                                n_af_in=world.n_af_in,
+                                n_hidden=self.args.n_hidden)
         model.load_state_dict(torch.load(os.path.join(self.exp_path, 'models', fname)))
         return model
 
