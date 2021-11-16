@@ -45,7 +45,6 @@ for th in range(1,num_blocks+1): heights[th] = []
 for dataset_exp_path in dataset_exp_paths:
     dataset_logger = ExperimentLogger(dataset_exp_path)
     dataset = dataset_logger.load_trans_dataset()
-    dataset.set_pred_type('class')
 
     ds_pos_actions, ds_neg_actions, ds_labels, ds_heights = [], [], [], []
     for x,y in dataset:
