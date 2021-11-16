@@ -17,6 +17,7 @@ venv/
 pddlstream
 pb_robot
 temp/
+tmp/
 domains/ordered_blocks/discrete/tmp
 domains/ordered_blocks/panda/tmp
 tamp/urdf_models/red_block.urdf

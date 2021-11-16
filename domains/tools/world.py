@@ -1,3 +1,4 @@
+from copy import copy
 import os
 import numpy as np
 import random
@@ -179,7 +180,7 @@ class ToolsWorld:
                                                         opt_streams_pddl_path,
                                                         add_to_domain_path,
                                                         add_to_streams_path)
-            streams_map = opt_streams_map
+            streams_map = copy(opt_streams_map)
             streams_map['TrustModel'] = get_trust_model(self, logger)
 
         constant_map = {}

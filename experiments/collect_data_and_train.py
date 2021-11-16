@@ -109,7 +109,11 @@ def train_class(args, trans_dataset, logger):
                     world.panda.add_text('Planning failed. Planning with optimistic model',
                                         position=(0, -1, 1),
                                         size=1.5)
-                problem = tuple([*opt_pddl_info, world.init_state, goal])
+                ## temporary hack! ##
+                init = world.init_state + [('pose', world.objects['yellow_block'], goal[2])]
+                problem = tuple([*opt_pddl_info, init, goal])
+                ##
+                #problem = tuple([*opt_pddl_info, world.init_state, goal])
                 ic = 2 if world.use_panda else 0
                 pddl_plan, cost, init_expanded = solve_focused(problem,
                                                     success_cost=INF,
