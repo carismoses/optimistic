@@ -44,7 +44,7 @@ class ToolsWorld:
 
         # GNN model params
         self.n_of_in = 1
-        self.n_ef_in = 7
+        self.n_ef_in = 3
         self.n_af_in = 7
 
 
@@ -202,6 +202,16 @@ class ToolsWorld:
 
     def state_to_vec(self, state):
         state = get_simple_state(state)
+        def get_obj_pose(object):
+            for pred in state:
+                if pred[0] == 'atpose' and pred[1] == object:
+                    return pred[2].pose
+                if pred[0] == 'atgrasp' and pred[1] == object:
+                    grasp_objF = pred[2].grasp_objF
+                    for pred in state:
+                        if pred[0] == 'atconf':
+                            ee_pose = self.panda.planning_robot.arm.ComputeFK(pred[1].configuration)
+                            return pb_robot.geometry.pose_from_tform(ee_pose@grasp_objF)
 
         num_objects = len(self.objects)
         object_features = np.zeros((num_objects, self.n_of_in))
@@ -214,10 +224,12 @@ class ToolsWorld:
                 if oi == oj:
                     edge_features[oi,oj,:] = np.zeros(self.n_ef_in)
                 else:
-                    rel_tform = object_i.get_base_link_transform()@np.transpose(object_j.get_base_link_transform())
-                    rel_pos, rel_quat = pb_robot.geometry.pose_from_tform(rel_tform)
-                    edge_features[oi,oj,:3] = rel_pos
-                    edge_features[oi,oj,3:] = rel_quat
+                    obj_i_pos, obj_i_orn = get_obj_pose(object_i)
+                    obj_j_pos, obj_j_orn = get_obj_pose(object_j)
+                    rel_pos = np.array(obj_i_pos) - np.array(obj_j_pos)
+                    rel_angle = pb_robot.geometry.quat_angle_between(obj_i_orn, obj_j_orn)
+                    edge_features[oi,oj,:2] = rel_pos[:2]
+                    edge_features[oi,oj,2] = rel_angle
 
         return object_features, edge_features
 
