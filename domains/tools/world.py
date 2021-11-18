@@ -112,30 +112,38 @@ class ToolsWorld:
                         ('freeobj', tool),
                         ('notheavy', tool)]
 
-        # blocks
-        blocks = [#('red_block', (1.0, 0.0, 0.0, 1.0), (0.9, 0.0)),
-                    #('blue_block', (0.0, 0.0, 1.0, 1.0), (0.3, 0.4)),
-                    ('yellow_block', (1.0, 1.0, 0.0, 1.0), (0.4, -0.3))]
+        #('blue_block', (0.0, 0.0, 1.0, 1.0), (0.3, 0.4)), (name, color, pos_xy)
 
-        for name, color, pos_xy in blocks:
-            urdf_path = 'tamp/urdf_models/%s.urdf' % name
-            block_to_urdf(name, urdf_path, color)
-            block, pose = self.place_object(name, urdf_path, pos_xy)
-            pb_objects[name] = block
-            orig_poses[name] = pose
-            self.obj_init_poses[name] = pose
-            init_state += [('block', block), ('on', block, self.panda.table), ('clear', block), \
-                            ('atpose', block, pose), ('pose', block, pose), ('freeobj', block)]
+        # yellow block (heavy --> must be pushed)
+        name = 'yellow_block'
+        color = (1.0, 1.0, 0.0, 1.0)
+        pos_xy = (0.4, -0.3)
+        urdf_path = 'tamp/urdf_models/%s.urdf' % name
+        block_to_urdf(name, urdf_path, color)
+        block, pose = self.place_object(name, urdf_path, pos_xy)
+        pb_objects[name] = block
+        orig_poses[name] = pose
+        self.obj_init_poses[name] = pose
+        init_state += [('block', block), ('on', block, self.panda.table), ('clear', block), \
+                        ('atpose', block, pose), ('pose', block, pose), ('freeobj', block)]
+
+        # red block (notheavy --> can be picked)
+        name = 'red_block'
+        color = (1.0, 0.0, 0.0, 1.0)
+        pos_xy = (0.6, 0.0)
+        urdf_path = 'tamp/urdf_models/%s.urdf' % name
+        block_to_urdf(name, urdf_path, color)
+        block, pose = self.place_object(name, urdf_path, pos_xy)
+        pb_objects[name] = block
+        orig_poses[name] = pose
+        self.obj_init_poses[name] = pose
+        init_state += [('block', block), ('on', block, self.panda.table), ('clear', block), \
+                        ('atpose', block, pose), ('pose', block, pose), ('freeobj', block), \
+                        ('notheavy', block)]
 
         # tunnel
-        '''
         tunnel_name = 'tunnel'
         tunnel, pose = self.place_object(tunnel_name, 'tamp/urdf_models/%s.urdf' % tunnel_name, (0.3, 0.4))
-        pb_objects[tunnel_name] = tunnel
-        orig_poses[tunnel_name] = pose
-        init_state += [('tunnel', tunnel)]#, ('on', tunnel, self.panda.table), ('clear', block), \
-                        #('atpose', tunnel, pose), ('pose', tunnel, pose)]
-        '''
 
         return pb_objects, orig_poses, init_state
 
@@ -188,10 +196,9 @@ class ToolsWorld:
 
 
     def generate_random_goal(self, feasible=False, ret_goal_feas=False):
-        # select push distance and angle (rad from x axis)
-        push_distance = np.random.uniform(0.5, 0.15) # meters
-        push_angle = np.random.uniform(0, np.pi/2) # rad
-        push_xy = push_distance*np.array([np.cos(push_angle), np.sin(push_angle)])
+        # select random point on table (not near tunnel)
+        goal_xy = np.array([np.random.uniform(0.05,0.85),
+                            np.random.uniform(0.2,-0.5)])
 
         # select a random block
         random_object = random.choice(list(self.objects.values()))
@@ -200,7 +207,6 @@ class ToolsWorld:
         init_pose = self.get_obj_pose_from_state(random_object, self.init_state)
 
         # add desired pose to state
-        goal_xy = init_pose[0][:2] + push_xy
         goal_pose = ((goal_xy[0], goal_xy[1], init_pose[0][2]), init_pose[1])
         final_pose = pb_robot.vobj.BodyPose(random_object, goal_pose)
         self.init_state += [('pose', random_object, final_pose)]
