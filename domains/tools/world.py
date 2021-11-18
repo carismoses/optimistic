@@ -81,27 +81,28 @@ class ToolsWorld:
         pb_robot.utils.disconnect()
 
 
+    def place_object(self, obj_name, path, pos_xy):
+        fname = os.path.basename(path)
+        copyfile(path, os.path.join('pb_robot/models', fname))
+        obj = pb_robot.body.createBody(os.path.join('models', fname))
+        z = pb_robot.placements.stable_z(obj, self.panda.table)
+        obj_pose = ((*pos_xy, z), (0., 0., 0., 1.))
+        obj.set_base_link_pose(obj_pose)
+        pb_pose = pb_robot.vobj.BodyPose(obj, obj.get_base_link_pose())
+        return obj, pb_pose
+
+
     # world frame aligns with the robot base
     def place_objects(self):
         pb_objects, orig_poses = {}, {}
-        def place_object(obj_name, path, pos_xy):
-            fname = os.path.basename(path)
-            copyfile(path, os.path.join('pb_robot/models', fname))
-            obj = pb_robot.body.createBody(os.path.join('models', fname))
-            z = pb_robot.placements.stable_z(obj, self.panda.table)
-            obj_pose = ((*pos_xy, z), (0., 0., 0., 1.))
-            obj.set_base_link_pose(obj_pose)
-            pb_pose = pb_robot.vobj.BodyPose(obj, obj.get_base_link_pose())
-            pb_objects[obj_name] = obj
-            orig_poses[obj_name] = pb_pose
-            return obj, pb_pose
-
         init_state = []
         self.obj_init_poses = {}
 
         # tool
         tool_name = 'tool'
-        tool, pose = place_object(tool_name, 'tamp/urdf_models/%s.urdf' % tool_name, (0.3, -0.4))
+        tool, pose = self.place_object(tool_name, 'tamp/urdf_models/%s.urdf' % tool_name, (0.3, -0.4))
+        pb_objects[tool_name] = tool
+        orig_poses[tool_name] = pose
         self.obj_init_poses[tool_name] = pose
         init_state += [('tool', tool),
                         ('on', tool, self.panda.table),
@@ -119,7 +120,9 @@ class ToolsWorld:
         for name, color, pos_xy in blocks:
             urdf_path = 'tamp/urdf_models/%s.urdf' % name
             block_to_urdf(name, urdf_path, color)
-            block, pose = place_object(name, urdf_path, pos_xy)
+            block, pose = self.place_object(name, urdf_path, pos_xy)
+            pb_objects[name] = block
+            orig_poses[name] = pose
             self.obj_init_poses[name] = pose
             init_state += [('block', block), ('on', block, self.panda.table), ('clear', block), \
                             ('atpose', block, pose), ('pose', block, pose), ('freeobj', block)]
@@ -127,19 +130,11 @@ class ToolsWorld:
         # tunnel
         '''
         tunnel_name = 'tunnel'
-        tunnel, pose = place_object(tunnel_name, 'tamp/urdf_models/%s.urdf' % tunnel_name, (0.3, 0.4))
+        tunnel, pose = self.place_object(tunnel_name, 'tamp/urdf_models/%s.urdf' % tunnel_name, (0.3, 0.4))
+        pb_objects[tunnel_name] = tunnel
+        orig_poses[tunnel_name] = pose
         init_state += [('tunnel', tunnel)]#, ('on', tunnel, self.panda.table), ('clear', block), \
                         #('atpose', tunnel, pose), ('pose', tunnel, pose)]
-        '''
-        # patches
-        '''
-        patches = [('green_patch', (0.4, -0.3)), ('violet_patch', (0.7, 0.4))]
-        for name, pos_xy in patches:
-            patch, pose = place_object(name,
-                            'tamp/urdf_models/%s.urdf' % name,
-                            pos_xy)
-            init_state += [('patch', patch), ('clear', patch), ('atpose', patch, pose), \
-                            ('pose', patch, pose)]#, ('on', patch, self.panda.table)]
         '''
 
         return pb_objects, orig_poses, init_state
@@ -209,6 +204,13 @@ class ToolsWorld:
         goal_pose = ((goal_xy[0], goal_xy[1], init_pose[0][2]), init_pose[1])
         final_pose = pb_robot.vobj.BodyPose(random_object, goal_pose)
         self.init_state += [('pose', random_object, final_pose)]
+
+        # visualize goal patch in pyBullet
+        name = 'goal_patch'
+        self.panda.execute()
+        self.place_object(name, 'tamp/urdf_models/%s.urdf' % name, goal_xy)
+        self.panda.plan()
+        self.place_object(name, 'tamp/urdf_models/%s.urdf' % name, goal_xy)
 
         # return goal
         self.goal = ('atpose', random_object, final_pose)

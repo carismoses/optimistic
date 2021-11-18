@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
-<robot  name="green_patch" >
- <link  name="green_patch" >
+<robot  name="goal_patch" >
+ <link  name="goal_patch" >
   <inertial >
    <origin  xyz="0 0 0"  rpy="0 0 0" />
    <mass  value="0.0" />
