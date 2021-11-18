@@ -30,11 +30,10 @@ class Contact(object):
 
 
 def pause():
-    print('pausing')
+    print('pausing (make sure you are visualizing the correct robot)')
     try:
         while True:
             p.stepSimulation()
-            time.sleep(.01)
     except KeyboardInterrupt:
         pass
 
