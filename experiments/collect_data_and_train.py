@@ -6,6 +6,7 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader
 import time
 from pprint import pformat
+import matplotlib.pyplot as plt
 
 from pddlstream.utils import INF
 from pddlstream.algorithms.focused import solve_focused
@@ -19,6 +20,7 @@ from domains.ordered_blocks.world import OrderedBlocksWorld, block_colors
 from domains.tools.world import ToolsWorld
 
 def train_class(args, trans_dataset, logger):
+    #plt.ion()
     im = None
     pddl_model_type = 'learned' if 'learned' in args.data_collection_mode else 'optimistic'
 
@@ -78,10 +80,10 @@ def train_class(args, trans_dataset, logger):
 
             # generate plan (using PDDLStream) to reach random goal
             ## temporary hack! ##
-            init = world.init_state + [('pose', world.objects['yellow_block'], goal[2])]
-            problem = tuple([*pddl_info, init, goal])
+            #init = world.init_state + [('pose', world.objects['yellow_block'], goal[2])]
+            #problem = tuple([*pddl_info, init, goal])
             ##
-            #problem = tuple([*pddl_info, world.init_state, goal])
+            problem = tuple([*pddl_info, world.init_state, goal])
             ic = 2 if world.use_panda else 0
             pddl_plan, cost, init_expanded = solve_focused(problem,
                                                 success_cost=INF,
@@ -110,10 +112,10 @@ def train_class(args, trans_dataset, logger):
                                         position=(0, -1, 1),
                                         size=1.5)
                 ## temporary hack! ##
-                init = world.init_state + [('pose', world.objects['yellow_block'], goal[2])]
-                problem = tuple([*opt_pddl_info, init, goal])
+                #init = world.init_state + [('pose', world.objects['yellow_block'], goal[2])]
+                #problem = tuple([*opt_pddl_info, init, goal])
                 ##
-                #problem = tuple([*opt_pddl_info, world.init_state, goal])
+                problem = tuple([*opt_pddl_info, world.init_state, goal])
                 ic = 2 if world.use_panda else 0
                 pddl_plan, cost, init_expanded = solve_focused(problem,
                                                     success_cost=INF,
@@ -155,8 +157,9 @@ def train_class(args, trans_dataset, logger):
             print('Training model.')
             trans_dataloader = DataLoader(trans_dataset, batch_size=args.batch_size, shuffle=True)
             train(trans_dataloader, trans_model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
-            if args.domain == 'ordered_blocks': # TODO: visualize accuracy for other domains
-                im = show_model_accuracy(im, trans_model, world)
+            world.plot_model_accuracy(i, trans_model)
+            logger.save_figure('accuracy_%i.png' % i)
+            plt.close()
 
             # save new model and dataset
             logger.save_trans_dataset(trans_dataset, i=i)
@@ -184,42 +187,6 @@ def add_trajectory_to_dataset(args, trans_dataset, trajectory, world):
                                             delta_edge_features,
                                             opt_accuracy)
 
-
-import matplotlib.pyplot as plt
-from learning.datasets import model_forward
-plt.ion()
-def show_model_accuracy(im, model, world):
-    first = im is None
-    if first:
-        self_fig, self_axes = plt.subplots()
-    # NOTE: we test all actions from initial state assuming that the network is ignoring the state
-    preds = np.zeros((world.num_blocks, world.num_blocks))
-    all_actions = world.all_optimistic_actions()
-    world.use_panda = False
-    init_state = world.get_init_state()
-    vof, vef = world.state_to_vec(init_state)
-    for action in all_actions:
-        va = world.action_to_vec(action)
-        model_pred = model_forward(model, [vof, vef, va]).squeeze()#.round().squeeze()
-        preds[va[0]-1][va[1]-1] = model_pred
-    print(preds)
-    if first:
-        im = self_axes.imshow(preds, cmap=plt.get_cmap('RdYlGn'), vmin=0, vmax=1)
-        self_axes.set_aspect('equal')
-        self_fig.colorbar(im, orientation='vertical')
-        self_axes.set_title('Feasibility Predictions')
-        self_axes.set_xlabel('Bottom Block')
-        self_axes.set_xticks([0,1,2,3])
-        self_axes.set_xticklabels(['red', 'orange', 'yellow', 'green'])
-        self_axes.set_ylabel('Top Block')
-        self_axes.set_yticks([0,1,2,3])
-        self_axes.set_yticklabels(['red', 'orange', 'yellow', 'green'])
-        plt.show()
-    else:
-        im.set_data(preds)
-        plt.draw()
-    world.use_panda = True
-    return im
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

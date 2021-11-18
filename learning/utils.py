@@ -4,6 +4,7 @@ import pickle
 import time
 import torch
 import datetime
+import matplotlib.pyplot as plt
 
 from learning.models.gnn import TransitionGNN
 
@@ -40,6 +41,7 @@ class ExperimentLogger:
         if root_folder == 'experiments':
             os.mkdir(os.path.join(exp_path, 'datasets'))
             os.mkdir(os.path.join(exp_path, 'models'))
+            os.mkdir(os.path.join(exp_path, 'figures'))
 
         with open(os.path.join(exp_path, 'args.pkl'), 'wb') as handle:
             pickle.dump(args, handle)
@@ -144,3 +146,7 @@ class ExperimentLogger:
         with open(os.path.join(self.exp_path, 'plot_data.pkl'), 'rb') as handle:
             plot_data = pickle.load(handle)
         return plot_data
+
+    # figures
+    def save_figure(self, filename):
+        plt.savefig(os.path.join(self.exp_path, 'figures', filename))

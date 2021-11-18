@@ -33,11 +33,6 @@ def get_contact_gen(robot):
             rel_pose = ((*rel_point_xy, rel_z), (0., 0., 0., 1.))
             contact = Contact(obj1, obj2, rel_pose)
             contacts.append((contact,))
-            ## for debugging
-            #cont_tform = obj1.get_base_link_transform()@pb_robot.geometry.tform_from_pose(rel_pose)
-            #obj2.set_base_link_pose(pb_robot.geometry.pose_from_tform(cont_tform))
-            #pause()
-            ##
         random.shuffle(contacts)
         return contacts
     return gen

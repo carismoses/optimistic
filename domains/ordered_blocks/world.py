@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import random
+import matplotlib.pyplot as plt
 
 import pb_robot
 
@@ -13,6 +14,8 @@ from tamp.utils import get_simple_state, get_learned_pddl, block_to_urdf
 from domains.ordered_blocks.panda.primitives import get_free_motion_gen, \
     get_holding_motion_gen, get_ik_fn, get_pose_gen_block, get_grasp_gen
 from domains.ordered_blocks.add_to_primitives import get_trust_model
+from learning.datasets import model_forward
+
 
 class OrderedBlocksWorld:
     @staticmethod
@@ -434,6 +437,34 @@ class OrderedBlocksWorld:
                 position=(0, -1, 1),
                 size=1.5,
                 color = (0, 255, 0, 1) if goal_feas else (255, 0 , 0, 1))
+
+
+    def plot_model_accuracy(self, i, model):
+        fig, ax = plt.subplots()
+        # NOTE: we test all actions from initial state assuming that the network is ignoring the state
+        preds = np.zeros((self.num_blocks, self.num_blocks))
+        all_actions = self.all_optimistic_actions()
+        orig_use_panda = self.use_panda
+        self.use_panda = False
+        init_state = self.get_init_state()
+        vof, vef = self.state_to_vec(init_state)
+        for action in all_actions:
+            va = self.action_to_vec(action)
+            model_pred = model_forward(model, [vof, vef, va]).squeeze()#.round().squeeze()
+            preds[va[0]-1][va[1]-1] = model_pred
+        im = ax.imshow(preds, cmap=plt.get_cmap('RdYlGn'), vmin=0, vmax=1)
+        ax.set_aspect('equal')
+        fig.colorbar(im, orientation='vertical')
+        ax.set_title('Feasibility Predictions, Iteration %i' % i)
+        ax.set_xlabel('Bottom Block')
+        ax.set_xticks([0,1,2,3])
+        ax.set_xticklabels(['red', 'orange', 'yellow', 'green'])
+        ax.set_ylabel('Top Block')
+        ax.set_yticks([0,1,2,3])
+        ax.set_yticklabels(['red', 'orange', 'yellow', 'green'])
+        #plt.show()
+        self.use_panda = orig_use_panda
+
 
 class NumberedBlock:
     def __init__(self, num):
