@@ -123,12 +123,6 @@ class ToolsWorld:
             self.obj_init_poses[name] = pose
             init_state += [('block', block), ('on', block, self.panda.table), ('clear', block), \
                             ('atpose', block, pose), ('pose', block, pose), ('freeobj', block)]
-            ### temporary for testing
-            if name == 'yellow_block':
-                push_distance = 0.15
-                self.goal_pose = (np.add(pose.pose[0], (push_distance, 0., 0.)), pose.pose[1])
-            ###
-
 
         # tunnel
         '''
@@ -199,9 +193,26 @@ class ToolsWorld:
 
 
     def generate_random_goal(self, feasible=False, ret_goal_feas=False):
-        final_yb_pose = pb_robot.vobj.BodyPose(self.objects['yellow_block'], self.goal_pose)
-        goal = ('atpose', self.objects['yellow_block'], final_yb_pose)
-        return goal
+        # select push distance and angle (rad from x axis)
+        push_distance = np.random.uniform(0.5, 0.15) # meters
+        push_angle = np.random.uniform(0, np.pi/2) # rad
+        push_xy = push_distance*np.array([np.cos(push_angle), np.sin(push_angle)])
+
+        # select a random block
+        random_object = random.choice(list(self.objects.values()))
+        while not ('block', random_object) in self.init_state:
+            random_object = random.choice(list(self.objects.values()))
+        init_pose = self.get_obj_pose_from_state(random_object, self.init_state)
+
+        # add desired pose to state
+        goal_xy = init_pose[0][:2] + push_xy
+        goal_pose = ((goal_xy[0], goal_xy[1], init_pose[0][2]), init_pose[1])
+        final_pose = pb_robot.vobj.BodyPose(random_object, goal_pose)
+        self.init_state += [('pose', random_object, final_pose)]
+
+        # return goal
+        self.goal = ('atpose', random_object, final_pose)
+        return self.goal
 
 
     # TODO: select a random discrete action then ground it
@@ -275,7 +286,7 @@ class ToolsWorld:
             # check that block ended up where it was supposed to (with some tolerance)
             goal_pos2 = pddl_action.args[4].pose[0]
             true_pos2 = pddl_action.args[2].get_base_link_pose()[0]
-            if np.linalg.norm(goal_pos2-true_pos2) > tol:
+            if np.linalg.norm(np.subtract(goal_pos2, true_pos2)) > tol:
                 valid_transition = False
         self.panda.plan()
         return valid_transition
@@ -298,7 +309,7 @@ class ToolsWorld:
             grasp_fn = get_tool_grasp_gen(self.panda.planning_robot)
             grasps = grasp_fn(self.objects['tool'])
             contact_motion_fn = get_contact_motion_gen(self.panda.planning_robot, self.fixed)
-            goal_pose = pb_robot.vobj.BodyPose(self.objects['yellow_block'], self.goal_pose)
+            goal_pose = self.goal[2]
             # (for debugging acan probably  remove later)
             #pick_fn = get_ik_fn(self.panda.planning_robot,
             #                    self.fixed,

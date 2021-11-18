@@ -62,7 +62,7 @@ def get_contact_motion_gen(robot, fixed=[], num_attempts=20):
 
         # ee pose at beginning of approach
         approach_dist = 0.1
-        dir = pose1.pose[0]-pose2.pose[0]
+        dir = np.subtract(pose1.pose[0], pose2.pose[0])
         unit_dir = dir/np.linalg.norm(dir)
         approach = np.eye(4)
         approach[:3,3] = approach_dist*unit_dir

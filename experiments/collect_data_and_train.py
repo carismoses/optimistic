@@ -79,10 +79,6 @@ def train_class(args, trans_dataset, logger):
             world.add_goal_text(goal)
 
             # generate plan (using PDDLStream) to reach random goal
-            ## temporary hack! ##
-            #init = world.init_state + [('pose', world.objects['yellow_block'], goal[2])]
-            #problem = tuple([*pddl_info, init, goal])
-            ##
             problem = tuple([*pddl_info, world.init_state, goal])
             ic = 2 if world.use_panda else 0
             pddl_plan, cost, init_expanded = solve_focused(problem,
@@ -111,10 +107,7 @@ def train_class(args, trans_dataset, logger):
                     world.panda.add_text('Planning failed. Planning with optimistic model',
                                         position=(0, -1, 1),
                                         size=1.5)
-                ## temporary hack! ##
-                #init = world.init_state + [('pose', world.objects['yellow_block'], goal[2])]
-                #problem = tuple([*opt_pddl_info, init, goal])
-                ##
+
                 problem = tuple([*opt_pddl_info, world.init_state, goal])
                 ic = 2 if world.use_panda else 0
                 pddl_plan, cost, init_expanded = solve_focused(problem,
