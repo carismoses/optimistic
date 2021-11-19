@@ -5,8 +5,6 @@
     (Block ?b)
     (Tool ?to)
     (Table ?ta)
-    (Tunnel ?tu)
-    (Patch ?pa)
 
     (Grasp ?o ?g)
     (Conf ?q)
@@ -63,7 +61,7 @@
                        (AtConf ?q1)
                        (Clear ?ot)
                        (On ?ot ?ob)
-                       ;(NotHeavy ?ot)
+                       (NotHeavy ?ot)
                        (FreeObj ?ot))
     :effect (and (AtGrasp ?ot ?g)
                  (AtConf ?q2)

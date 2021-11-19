@@ -40,7 +40,7 @@ class ToolsWorld:
         self.panda.execute()
         self.place_objects()
         self.panda.plan()
-        self.fixed = [self.panda.table]#, self.objects['tunnel']]
+        self.fixed = [self.panda.table, self.tunnel]
         self.obstacles = list(self.objects.values())
         self.init_state = self.get_init_state()
 
@@ -112,7 +112,19 @@ class ToolsWorld:
                         ('freeobj', tool),
                         ('notheavy', tool)]
 
-        #('blue_block', (0.0, 0.0, 1.0, 1.0), (0.3, 0.4)), (name, color, pos_xy)
+        # blue_block (under tunnel)
+        name = 'blue_block'
+        color = (0.0, 0.0, 1.0, 1.0)
+        pos_xy = (0.3, 0.4)
+        urdf_path = 'tamp/urdf_models/%s.urdf' % name
+        block_to_urdf(name, urdf_path, color)
+        block, pose = self.place_object(name, urdf_path, pos_xy)
+        pb_objects[name] = block
+        orig_poses[name] = pose
+        self.obj_init_poses[name] = pose
+        init_state += [('block', block), ('on', block, self.panda.table), ('clear', block), \
+                        ('atpose', block, pose), ('pose', block, pose), ('freeobj', block)]#, \
+                        #('notheavy', block)]
 
         # yellow block (heavy --> must be pushed)
         name = 'yellow_block'
@@ -144,6 +156,7 @@ class ToolsWorld:
         # tunnel
         tunnel_name = 'tunnel'
         tunnel, pose = self.place_object(tunnel_name, 'tamp/urdf_models/%s.urdf' % tunnel_name, (0.3, 0.4))
+        self.tunnel = tunnel
 
         return pb_objects, orig_poses, init_state
 
@@ -209,7 +222,16 @@ class ToolsWorld:
         # add desired pose to state
         goal_pose = ((goal_xy[0], goal_xy[1], init_pose[0][2]), init_pose[1])
         final_pose = pb_robot.vobj.BodyPose(random_object, goal_pose)
-        self.init_state += [('pose', random_object, final_pose)]
+        table_pose = pb_robot.vobj.BodyPose(self.panda.table, self.panda.table.get_base_link_pose())
+        self.init_state += [('pose', random_object, final_pose),
+                            ('supported', random_object, final_pose, self.panda.table, table_pose),
+                            ('atpose', self.panda.table, table_pose),
+                            ('clear', self.panda.table)] # TODO: make a place action that
+                                                        # doesn't have the effect of making
+                                                        # things clear so can place blocks on
+                                                        # table. for not hack by saying your
+                                                        # can only place something on the table once
+                                                        # (then it becomes not clear)
 
         # visualize goal patch in pyBullet
         name = 'goal_patch'
