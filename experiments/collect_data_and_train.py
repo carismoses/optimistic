@@ -139,25 +139,25 @@ def train_class(args, trans_dataset, logger):
         # add to dataset and save
         if trajectory:
             print('Adding trajectory to dataset.')
-            add_trajectory_to_dataset(args, trans_dataset, trajectory, world)
+            added = add_trajectory_to_dataset(args, trans_dataset, trajectory, world)
+            if added:
+                # initialize and train new model
+                trans_model = TransitionGNN(n_of_in=world.n_of_in,
+                                            n_ef_in=world.n_ef_in,
+                                            n_af_in=world.n_af_in,
+                                            n_hidden=args.n_hidden,
+                                            n_layers=args.n_layers)
+                print('Training model.')
+                trans_dataloader = DataLoader(trans_dataset, batch_size=args.batch_size, shuffle=True)
+                train(trans_dataloader, trans_model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
+                world.plot_model_accuracy(i, trans_model)
+                logger.save_figure('accuracy_%i.png' % i)
+                plt.close()
 
-            # initialize and train new model
-            trans_model = TransitionGNN(n_of_in=world.n_of_in,
-                                        n_ef_in=world.n_ef_in,
-                                        n_af_in=world.n_af_in,
-                                        n_hidden=args.n_hidden,
-                                        n_layers=args.n_layers)
-            print('Training model.')
-            trans_dataloader = DataLoader(trans_dataset, batch_size=args.batch_size, shuffle=True)
-            train(trans_dataloader, trans_model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
-            world.plot_model_accuracy(i, trans_model)
-            logger.save_figure('accuracy_%i.png' % i)
-            plt.close()
-
-            # save new model and dataset
-            logger.save_trans_dataset(trans_dataset, i=i)
-            logger.save_trans_model(trans_model, i=i)
-            print('Saved model to %s' % logger.exp_path)
+                # save new model and dataset
+                logger.save_trans_dataset(trans_dataset, i=i)
+                logger.save_trans_model(trans_model, i=i)
+                print('Saved model to %s' % logger.exp_path)
 
         # disconnect from world
         world.disconnect()
@@ -166,8 +166,9 @@ def train_class(args, trans_dataset, logger):
 
 
 def add_trajectory_to_dataset(args, trans_dataset, trajectory, world):
+    added = False
     for (state, pddl_action, next_state, opt_accuracy) in trajectory:
-        if (pddl_action.name == 'move_contact' and args.domain == 'tools') or
+        if (pddl_action.name == 'move_contact' and args.domain == 'tools') or \
             (pddl_action.name in ['place', 'pickplace'] and args.domain == 'ordered_blocks'):
             object_features, edge_features = world.state_to_vec(state)
             action_features = world.action_to_vec(pddl_action)
@@ -180,6 +181,8 @@ def add_trajectory_to_dataset(args, trans_dataset, trajectory, world):
                                             next_edge_features,
                                             delta_edge_features,
                                             opt_accuracy)
+            added = True
+    return added
 
 
 if __name__ == '__main__':
