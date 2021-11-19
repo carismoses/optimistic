@@ -167,7 +167,8 @@ def train_class(args, trans_dataset, logger):
 
 def add_trajectory_to_dataset(args, trans_dataset, trajectory, world):
     for (state, pddl_action, next_state, opt_accuracy) in trajectory:
-        if pddl_action.name in ['place', 'pickplace', 'move_contact']:
+        if (pddl_action.name == 'move_contact' and args.domain == 'tools') or
+            (pddl_action.name in ['place', 'pickplace'] and args.domain == 'ordered_blocks'):
             object_features, edge_features = world.state_to_vec(state)
             action_features = world.action_to_vec(pddl_action)
             # assume object features don't change for now
