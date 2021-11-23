@@ -146,17 +146,16 @@ def train_class(args, trans_dataset, logger):
                                             n_af_in=world.n_af_in,
                                             n_hidden=args.n_hidden,
                                             n_layers=args.n_layers)
-                print('Training model.')
-                trans_dataloader = DataLoader(trans_dataset, batch_size=args.batch_size, shuffle=True)
-                train(trans_dataloader, trans_model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
-                world.plot_model_accuracy(i, trans_model)
-                logger.save_figure('accuracy_%i.png' % i)
-                plt.close()
+        if (not i % args.train_freq) and len(trans_dataset) > 0:
+            print('Training model.')
+            trans_dataloader = DataLoader(trans_dataset, batch_size=args.batch_size, shuffle=True)
+            train(trans_dataloader, trans_model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
+            world.plot_model_accuracy(i, trans_model, logger)
 
-                # save new model and dataset
-                logger.save_trans_dataset(trans_dataset, i=i)
-                logger.save_trans_model(trans_model, i=i)
-                print('Saved model to %s' % logger.exp_path)
+            # save new model and dataset
+            logger.save_trans_dataset(trans_dataset, i=i)
+            logger.save_trans_model(trans_model, i=i)
+            print('Saved model to %s' % logger.exp_path)
 
         # disconnect from world
         world.disconnect()
@@ -215,6 +214,10 @@ if __name__ == '__main__':
                         type=int,
                         default=1,
                         help='number of data collection/training runs to perform')
+    parser.add_argument('--train-freq',
+                        type=int,
+                        default=1,
+                        help='number of planning runs between model training')
     parser.add_argument('--vis',
                         action='store_true',
                         help='use to visualize robot executions.')

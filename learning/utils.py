@@ -149,5 +149,8 @@ class ExperimentLogger:
         return plot_data
 
     # figures
-    def save_figure(self, filename):
-        plt.savefig(os.path.join(self.exp_path, 'figures', filename))
+    def save_figure(self, filename, dir=''):
+        full_path = os.path.join(self.exp_path, 'figures', dir)
+        if not os.path.isdir(full_path):
+            os.makedirs(full_path)
+        plt.savefig(os.path.join(full_path, filename))

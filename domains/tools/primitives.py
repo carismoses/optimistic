@@ -22,7 +22,7 @@ def get_contact_gen(robot):
         half_length, half_width = tool_length/2, tool_width/2
 
         rel_z = 0
-        # for now defining 4 contact points
+        # for now defining 4 contact points (pose from obj2 to obj1)
         rel_points_xy = [(-(half_length+half_b), 0),
                         ((half_length-tool_thickness-half_b), -(half_tool+half_b)),
                         ((half_length+half_b), -(half_width)),
@@ -143,6 +143,24 @@ def get_contact_motion_gen(robot, fixed=[], num_attempts=20):
             return (conf_approach, conf_pose2, command)
         return None
     return fn
+
+
+# NOT a stream function
+# obj1 is tool, obj2 is at pose1, cont is in obj2 frame
+def contact_approach_fn(obj1, obj2, pose1, pose2, cont):
+    # ee pose at contact
+    obj2_world = pb_robot.geometry.tform_from_pose(pose1.pose)
+    cont_tform = pb_robot.geometry.tform_from_pose(cont.rel_pose)
+    obj1_contact_world = obj2_world@cont_tform
+
+    # obj1 pose at beginning of approach
+    approach_dist = 0.1
+    dir = np.subtract(pose1.pose[0], pose2.pose[0])
+    unit_dir = dir/np.linalg.norm(dir)
+    approach = np.eye(4)
+    approach[:3,3] = approach_dist*unit_dir
+    obj1_approach_world = pb_robot.geometry.pose_from_tform(obj2_world@approach@cont_tform)
+    return obj1_approach_world
 
 
 def get_free_motion_gen(robot, fixed=[]):

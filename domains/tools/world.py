@@ -18,7 +18,7 @@ from panda_wrapper.panda_agent import PandaAgent
 from tamp.utils import get_simple_state, get_learned_pddl, block_to_urdf
 from domains.tools.primitives import get_free_motion_gen, \
     get_holding_motion_gen, get_ik_fn, get_pose_gen_block, get_tool_grasp_gen, \
-    get_block_grasp_gen, get_contact_motion_gen, get_contact_gen
+    get_block_grasp_gen, get_contact_motion_gen, get_contact_gen, contact_approach_fn
 from domains.tools.add_to_primitives import get_trust_model
 from learning.datasets import model_forward
 
@@ -51,8 +51,6 @@ class ToolsWorld:
         self.n_of_in = 1
         self.n_ef_in = 3
         self.n_af_in = 7
-
-        self.first_plot = True
 
     def get_init_state(self):
         pddl_state = self.obj_init_state
@@ -331,147 +329,133 @@ class ToolsWorld:
                         size=1.5)
 
 
-    def plot_model_accuracy(self, i, model):
-        if self.first_plot:
-            # get all possible contact points
-            contacts_fn = get_contact_gen(self.panda.planning_robot)
-            contacts = contacts_fn(self.objects['tool'], self.objects['yellow_block'])
+    def plot_model_accuracy(self, i, model, logger):
+        def get_model_inputs(tool_approach_pose, goal_pose):
+            # for now assume all other blocks are at their initial poses
+            num_objects = len(self.objects)
+            object_features = np.zeros((num_objects, self.n_of_in))
+            for oi, object in enumerate(self.objects.values()):
+                object_features[oi] = object.id
+            edge_features = np.zeros((num_objects, num_objects, self.n_ef_in))
+            for oi, (oi_name, object_i) in enumerate(self.objects.items()):
+                for oj, (oj_name, object_j) in enumerate(self.objects.items()):
+                    if oi == oj:
+                        edge_features[oi,oj,:] = np.zeros(self.n_ef_in)
+                    else:
+                        if object_i == self.objects['tool']:
+                            obj_i_pos, obj_i_orn = tool_approach_pose
+                        else:
+                            obj_i_pos, obj_i_orn = self.obj_init_poses[oi_name].pose
+                        if object_j == self.objects['tool']:
+                            obj_j_pos, obj_j_orn = tool_approach_pose
+                        else:
+                            obj_j_pos, obj_j_orn = self.obj_init_poses[oj_name].pose
+                        rel_pos = np.array(obj_i_pos) - np.array(obj_j_pos)
+                        rel_angle = pb_robot.geometry.quat_angle_between(obj_i_orn, obj_j_orn)
+                        edge_features[oi,oj,:2] = rel_pos[:2]
+                        edge_features[oi,oj,2] = rel_angle
+            action_vec = np.zeros(self.n_af_in)
+            action_vec[:3] = goal_pose.pose[0]
+            action_vec[3:] = goal_pose.pose[1]
+            return object_features, edge_features, action_vec
 
-            # set up generators to move robot to different contact points
-            grasp_fn = get_tool_grasp_gen(self.panda.planning_robot)
-            grasps = grasp_fn(self.objects['tool'])
-            contact_motion_fn = get_contact_motion_gen(self.panda.planning_robot, self.fixed)
-            goal_pose = self.goal[2]
-            # (for debugging acan probably  remove later)
-            #pick_fn = get_ik_fn(self.panda.planning_robot,
-            #                    self.fixed,
-            #                    approach_frame='gripper',
-            #                    backoff_frame='global')
-            #move_holding_fn = get_holding_motion_gen(self.panda.planning_robot, self.fixed)
-            ##
+        pred_info = {}
+        contacts_fn = get_contact_gen(self.panda.planning_robot)
+        for object_name, object in self.objects.items():
+            if ('block', object) in self.init_state:
+                pred_info[object_name] = {}
 
-            self.cont_states = []
-            for cont in contacts:
-                attempts = 0
-                while attempts < 50:
-                    try:
-                        # select a grasp, and move_holding motion
-                        grasp_i = np.random.randint(len(grasps))
-                        grasp = grasps[grasp_i]
+                # generate all goal poses
+                n_goal_points = 20
+                goal_dist = .1
+                goal_angles = np.linspace(0, 2*np.pi, n_goal_points)
+                goal_points_delta = [(goal_dist*np.sin(a), goal_dist*np.cos(a), 0) for a in goal_angles]
 
-                        # (for debugging acan probably  remove later)
-                        # get pick path
-                        #pick_init_conf, pick_final_conf, pick_traj = pick_fn(self.objects['tool'],
-                        #                                                self.obj_init_poses['tool'],
-                        #                                                grasp[0])
-                        ##
-                        conf_approach, conf_pose2, _ = contact_motion_fn(self.objects['tool'],
-                                                            grasp[0],
-                                                            self.objects['yellow_block'],
-                                                            self.obj_init_poses['yellow_block'],
-                                                            goal_pose,
-                                                            cont[0])
-                        ## also for debugging
-                        '''
-                        move_holding_traj = move_holding_fn(pick_final_conf, conf_approach, self.objects['tool'], grasp[0])[0]
-                        # make and execute actions (pick, move holding)
-                        self.panda.execute()
-                        self.panda.execution_robot.arm.SetJointValues(pick_init_conf.configuration)
-                        pick_action = Action(name='pick', args=(self.objects['tool'],
-                                                                self.obj_init_poses['tool'],
-                                                                self.panda.table,
-                                                                grasp[0],
-                                                                pick_init_conf,
-                                                                pick_final_conf,
-                                                                pick_traj))
-                        move_holding_action = Action(name='move_holding', args=(pick_final_conf,
-                                                                                conf_approach,
-                                                                                self.objects['tool'],
-                                                                                grasp[0],
-                                                                                move_holding_traj))
-                        self.panda.execute_action(pick_action, self.fixed, world_obstacles=self.obstacles)
-                        self.panda.execute_action(move_holding_action, self.fixed, world_obstacles=self.obstacles)
-                        try:
-                            while True:
-                                p.stepSimulation(physicsClientId=1)
-                                self.panda.execution_robot.arm.SetJointValues(conf_approach.configuration)
-                        except KeyboardInterrupt:
-                            import pdb; pdb.set_trace()
-                            pass
-                        '''
-                        ##
-                        state = [('atpose', self.objects['yellow_block'], self.obj_init_poses['yellow_block']),
-                                ('atgrasp', self.objects['tool'], grasp[0]),
-                                ('atconf', conf_approach)]
-                        self.cont_states.append(state)
-                        #tool_base_pos, tool_base_orn = self.get_obj_pose_from_state(self.objects['tool'], state)
-                        #print('used later',tool_base_pos)
-                        break
-                    except:
-                        attempts += 1
-                        pass
+                init_pose = self.obj_init_poses[object_name].pose
+                goal_points = [np.add(delta, init_pose[0]) for delta in goal_points_delta]
+                goal_poses = [pb_robot.vobj.BodyPose(object, (goal_point, (init_pose[1]))) for goal_point in goal_points]
 
-        preds = []
-        for state in self.cont_states:
-            # run through network
-            vof, vef = self.state_to_vec(state)
-            va = self.pred_args_to_action_vec(None, None, None, goal_pose, None)
-            preds.append([state, model_forward(model, [vof, vef, va]).squeeze()])
+                # get all possible contact points
+                contacts = contacts_fn(self.objects['tool'], object)
+
+                for cont in contacts:
+                    pred_info[object_name][cont[0]] = {}
+                    for goal_pose, goal_angle in zip(goal_poses, goal_angles):
+                        # NOTE this will generate approach configurations that might
+                        # not actually be able to follow a push path (due to kinematic constraints)
+                        tool_approach = contact_approach_fn(self.objects['tool'],
+                                                                object,
+                                                                self.obj_init_poses[object_name],
+                                                                goal_pose,
+                                                                cont[0])
+
+                        vof, vef, va = get_model_inputs(tool_approach, goal_pose)
+                        pred_info[object_name][cont[0]][goal_pose] = model_forward(model, [vof, vef, va]).squeeze()
 
         # visualize
-        #plt.ion()
-        fig, ax = plt.subplots()
-        ax.set_xlim(-.5,1.)
-        ax.set_ylim(-1,.5)
-        ax.set_aspect('equal')
+        # show contact configuration in top plot and predictions around each block in bottom plot
+        all_contacts = []
+        all_rel_poses = []
+        for obj_name, cont_info in pred_info.items():
+            for cont, goal_info in cont_info.items():
+                if cont.rel_pose not in all_rel_poses:
+                    all_rel_poses.append(cont.rel_pose)
+                    all_contacts.append(cont)
 
-        # show initial pose and final pose
-        block_dims = np.array(self.objects['yellow_block'].get_dimensions()[:2])
-        block_initial_pos = np.array(self.obj_init_poses['yellow_block'].pose[0][:2])
-        block_final_pos = np.array(goal_pose.pose[0][:2])
-        ax.add_patch(Rectangle(block_initial_pos - block_dims/2,
-                                *block_dims,
-                                color='y'))
-        #print(block_initial_pos)
-        ax.add_patch(Rectangle(block_final_pos - block_dims/2,
-                                *block_dims,
-                                color='y'))
+        for ci, cont in enumerate(all_contacts):
+            fig, ax = plt.subplots(2)
+            # ax[0] shows contact configuration
+            ax[0].set_xlim(-.5,.5)
+            ax[0].set_ylim(-.5,.5)
+            ax[0].set_aspect('equal')
+            # show a block at (0,0)
+            block_dims = np.array(self.objects[object_name].get_dimensions()[:2])
+            ax[0].add_patch(Rectangle(-block_dims/2,
+                                    *block_dims,
+                                    color='k',
+                                    fill = False))
 
-        tool_data = p.getVisualShapeData(self.objects['tool'].id, -1)
-        tool_base_dims = np.array(tool_data[0][3][:2])
-        tool_link0_dims = np.array(tool_data[1][3][:2])
-        link0_relpos = np.array([-0.185, 0.115]) # from URDF
+            # show the tool at the relative position
+            tool_data = p.getVisualShapeData(self.objects['tool'].id, -1)
+            tool_base_dims = np.array(tool_data[0][3][:2])
+            tool_link0_dims = np.array(tool_data[1][3][:2])
+            link0_relpos = np.array([-0.185, 0.115]) # from URDF
+            tool_base_pos, tool_base_orn = cont.rel_pose
 
-        # show different contacts at final pose colored by prediction
-        for state, pred in preds:
-            #import pdb; pdb.set_trace()
-            tool_base_pos, tool_base_orn = self.get_obj_pose_from_state(self.objects['tool'], state)
             angle = pb_robot.geometry.quat_angle_between(tool_base_orn, [0., 0., 0., 1.])
-            ax.add_patch(Rectangle(tool_base_pos[:2] - tool_base_dims/2,
-                                    *tool_base_dims,
-                                    angle = angle,
-                                    color = 'k',
-                                    alpha = float(pred)))
-            ax.add_patch(Rectangle(tool_base_pos[:2] - tool_base_dims/2,
+            ax[0].add_patch(Rectangle(tool_base_pos[:2] - tool_base_dims/2,
                                     *tool_base_dims,
                                     angle = angle,
                                     color = 'k',
                                     fill = False))
-            #print(tool_base_pos[:2], cont[0].rel_pose)
-            ax.add_patch(Rectangle(tool_base_pos[:2] + link0_relpos - tool_link0_dims/2,
-                                    *tool_link0_dims,
-                                    angle = angle,
-                                    color = 'k',
-                                    alpha = float(pred)))
-            ax.add_patch(Rectangle(tool_base_pos[:2] + link0_relpos - tool_link0_dims/2,
+            ax[0].add_patch(Rectangle(tool_base_pos[:2] + link0_relpos - tool_link0_dims/2,
                                     *tool_link0_dims,
                                     angle = angle,
                                     color = 'k',
                                     fill = False))
-        ax.set_title('Iteration %i' % i)
-        #plt.show()
-        #plt.close()
-        #return fig
+
+            for object_name, cont_info in pred_info.items():
+                # ax[1] shows predictions for all goal poses for all blocks
+                ax[1].set_xlim(-.5,1.)
+                ax[1].set_ylim(-1,.5)
+                ax[1].set_aspect('equal')
+
+                # show initial pose
+                block_dims = np.array(self.objects[object_name].get_dimensions()[:2])
+                block_initial_pos = np.array(self.obj_init_poses[object_name].pose[0][:2])
+                ax[1].add_patch(Rectangle(block_initial_pos - block_dims/2,
+                                        *block_dims,
+                                        color='y'))
+
+                # show different goal poses and their predictions
+                for goal_pose, pred in cont_info[cont].items():
+                    ax[1].plot(*goal_pose.pose[0][:2], '.', color=str(pred))
+
+            fig.suptitle('Iteration %i' % i)
+            logger.save_figure('cont_%i.png'%ci, dir='iter_%i'%i)
+            plt.close()
+            #plt.show()
+            #plt.close()
 
 
 # just for testing
