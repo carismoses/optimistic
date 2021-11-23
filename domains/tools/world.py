@@ -111,7 +111,7 @@ class ToolsWorld:
                         ('pose', tool, pose),
                         ('freeobj', tool),
                         ('notheavy', tool)]
-
+        '''
         # blue_block (under tunnel)
         name = 'blue_block'
         color = (0.0, 0.0, 1.0, 1.0)
@@ -125,7 +125,7 @@ class ToolsWorld:
         init_state += [('block', block), ('on', block, self.panda.table), ('clear', block), \
                         ('atpose', block, pose), ('pose', block, pose), ('freeobj', block)]#, \
                         #('notheavy', block)]
-
+        '''
         # yellow block (heavy --> must be pushed)
         name = 'yellow_block'
         color = (1.0, 1.0, 0.0, 1.0)
@@ -138,7 +138,7 @@ class ToolsWorld:
         self.obj_init_poses[name] = pose
         init_state += [('block', block), ('on', block, self.panda.table), ('clear', block), \
                         ('atpose', block, pose), ('pose', block, pose), ('freeobj', block)]
-
+        '''
         # red block (notheavy --> can be picked)
         name = 'red_block'
         color = (1.0, 0.0, 0.0, 1.0)
@@ -152,7 +152,7 @@ class ToolsWorld:
         init_state += [('block', block), ('on', block, self.panda.table), ('clear', block), \
                         ('atpose', block, pose), ('pose', block, pose), ('freeobj', block), \
                         ('notheavy', block)]
-
+        '''
         # tunnel
         tunnel_name = 'tunnel'
         tunnel, pose = self.place_object(tunnel_name, 'tamp/urdf_models/%s.urdf' % tunnel_name, (0.3, 0.4))
@@ -195,12 +195,14 @@ class ToolsWorld:
             streams_pddl = opt_streams_pddl
             streams_map = opt_streams_map
         elif pddl_model_type == 'learned':
-            domain_pddl, streams_pddl = get_learned_pddl(opt_domain_pddl_path,
-                                                        opt_streams_pddl_path,
-                                                        add_to_domain_path,
-                                                        add_to_streams_path)
+            #domain_pddl, streams_pddl = get_learned_pddl(opt_domain_pddl_path,
+            #                                            opt_streams_pddl_path,
+            #                                            add_to_domain_path,
+            #                                            add_to_streams_path)
+            domain_pddl = read('domains/tools/tmp/learned_domain.pddl')
+            streams_pddl = read('domains/tools/tmp/learned_streams.pddl')
             streams_map = copy(opt_streams_map)
-            streams_map['TrustModel'] = get_trust_model(self, logger)
+            streams_map['trust-model'] = from_fn(get_trust_model(self, logger))
 
         constant_map = {}
         opt_pddl_info = [opt_domain_pddl, constant_map, opt_streams_pddl, opt_streams_map]

@@ -1,7 +1,6 @@
 import torch
 import numpy as np
 import argparse
-from argparse import Namespace
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 import time
@@ -85,7 +84,7 @@ def train_class(args, trans_dataset, logger):
                                                 success_cost=INF,
                                                 max_skeletons=2,
                                                 search_sample_ratio=1.0,
-                                                max_time=INF,
+                                                max_time=120,
                                                 verbose=False,
                                                 unit_costs=True,
                                                 initial_complexity=ic)  # don't set complexity=2 in simple (non-robot) domain
@@ -114,7 +113,7 @@ def train_class(args, trans_dataset, logger):
                                                     success_cost=INF,
                                                     max_skeletons=2,
                                                     search_sample_ratio=1.0,
-                                                    max_time=INF,
+                                                    max_time=120,
                                                     verbose=False,
                                                     unit_costs=True,
                                                     initial_complexity=ic)  # don't set complexity=2 in simple (non-robot) domain

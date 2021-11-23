@@ -122,7 +122,8 @@ class ExperimentLogger:
         model = TransitionGNN(n_of_in=world.n_of_in,
                                 n_ef_in=world.n_ef_in,
                                 n_af_in=world.n_af_in,
-                                n_hidden=self.args.n_hidden)
+                                n_hidden=self.args.n_hidden,
+                                n_layers=self.args.n_layers)
         model.load_state_dict(torch.load(os.path.join(self.exp_path, 'models', fname)))
         return model
 
