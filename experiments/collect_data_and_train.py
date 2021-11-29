@@ -37,6 +37,8 @@ def train_class(args, trans_dataset, logger):
     else:
         raise NotImplementedError
 
+
+
     # save initial (empty) dataset
     logger.save_trans_dataset(trans_dataset, i=0)
 
@@ -73,89 +75,56 @@ def train_class(args, trans_dataset, logger):
                                 position=(0, -1.15, 1.1),
                                 size=1,
                                 counter=True)
+        pddl_plan = None
         if 'goals' in args.data_collection_mode:
-            print('Goal: ', goal)
-            world.add_goal_text(goal)
+            pddl_plan, problem, init_expanded = plan_wrapper(goal, world, pddl_model_type, pddl_info)
 
-            # generate plan (using PDDLStream) to reach random goal
-            problem = tuple([*pddl_info, world.init_state, goal])
-            ic = 2 if world.use_panda else 0
-            pddl_plan, cost, init_expanded = solve_focused(problem,
-                                                success_cost=INF,
-                                                max_skeletons=2,
-                                                search_sample_ratio=1.0,
-                                                max_time=120,
-                                                verbose=False,
-                                                unit_costs=True,
-                                                initial_complexity=ic)  # don't set complexity=2 in simple (non-robot) domain
-            print('Plan: ', pddl_plan)
-            trajectory = []
-            if pddl_plan is not None and len(pddl_plan) > 0:
-                if world.use_panda:
-                    world.panda.add_text('Executing found plan',
-                                        position=(0, -1, 1),
-                                        size=1.5)
-                trajectory, valid_transition = execute_plan(world, problem, pddl_plan, init_expanded)
-                if not valid_transition and world.use_panda:
-                    world.panda.add_text('Infeasible plan',
-                                        position=(0, -1, 1),
-                                        size=1.5)
-            else:
-                # if plan not found, execute random actions
-                if world.use_panda:
-                    world.panda.add_text('Planning failed. Planning with optimistic model',
-                                        position=(0, -1, 1),
-                                        size=1.5)
+        if not pddl_plan and args.data_collection_mode == 'random-goals-learned':
+            # if plan not found for learned model use optimistic model
+            pddl_plan, problem, init_expanded = plan_wrapper(goal, world, 'optimistic', opt_pddl_info)
 
-                problem = tuple([*opt_pddl_info, world.init_state, goal])
-                ic = 2 if world.use_panda else 0
-                pddl_plan, cost, init_expanded = solve_focused(problem,
-                                                    success_cost=INF,
-                                                    max_skeletons=2,
-                                                    search_sample_ratio=1.0,
-                                                    max_time=120,
-                                                    verbose=False,
-                                                    unit_costs=True,
-                                                    initial_complexity=ic)  # don't set complexity=2 in simple (non-robot) domain
-                print('Plan: ', pddl_plan)
-                if pddl_plan is not None and len(pddl_plan) > 0:
-                    if world.use_panda:
-                        world.panda.add_text('Executing found plan',
-                                            position=(0, -1, 1),
-                                            size=1.5)
-                    trajectory, valid_transition = execute_plan(world, problem, pddl_plan, init_expanded)
-                    if not valid_transition and world.use_panda:
-                        world.panda.add_text('Infeasible plan',
-                                            position=(0, -1, 1),
-                                            size=1.5)
-        elif args.data_collection_mode == 'random-actions':
+        if pddl_plan:
+            trajectory, valid_transition = execute_plan_wrapper(world, problem, pddl_plan, init_expanded)
+        else:
+            # execute random actions
+            print('Executing random actions.')
             if world.use_panda:
                 world.panda.add_text('Executing random actions',
                                     position=(0, -1, 1),
                                     size=1.5)
-            trajectory = execute_random(world, opt_pddl_info)
+            trajectory, valid_transition = execute_random(world, opt_pddl_info)
 
-        # add to dataset and save
+
+        if not valid_transition and world.use_panda:
+            world.panda.add_text('Infeasible plan/action',
+                                position=(0, -1, 1),
+                                size=1.5)
+
+        # add to dataset and save # NEED ADDED IF CHECK LEN OF DATASET??? TODO
         if trajectory:
             print('Adding trajectory to dataset.')
-            added = add_trajectory_to_dataset(args, trans_dataset, trajectory, world)
-            if added:
-                # initialize and train new model
-                trans_model = TransitionGNN(n_of_in=world.n_of_in,
-                                            n_ef_in=world.n_ef_in,
-                                            n_af_in=world.n_af_in,
-                                            n_hidden=args.n_hidden,
-                                            n_layers=args.n_layers)
+            add_trajectory_to_dataset(args, trans_dataset, trajectory, world)
+
+        # save dataset
+        logger.save_trans_dataset(trans_dataset, i=i)
+
+        # check that at training step and there is data in the dataset
         if (not i % args.train_freq) and len(trans_dataset) > 0:
+            # initialize and train new model
+            trans_model = TransitionGNN(n_of_in=world.n_of_in,
+                                        n_ef_in=world.n_ef_in,
+                                        n_af_in=world.n_af_in,
+                                        n_hidden=args.n_hidden,
+                                        n_layers=args.n_layers)
             print('Training model.')
             trans_dataloader = DataLoader(trans_dataset, batch_size=args.batch_size, shuffle=True)
             train(trans_dataloader, trans_model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
-            world.plot_model_accuracy(i, trans_model, logger)
 
-            # save new model and dataset
-            logger.save_trans_dataset(trans_dataset, i=i)
-            logger.save_trans_model(trans_model, i=i)
-            print('Saved model to %s' % logger.exp_path)
+
+        # save model and accuracy plots
+        world.plot_model_accuracy(i, trans_model, logger)
+        logger.save_trans_model(trans_model, i=i)
+        print('Saved model to %s' % logger.exp_path)
 
         # disconnect from world
         world.disconnect()
@@ -163,8 +132,52 @@ def train_class(args, trans_dataset, logger):
         i += 1
 
 
+def plan_wrapper(goal, world, pddl_model_type, pddl_info):
+    print('Goal: ', goal)
+    print('Planning with %s model'%pddl_model_type)
+    import pdb; pdb.set_trace()
+    if world.use_panda:
+        world.panda.add_text('Planning with %s model'%pddl_model_type,
+                            position=(0, -1, 1),
+                            size=1.5)
+
+    # generate plan (using PDDLStream) to reach random goal
+    problem = tuple([*pddl_info, world.init_state, goal])
+    ic = 2 if world.use_panda else 0
+    pddl_plan, cost, init_expanded = solve_focused(problem,
+                                        success_cost=INF,
+                                        max_skeletons=2,
+                                        search_sample_ratio=1.0,
+                                        max_time=120,
+                                        verbose=False,
+                                        unit_costs=True,
+                                        initial_complexity=ic,
+                                        max_iterations=2)
+    print('Plan: ', pddl_plan)
+
+    if not pddl_plan and world.use_panda:
+        world.panda.add_text('Planning failed.',
+                            position=(0, -1, 1),
+                            size=1.5)
+        time.sleep(.5)
+
+    return pddl_plan, problem, init_expanded
+
+
+def execute_plan_wrapper(world, problem, pddl_plan, init_expanded):
+    if world.use_panda:
+        world.panda.add_text('Executing found plan',
+                            position=(0, -1, 1),
+                            size=1.5)
+    trajectory, valid_transition = execute_plan(world, problem, pddl_plan, init_expanded)
+    if not valid_transition and world.use_panda:
+        world.panda.add_text('Infeasible plan',
+                            position=(0, -1, 1),
+                            size=1.5)
+    return trajectory, valid_transition
+
+
 def add_trajectory_to_dataset(args, trans_dataset, trajectory, world):
-    added = False
     for (state, pddl_action, next_state, opt_accuracy) in trajectory:
         if (pddl_action.name == 'move_contact' and args.domain == 'tools') or \
             (pddl_action.name in ['place', 'pickplace'] and args.domain == 'ordered_blocks'):
@@ -179,8 +192,6 @@ def add_trajectory_to_dataset(args, trans_dataset, trajectory, world):
                                             next_edge_features,
                                             delta_edge_features,
                                             opt_accuracy)
-            added = True
-    return added
 
 
 if __name__ == '__main__':

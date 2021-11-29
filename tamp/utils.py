@@ -129,7 +129,7 @@ def execute_random(world, opt_pddl_info):
             pddl_state = new_pddl_state
             pddl_state = get_simple_state(pddl_state)
             ai += 1
-    return trajectory
+    return trajectory, valid_transition
 
 # The only requirements for these files are that action: is before pre: for each pair
 # and there is not space between the 2 lines (there can be spaces between the pairs)
