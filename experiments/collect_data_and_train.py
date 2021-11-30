@@ -135,7 +135,6 @@ def train_class(args, trans_dataset, logger):
 def plan_wrapper(goal, world, pddl_model_type, pddl_info):
     print('Goal: ', goal)
     print('Planning with %s model'%pddl_model_type)
-    import pdb; pdb.set_trace()
     if world.use_panda:
         world.panda.add_text('Planning with %s model'%pddl_model_type,
                             position=(0, -1, 1),

@@ -12,7 +12,7 @@ import pb_robot
 
 from pddlstream.language.constants import Action
 from pddlstream.utils import read
-from pddlstream.language.generator import from_list_fn, from_fn
+from pddlstream.language.generator import from_list_fn, from_fn, from_test
 
 from panda_wrapper.panda_agent import PandaAgent
 from tamp.utils import get_simple_state, get_learned_pddl, block_to_urdf
@@ -193,14 +193,12 @@ class ToolsWorld:
             streams_pddl = opt_streams_pddl
             streams_map = opt_streams_map
         elif pddl_model_type == 'learned':
-            #domain_pddl, streams_pddl = get_learned_pddl(opt_domain_pddl_path,
-            #                                            opt_streams_pddl_path,
-            #                                            add_to_domain_path,
-            #                                            add_to_streams_path)
-            domain_pddl = read('domains/tools/tmp/learned_domain.pddl')
-            streams_pddl = read('domains/tools/tmp/learned_streams.pddl')
+            domain_pddl, streams_pddl = get_learned_pddl(opt_domain_pddl_path,
+                                                        opt_streams_pddl_path,
+                                                        add_to_domain_path,
+                                                        add_to_streams_path)
             streams_map = copy(opt_streams_map)
-            streams_map['trust-model'] = from_fn(get_trust_model(self, logger))
+            streams_map['trust-model'] = from_test(get_trust_model(self, logger))
 
         constant_map = {}
         opt_pddl_info = [opt_domain_pddl, constant_map, opt_streams_pddl, opt_streams_map]

@@ -154,10 +154,7 @@ def get_add_to_streams_pddl_info(add_to_streams_path):
     new_streams = []
     with open(add_to_streams_path, 'r') as add_to_streams_file:
         lines = add_to_streams_file.readlines()
-        for li, line in enumerate(lines):
-            if ':predicate' in line:
-                new_streams.append(line)
-                new_streams.append(lines[li+1])
+    new_streams += lines
     return new_streams
 
 
