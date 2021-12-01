@@ -53,9 +53,9 @@ def train_class(args, trans_dataset, logger):
     # NOTE: just made a world to get model params
     world.disconnect()
 
-    i = 0
     while len(trans_dataset) < args.max_transitions:
-        print('Iteration %i |dataset| = %i' % (i, len(trans_dataset)))
+        i = len(trans_dataset)
+        print('|dataset| = %i' % i)
         if args.domain == 'ordered_blocks':
             world, opt_pddl_info, pddl_info = OrderedBlocksWorld.init(args.domain_args,
                                                                     pddl_model_type,
@@ -71,7 +71,7 @@ def train_class(args, trans_dataset, logger):
         goal = world.generate_random_goal() # ignored if execute_random()
         print('Init: ', world.init_state)
         if world.use_panda:
-            world.panda.add_text('Iteration %i |dataset| = %i' % (i, len(trans_dataset)),
+            world.panda.add_text('|dataset| = %i' % i),
                                 position=(0, -1.15, 1.1),
                                 size=1,
                                 counter=True)
@@ -128,8 +128,6 @@ def train_class(args, trans_dataset, logger):
 
         # disconnect from world
         world.disconnect()
-
-        i += 1
 
 
 def plan_wrapper(goal, world, pddl_model_type, pddl_info):

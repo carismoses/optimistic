@@ -5,6 +5,7 @@ import time
 import torch
 import datetime
 import matplotlib.pyplot as plt
+import numpy as np
 
 from learning.models.gnn import TransitionGNN
 
@@ -86,6 +87,22 @@ class ExperimentLogger:
         if balanced:
             fname = 'balanced_dataset.pkl'
         return self.load_dataset(fname)
+
+    def get_dataset_iterator(self):
+        model_files = os.listdir(os.path.join(self.exp_path, 'datasets'))
+        if len(model_files) == 0:
+            raise Exception('No datasets found on args.exp_path.')
+        txs = []
+        datasets = []
+        for file in model_files:
+            matches = re.match(r'trans_dataset_(.*).pkl', file)
+            if matches: # sometimes system files are saved here, don't parse these
+                txs += [int(matches.group(1))]
+                datasets += [file]
+        sorted_indices = np.argsort(txs)
+        sorted_dataset_names = [datasets[idx] for idx in sorted_indices]
+        sorted_datasets = [(self.load_dataset(fname),i) for fname,i in zip(sorted_dataset_names, np.sort(txs))]
+        return iter(sorted_datasets)
 
     # Models
     def save_model(self, model, fname):
