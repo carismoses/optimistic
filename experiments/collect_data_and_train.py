@@ -71,7 +71,7 @@ def train_class(args, trans_dataset, logger):
         goal = world.generate_random_goal() # ignored if execute_random()
         print('Init: ', world.init_state)
         if world.use_panda:
-            world.panda.add_text('|dataset| = %i' % i),
+            world.panda.add_text('|dataset| = %i' % i,
                                 position=(0, -1.15, 1.1),
                                 size=1,
                                 counter=True)
@@ -84,21 +84,15 @@ def train_class(args, trans_dataset, logger):
             pddl_plan, problem, init_expanded = plan_wrapper(goal, world, 'optimistic', opt_pddl_info)
 
         if pddl_plan:
-            trajectory, valid_transition = execute_plan_wrapper(world, problem, pddl_plan, init_expanded)
+            trajectory = execute_plan_wrapper(world, problem, pddl_plan, init_expanded)
         else:
             # execute random actions
-            print('Executing random actions.')
+            print('Planning random actions.')
             if world.use_panda:
-                world.panda.add_text('Executing random actions',
+                world.panda.add_text('Planning random actions',
                                     position=(0, -1, 1),
                                     size=1.5)
-            trajectory, valid_transition = execute_random(world, opt_pddl_info)
-
-
-        if not valid_transition and world.use_panda:
-            world.panda.add_text('Infeasible plan/action',
-                                position=(0, -1, 1),
-                                size=1.5)
+            trajectory = execute_random(world, opt_pddl_info)
 
         # add to dataset and save # NEED ADDED IF CHECK LEN OF DATASET??? TODO
         if trajectory:
@@ -166,12 +160,8 @@ def execute_plan_wrapper(world, problem, pddl_plan, init_expanded):
         world.panda.add_text('Executing found plan',
                             position=(0, -1, 1),
                             size=1.5)
-    trajectory, valid_transition = execute_plan(world, problem, pddl_plan, init_expanded)
-    if not valid_transition and world.use_panda:
-        world.panda.add_text('Infeasible plan',
-                            position=(0, -1, 1),
-                            size=1.5)
-    return trajectory, valid_transition
+    trajectory = execute_plan(world, problem, pddl_plan, init_expanded)
+    return trajectory
 
 
 def add_trajectory_to_dataset(args, trans_dataset, trajectory, world):

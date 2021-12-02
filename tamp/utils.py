@@ -97,39 +97,43 @@ def execute_plan(world, problem, pddl_plan, init_expanded):
         trajectory.append((pddl_state, pddl_action, new_pddl_state, valid_transition))
         fd_state = new_fd_state
         ai += 1
-    return trajectory, valid_transition
+    return trajectory
 
 
+# execute random actions until either an invalid transition is attempted
+# or a random action cannot be found (we check that a random actions preconditions are met)
 def execute_random(world, opt_pddl_info):
-    goal = world.generate_random_goal() # placeholder/dummy variable
+    goal = world.generate_random_goal(show_goal=False) # placeholder/dummy variable
     valid_transition = True
     pddl_state = world.init_state
     trajectory = []
     while valid_transition:
         pddl_state = get_simple_state(pddl_state)
-        pddl_plan, expanded_states = world.random_actions(pddl_state)
-        if not pddl_plan:
+        pddl_actions, expanded_states, actions_found = world.random_actions(pddl_state)
+        if not actions_found:
             break
         opt_problem = tuple([*opt_pddl_info, pddl_state+expanded_states, goal]) # used in execute_random()
         task = task_from_problem(opt_problem)
         fd_state = set(task.init)
         ai = 0
-        while valid_transition and ai < len(pddl_plan):
-            pddl_action = pddl_plan[ai]
-            print('Random action: ', pddl_action)
-            fd_action = get_fd_action(task, pddl_action)
+        while valid_transition and ai < len(pddl_actions):
+            print('Random action: ', pddl_actions[ai])
+            if world.use_panda:
+                world.panda.add_text('Executing random action: %s'%pddl_actions[ai].name,
+                                    position=(0, -1, 1),
+                                    size=1.5)
+            fd_action = get_fd_action(task, pddl_actions[ai])
             pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
             new_pddl_state, new_fd_state, valid_transition = transition(world,
                                                                         pddl_state,
                                                                         fd_state,
-                                                                        pddl_action,
+                                                                        pddl_actions[ai],
                                                                         fd_action)
-            trajectory.append((pddl_state, pddl_action, new_pddl_state, valid_transition))
+            trajectory.append((pddl_state, pddl_actions[ai], new_pddl_state, valid_transition))
             fd_state = new_fd_state
             pddl_state = new_pddl_state
-            pddl_state = get_simple_state(pddl_state)
             ai += 1
-    return trajectory, valid_transition
+    return trajectory
 
 # The only requirements for these files are that action: is before pre: for each pair
 # and there is not space between the 2 lines (there can be spaces between the pairs)
