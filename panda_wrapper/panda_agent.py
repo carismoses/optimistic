@@ -135,6 +135,11 @@ class PandaAgent:
         executionItems = args[-1]
         self.execute()
         for e in executionItems:
+            # want to execute on the execution robot, not planning robot
+            try:
+                e.manip = self.execution_robot.arm
+            except:
+                pass
             e.simulate(timestep=0.1, obstacles=obstacles)
 
             # Simulate failures if specified
