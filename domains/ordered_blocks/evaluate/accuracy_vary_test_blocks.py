@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 from domains.ordered_blocks.world import OrderedBlocksWorld
 from learning.utils import ExperimentLogger
-from learning.datasets import model_forward
+from learning.utils import model_forward
 from evaluate.utils import recc_dict, plot_results
 
 def calc_full_trans_accuracy(model_type, test_num_blocks, world, model):
@@ -98,7 +98,7 @@ if __name__ == '__main__':
     #### Parameters ####
     # This plots the accuracy of the models in results_path.py where the x axis
     # is the number of blocks in the test domain
-    
+
     # import train datasets
     from domains.ordered_blocks.results_paths import model_paths
     all_test_num_blocks = [2, 3, 4, 5, 6, 7, 8]

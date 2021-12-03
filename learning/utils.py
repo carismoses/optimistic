@@ -8,6 +8,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from learning.models.gnn import TransitionGNN
+from learning.models.ensemble import Ensemble
+
+
+def model_forward(model, inputs, single_batch=False):
+    if single_batch:
+        single_inputs = inputs
+        inputs = [torch.tensor(input[None, :], dtype=torch.float64) \
+                                            for input in single_inputs]
+    output = model.forward(inputs).mean()
+    return output.detach().numpy()
+
 
 class ExperimentLogger:
 
@@ -136,11 +147,14 @@ class ExperimentLogger:
                 fname = 'trans_model_%i.pt' % i
                 #print('Loading model %s.' % fname)
 
-        model = TransitionGNN(n_of_in=world.n_of_in,
-                                n_ef_in=world.n_ef_in,
-                                n_af_in=world.n_af_in,
-                                n_hidden=self.args.n_hidden,
-                                n_layers=self.args.n_layers)
+        base_args = {'n_of_in': world.n_of_in,
+                    'n_ef_in': world.n_ef_in,
+                    'n_af_in': world.n_af_in,
+                    'n_hidden': self.args.n_hidden,
+                    'n_layers': self.args.n_layers}
+        model = Ensemble(TransitionGNN,
+                        base_args,
+                        self.args.n_models)
         model.load_state_dict(torch.load(os.path.join(self.exp_path, 'models', fname)))
         return model
 

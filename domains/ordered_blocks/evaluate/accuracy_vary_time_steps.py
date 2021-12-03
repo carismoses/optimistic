@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import itertools
 
 from learning.utils import ExperimentLogger
-from learning.datasets import model_forward
+from learning.utils import model_forward
 from domains.ordered_blocks.world import OrderedBlocksWorld
 from evaluate.utils import recc_dict
 

@@ -14,7 +14,7 @@ from tamp.utils import get_simple_state, get_learned_pddl, block_to_urdf
 from domains.ordered_blocks.panda.primitives import get_free_motion_gen, \
     get_holding_motion_gen, get_ik_fn, get_pose_gen_block, get_grasp_gen
 from domains.ordered_blocks.add_to_primitives import get_trust_model
-from learning.datasets import model_forward
+from learning.utils import model_forward
 
 
 class OrderedBlocksWorld:

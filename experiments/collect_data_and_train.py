@@ -13,6 +13,7 @@ from pddlstream.algorithms.focused import solve_focused
 from learning.datasets import TransDataset
 from learning.utils import ExperimentLogger
 from learning.models.gnn import TransitionGNN
+from learning.models.ensemble import Ensemble
 from learning.train import train
 from tamp.utils import execute_random, execute_plan
 from domains.utils import init_world
@@ -30,20 +31,21 @@ def train_class(args, trans_dataset, logger):
     logger.save_trans_dataset(trans_dataset, i=0)
 
     # initialize and save model
-    trans_model = TransitionGNN(n_of_in=world.n_of_in,
-                                n_ef_in=world.n_ef_in,
-                                n_af_in=world.n_af_in,
-                                n_hidden=args.n_hidden,
-                                n_layers=args.n_layers)
-    logger.save_trans_model(trans_model, i=0)
+    base_args = {'n_of_in': world.n_of_in,
+                'n_ef_in': world.n_ef_in,
+                'n_af_in': world.n_af_in,
+                'n_hidden': args.n_hidden,
+                'n_layers': args.n_layers}
+    ensemble = Ensemble(TransitionGNN,
+                            base_args,
+                            args.n_models)
+    logger.save_trans_model(ensemble, i=0)
 
-    # NOTE: just made a world to get model params
-    world.disconnect()
+    world.disconnect() # NOTE: just made a world to get model params
     n_actions = 0
     last_train_count = 0
     while n_actions < args.max_actions:
-        i = len(trans_dataset)
-        print('|dataset| = %i, # actions = %i' % (i, n_actions))
+        print('|dataset| = %i, # actions = %i' % (len(trans_dataset), n_actions))
         world, opt_pddl_info, pddl_info = init_world(args.domain,
                                                         args.domain_args,
                                                         pddl_model_type,
@@ -52,7 +54,7 @@ def train_class(args, trans_dataset, logger):
         goal = world.generate_random_goal() # ignored if execute_random()
         print('Init: ', world.init_state)
         if world.use_panda:
-            world.panda.add_text('|dataset| = %i, # actions = %i' % (i, n_actions),
+            world.panda.add_text('|dataset| = %i, # actions = %i' % (len(trans_dataset), n_actions),
                                 position=(0, -1.15, 1.1),
                                 size=1,
                                 counter=True)
@@ -84,20 +86,19 @@ def train_class(args, trans_dataset, logger):
         # check that at training step and there is data in the dataset
         if (n_actions-last_train_count) > args.train_freq and len(trans_dataset) > 0:
             last_train_count = n_actions
+
             # initialize and train new model
-            trans_model = TransitionGNN(n_of_in=world.n_of_in,
-                                        n_ef_in=world.n_ef_in,
-                                        n_af_in=world.n_af_in,
-                                        n_hidden=args.n_hidden,
-                                        n_layers=args.n_layers)
-            print('Training model.')
+            ensemble = Ensemble(TransitionGNN,
+                                    base_args,
+                                    args.n_models)
+            print('Training ensemble.')
             trans_dataloader = DataLoader(trans_dataset, batch_size=args.batch_size, shuffle=True)
-            train(trans_dataloader, trans_model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
+            train(trans_dataloader, ensemble, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
 
             # save dataset, model, and accuracy plots
             logger.save_trans_dataset(trans_dataset, i=n_actions)
-            world.plot_model_accuracy(n_actions, trans_model, logger)
-            logger.save_trans_model(trans_model, i=n_actions)
+            world.plot_model_accuracy(n_actions, ensemble, logger)
+            logger.save_trans_model(ensemble, i=n_actions)
             print('Saved dataset, model, and accuracy plot to %s' % logger.exp_path)
 
         # disconnect from world
@@ -216,6 +217,10 @@ if __name__ == '__main__':
                         type=int,
                         default=5,
                         help='number of layers in GNN node and edge networks')
+    parser.add_argument('--n-models',
+                        type=int,
+                        default=5,
+                        help='number of models in ensemble')
     args = parser.parse_args()
 
     if args.debug:

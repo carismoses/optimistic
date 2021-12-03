@@ -1,4 +1,4 @@
-from learning.datasets import model_forward
+from learning.utils import model_forward
 
 def get_trust_model(world, logger):
     def test(top_block, bottom_block, fluents=[]):

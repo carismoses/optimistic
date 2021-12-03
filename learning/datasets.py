@@ -112,21 +112,6 @@ class TransDataset(Dataset):
         print('Done balancing dataset.')
 
 
-# this is only for single inputs (not batches)
-# TODO: have it detect if a single input or a batch is being passed in
-def model_forward(model, inputs):
-    tensor_inputs = []
-    batch_shape_lens = [3, 4, 2]
-    for batch_input_shape_len, input in zip(batch_shape_lens, inputs):
-        if not torch.is_tensor(input):
-            input = torch.tensor(input, dtype=torch.float64)
-        if len(input.shape) == batch_input_shape_len-1: # if this is a batch of 1, then add a dimension
-            input = input[None, :]
-        tensor_inputs.append(input)
-    output = model.forward(tensor_inputs)
-    return output.detach().numpy()
-
-
 # for testing
 def preprocess(args, dataset, type='successful_actions'):
     xs, ys = dataset[:]
