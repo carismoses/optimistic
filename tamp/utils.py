@@ -102,7 +102,7 @@ def execute_plan(world, problem, pddl_plan, init_expanded):
 
 # execute random actions until either an invalid transition is attempted
 # or a random action cannot be found (we check that a random actions preconditions are met)
-def execute_random(world, opt_pddl_info):
+def execute_random(world):
     goal = world.generate_random_goal(show_goal=False) # placeholder/dummy variable
     valid_transition = True
     pddl_state = world.init_state
@@ -112,7 +112,7 @@ def execute_random(world, opt_pddl_info):
         pddl_actions, expanded_states, actions_found = world.random_actions(pddl_state)
         if not actions_found:
             break
-        opt_problem = tuple([*opt_pddl_info, pddl_state+expanded_states, goal]) # used in execute_random()
+        opt_problem = tuple([*world.pddl_info, pddl_state+expanded_states, goal]) # used in execute_random()
         task = task_from_problem(opt_problem)
         fd_state = set(task.init)
         ai = 0

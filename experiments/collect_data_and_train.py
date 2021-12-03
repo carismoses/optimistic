@@ -7,25 +7,22 @@ import time
 from pprint import pformat
 import matplotlib.pyplot as plt
 
-from pddlstream.utils import INF
-from pddlstream.algorithms.focused import solve_focused
-
 from learning.datasets import TransDataset
 from learning.utils import ExperimentLogger
 from learning.models.gnn import TransitionGNN
 from learning.models.ensemble import Ensemble
 from learning.train import train
-from tamp.utils import execute_random, execute_plan
 from domains.utils import init_world
+from experiments.strategies import collect_trajectory
 
 def train_class(args, trans_dataset, logger):
     pddl_model_type = 'learned' if 'learned' in args.data_collection_mode else 'optimistic'
 
-    world, opt_pddl_info, pddl_info = init_world(args.domain,
-                                                    args.domain_args,
-                                                    pddl_model_type,
-                                                    args.vis,
-                                                    logger)
+    world = init_world(args.domain,
+                        args.domain_args,
+                        pddl_model_type,
+                        args.vis,
+                        logger)
 
     # save initial (empty) dataset
     logger.save_trans_dataset(trans_dataset, i=0)
@@ -46,36 +43,18 @@ def train_class(args, trans_dataset, logger):
     last_train_count = 0
     while n_actions < args.max_actions:
         print('|dataset| = %i, # actions = %i' % (len(trans_dataset), n_actions))
-        world, opt_pddl_info, pddl_info = init_world(args.domain,
-                                                        args.domain_args,
-                                                        pddl_model_type,
-                                                        args.vis,
-                                                        logger)
-        goal = world.generate_random_goal() # ignored if execute_random()
+        world = init_world(args.domain,
+                            args.domain_args,
+                            pddl_model_type,
+                            args.vis,
+                            logger)
         print('Init: ', world.init_state)
         if world.use_panda:
             world.panda.add_text('|dataset| = %i, # actions = %i' % (len(trans_dataset), n_actions),
                                 position=(0, -1.15, 1.1),
                                 size=1,
                                 counter=True)
-        pddl_plan = None
-        if 'goals' in args.data_collection_mode:
-            pddl_plan, problem, init_expanded = plan_wrapper(goal, world, pddl_model_type, pddl_info)
-
-        if not pddl_plan and args.data_collection_mode == 'random-goals-learned':
-            # if plan not found for learned model use optimistic model
-            pddl_plan, problem, init_expanded = plan_wrapper(goal, world, 'optimistic', opt_pddl_info)
-
-        if pddl_plan:
-            trajectory = execute_plan_wrapper(world, problem, pddl_plan, init_expanded)
-        else:
-            # execute random actions
-            print('Planning random actions.')
-            if world.use_panda:
-                world.panda.add_text('Planning random actions',
-                                    position=(0, -1, 1),
-                                    size=1.5)
-            trajectory = execute_random(world, opt_pddl_info)
+        trajectory = collect_trajectory(args.data_collection_mode, world)
         n_actions += len(trajectory)
 
         # add to dataset and save
@@ -93,7 +72,8 @@ def train_class(args, trans_dataset, logger):
                                     args.n_models)
             print('Training ensemble.')
             trans_dataloader = DataLoader(trans_dataset, batch_size=args.batch_size, shuffle=True)
-            train(trans_dataloader, ensemble, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
+            for model in ensemble.models:
+                train(trans_dataloader, model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
 
             # save dataset, model, and accuracy plots
             logger.save_trans_dataset(trans_dataset, i=n_actions)
@@ -103,46 +83,6 @@ def train_class(args, trans_dataset, logger):
 
         # disconnect from world
         world.disconnect()
-
-
-def plan_wrapper(goal, world, pddl_model_type, pddl_info):
-    print('Goal: ', goal)
-    print('Planning with %s model'%pddl_model_type)
-    if world.use_panda:
-        world.panda.add_text('Planning with %s model'%pddl_model_type,
-                            position=(0, -1, 1),
-                            size=1.5)
-
-    # generate plan (using PDDLStream) to reach random goal
-    problem = tuple([*pddl_info, world.init_state, goal])
-    ic = 2 if world.use_panda else 0
-    pddl_plan, cost, init_expanded = solve_focused(problem,
-                                        success_cost=INF,
-                                        max_skeletons=2,
-                                        search_sample_ratio=1.0,
-                                        max_time=120,
-                                        verbose=False,
-                                        unit_costs=True,
-                                        initial_complexity=ic,
-                                        max_iterations=2)
-    print('Plan: ', pddl_plan)
-
-    if not pddl_plan and world.use_panda:
-        world.panda.add_text('Planning failed.',
-                            position=(0, -1, 1),
-                            size=1.5)
-        time.sleep(.5)
-
-    return pddl_plan, problem, init_expanded
-
-
-def execute_plan_wrapper(world, problem, pddl_plan, init_expanded):
-    if world.use_panda:
-        world.panda.add_text('Executing found plan',
-                            position=(0, -1, 1),
-                            size=1.5)
-    trajectory = execute_plan(world, problem, pddl_plan, init_expanded)
-    return trajectory
 
 
 def add_trajectory_to_dataset(args, trans_dataset, trajectory, world):
@@ -195,7 +135,7 @@ if __name__ == '__main__':
                         help='number of data collection/training runs to perform')
     parser.add_argument('--train-freq',
                         type=int,
-                        default=1,
+                        default=10,
                         help='number of actions between model training')
     parser.add_argument('--vis',
                         action='store_true',

@@ -27,12 +27,10 @@ from learning.utils import model_forward
 class ToolsWorld:
     @staticmethod
     def init(domain_args, pddl_model_type, vis, logger=None):
-        world = ToolsWorld(vis)
-        opt_pddl_info, pddl_info = world.get_pddl_info(pddl_model_type, logger)
-        return world, opt_pddl_info, pddl_info
+        world = ToolsWorld(vis, pddl_model_type, logger)
+        return world
 
-
-    def __init__(self, vis):
+    def __init__(self, vis, pddl_model_type, logger):
         self.use_panda = True
         self.panda = PandaAgent(vis)
         self.panda.plan()
@@ -51,6 +49,9 @@ class ToolsWorld:
         self.n_of_in = 1
         self.n_ef_in = 3
         self.n_af_in = 7
+
+        # get pddl domain description
+        self.pddl_info = self.get_pddl_info(pddl_model_type, logger)
 
     def get_init_state(self):
         pddl_state = self.obj_init_state
@@ -160,8 +161,6 @@ class ToolsWorld:
 
 
     def get_pddl_info(self, pddl_model_type, logger):
-        add_to_domain_path = 'domains/tools/add_to_domain.pddl'
-        add_to_streams_path = 'domains/tools/add_to_streams.pddl'
         robot = self.panda.planning_robot
         opt_domain_pddl_path = 'domains/tools/domain.pddl'
         opt_streams_pddl_path = 'domains/tools/streams.pddl'
@@ -186,24 +185,23 @@ class ToolsWorld:
             'sample-contact': from_list_fn(get_contact_gen(robot))
             }
 
-        opt_domain_pddl = read(opt_domain_pddl_path)
         opt_streams_pddl = read(opt_streams_pddl_path) if opt_streams_pddl_path else None
         if pddl_model_type == 'optimistic':
-            domain_pddl = opt_domain_pddl
+            domain_pddl = read(opt_domain_pddl_path)
             streams_pddl = opt_streams_pddl
             streams_map = opt_streams_map
         elif pddl_model_type == 'learned':
+            add_to_domain_path = 'domains/tools/add_to_domain.pddl'
+            add_to_streams_path = 'domains/tools/add_to_streams.pddl'
             domain_pddl, streams_pddl = get_learned_pddl(opt_domain_pddl_path,
                                                         opt_streams_pddl_path,
                                                         add_to_domain_path,
                                                         add_to_streams_path)
             streams_map = copy(opt_streams_map)
             streams_map['trust-model'] = from_test(get_trust_model(self, logger))
-
         constant_map = {}
-        opt_pddl_info = [opt_domain_pddl, constant_map, opt_streams_pddl, opt_streams_map]
         pddl_info = [domain_pddl, constant_map, streams_pddl, streams_map]
-        return opt_pddl_info, pddl_info
+        return pddl_info
 
 
     def generate_random_goal(self, feasible=False, ret_goal_feas=False, show_goal=True):
@@ -591,7 +589,7 @@ class ToolsWorld:
                                                                 cont[0])
 
                         vof, vef, va = get_model_inputs(tool_approach, goal_pose)
-                        pred_info[object_name][cont[0]][goal_pose] = model_forward(model, [vof, vef, va]).squeeze()
+                        pred_info[object_name][cont[0]][goal_pose] = model_forward(model, [vof, vef, va], single_batch=True).squeeze()
 
         # visualize
         # show contact configuration in top plot and predictions around each block in bottom plot
