@@ -15,29 +15,16 @@ from learning.utils import ExperimentLogger
 from learning.models.gnn import TransitionGNN
 from learning.train import train
 from tamp.utils import execute_random, execute_plan
-from domains.ordered_blocks.world import OrderedBlocksWorld, block_colors
-from domains.tools.world import ToolsWorld
+from domains.utils import init_world
 
 def train_class(args, trans_dataset, logger):
-    #plt.ion()
-    im = None
     pddl_model_type = 'learned' if 'learned' in args.data_collection_mode else 'optimistic'
 
-    # TODO: create worlds in parent class
-    if args.domain == 'ordered_blocks':
-        world, opt_pddl_info, pddl_info = OrderedBlocksWorld.init(args.domain_args,
-                                                                pddl_model_type,
-                                                                args.vis,
-                                                                logger)
-    elif args.domain == 'tools':
-        world, opt_pddl_info, pddl_info = ToolsWorld.init(args.domain_args,
-                                                                pddl_model_type,
-                                                                args.vis,
-                                                                logger)
-    else:
-        raise NotImplementedError
-
-
+    world, opt_pddl_info, pddl_info = init_world(args.domain,
+                                                    args.domain_args,
+                                                    pddl_model_type,
+                                                    args.vis,
+                                                    logger)
 
     # save initial (empty) dataset
     logger.save_trans_dataset(trans_dataset, i=0)
@@ -52,26 +39,20 @@ def train_class(args, trans_dataset, logger):
 
     # NOTE: just made a world to get model params
     world.disconnect()
-
-    while len(trans_dataset) < args.max_transitions:
+    n_actions = 0
+    last_train_count = 0
+    while n_actions < args.max_actions:
         i = len(trans_dataset)
-        print('|dataset| = %i' % i)
-        if args.domain == 'ordered_blocks':
-            world, opt_pddl_info, pddl_info = OrderedBlocksWorld.init(args.domain_args,
-                                                                    pddl_model_type,
-                                                                    args.vis,
-                                                                    logger)
-        elif args.domain == 'tools':
-            world, opt_pddl_info, pddl_info = ToolsWorld.init(args.domain_args,
-                                                                    pddl_model_type,
-                                                                    args.vis,
-                                                                    logger)
-        else:
-            raise NotImplementedError
+        print('|dataset| = %i, # actions = %i' % (i, n_actions))
+        world, opt_pddl_info, pddl_info = init_world(args.domain,
+                                                        args.domain_args,
+                                                        pddl_model_type,
+                                                        args.vis,
+                                                        logger)
         goal = world.generate_random_goal() # ignored if execute_random()
         print('Init: ', world.init_state)
         if world.use_panda:
-            world.panda.add_text('|dataset| = %i' % i,
+            world.panda.add_text('|dataset| = %i, # actions = %i' % (i, n_actions),
                                 position=(0, -1.15, 1.1),
                                 size=1,
                                 counter=True)
@@ -93,17 +74,16 @@ def train_class(args, trans_dataset, logger):
                                     position=(0, -1, 1),
                                     size=1.5)
             trajectory = execute_random(world, opt_pddl_info)
+        n_actions += len(trajectory)
 
-        # add to dataset and save # NEED ADDED IF CHECK LEN OF DATASET??? TODO
+        # add to dataset and save
         if trajectory:
             print('Adding trajectory to dataset.')
             add_trajectory_to_dataset(args, trans_dataset, trajectory, world)
 
-        # save dataset
-        logger.save_trans_dataset(trans_dataset, i=i)
-
         # check that at training step and there is data in the dataset
-        if (not i % args.train_freq) and len(trans_dataset) > 0:
+        if (n_actions-last_train_count) > args.train_freq and len(trans_dataset) > 0:
+            last_train_count = n_actions
             # initialize and train new model
             trans_model = TransitionGNN(n_of_in=world.n_of_in,
                                         n_ef_in=world.n_ef_in,
@@ -114,11 +94,11 @@ def train_class(args, trans_dataset, logger):
             trans_dataloader = DataLoader(trans_dataset, batch_size=args.batch_size, shuffle=True)
             train(trans_dataloader, trans_model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
 
-
-        # save model and accuracy plots
-        world.plot_model_accuracy(i, trans_model, logger)
-        logger.save_trans_model(trans_model, i=i)
-        print('Saved model to %s' % logger.exp_path)
+            # save dataset, model, and accuracy plots
+            logger.save_trans_dataset(trans_dataset, i=n_actions)
+            world.plot_model_accuracy(n_actions, trans_model, logger)
+            logger.save_trans_model(trans_model, i=n_actions)
+            print('Saved dataset, model, and accuracy plot to %s' % logger.exp_path)
 
         # disconnect from world
         world.disconnect()
@@ -195,10 +175,10 @@ if __name__ == '__main__':
     parser.add_argument('--domain-args',
                         nargs='+',
                         help='arguments to pass into desired domain')
-    parser.add_argument('--max-transitions',
+    parser.add_argument('--max-actions',
                         type=int,
                         default=100,
-                        help='max number of transitions to save to transition dataset')
+                        help='max number of actions for the robot to attempt')
     parser.add_argument('--exp-name',
                         type=str,
                         required=True,
@@ -215,7 +195,7 @@ if __name__ == '__main__':
     parser.add_argument('--train-freq',
                         type=int,
                         default=1,
-                        help='number of planning runs between model training')
+                        help='number of actions between model training')
     parser.add_argument('--vis',
                         action='store_true',
                         help='use to visualize robot executions.')
