@@ -16,7 +16,7 @@ def model_forward(model, inputs, single_batch=False):
         single_inputs = inputs
         inputs = [torch.tensor(input[None, :], dtype=torch.float64) \
                                             for input in single_inputs]
-    output = model.forward(inputs).mean()
+    output = model.forward(inputs)
     return output.detach().numpy()
 
 

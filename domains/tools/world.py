@@ -590,7 +590,7 @@ class ToolsWorld:
                                                                 cont[0])
 
                         vof, vef, va = get_model_inputs(tool_approach, goal_pose)
-                        pred_info[object_name][cont[0]][goal_pose] = model_forward(model, [vof, vef, va], single_batch=True).squeeze()
+                        pred_info[object_name][cont[0]][goal_pose] = model_forward(model, [vof, vef, va], single_batch=True).mean().squeeze()
 
         # visualize
         # show contact configuration in top plot and predictions around each block in bottom plot

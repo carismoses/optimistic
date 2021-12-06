@@ -15,8 +15,6 @@ from pddlstream.algorithms.downward import task_from_domain_problem, get_action_
 from pddlstream.language.conversion import Object, transform_plan_args
 from pddlstream.utils import read
 
-from learning.utils import model_forward
-
 
 class Contact(object):
     # rel_pose is the pose from body2 (block) to body1 (tool)

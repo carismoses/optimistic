@@ -1,17 +1,22 @@
 import time
 from copy import copy
+import numpy as np
 
 from pddlstream.utils import INF
 from pddlstream.algorithms.focused import solve_focused
 from pddlstream.algorithms.downward import fact_from_fd, apply_action
 from pddlstream.language.constants import Certificate
+
 from tamp.utils import execute_plan, get_simple_state, task_from_problem,   \
                         get_fd_action
+from learning.utils import model_forward
 
-MAX_PLAN_LEN = 10
+MAX_PLAN_LEN = 10           # max num of actions in a randomly generated plan
+SEQUENTIAL_N_PLANS = 100    # number of plans to select from
+EPS = 1e-5
 
 
-def collect_trajectory(data_collection_mode, world):
+def collect_trajectory(data_collection_mode, world, logger):
     if data_collection_mode == 'random-actions':
         pddl_plan, problem, init_expanded = random_plan(world)
     elif data_collection_mode == 'random-goals-opt':
@@ -19,7 +24,7 @@ def collect_trajectory(data_collection_mode, world):
     elif data_collection_mode == 'random-goals-learned':
         pddl_plan, problem, init_expanded = random_goals(world, 'learned')
     elif data_collection_mode == 'sequential':
-        pddl_plan, problem, init_expanded = sequential(world)
+        pddl_plan, problem, init_expanded = sequential(world, logger)
     #elif data_collection_mode == 'sequential_goals':
     #    pddl_plan, problem, init_expanded =  sequential_goals(world)
     else:
@@ -43,7 +48,7 @@ def collect_trajectory(data_collection_mode, world):
 
 
 # finds a random plan where all preconditions are met (in optimistic model)
-def random_plan(world):
+def random_plan(world, ret_states=False):
     print('Planning random actions.')
     if world.use_panda:
         world.panda.add_text('Planning random actions.',
@@ -59,7 +64,6 @@ def random_plan(world):
         pddl_actions, expanded_states, actions_found = world.random_actions(pddl_state)
         if not actions_found:
             break
-        plan += pddl_actions
         all_expanded_states += expanded_states
 
         # apply logical state transitions
@@ -67,6 +71,10 @@ def random_plan(world):
         task = task_from_problem(problem)
         fd_state = set(task.init)
         for pddl_action in pddl_actions:
+            if ret_states:
+                plan += [(pddl_state, pddl_action)]
+            else:
+                plan += [pddl_action]
             fd_action = get_fd_action(task, pddl_action)
             new_fd_state = copy(fd_state)
             apply_action(new_fd_state, fd_action) # apply action (optimistically) in PDDL action model
@@ -101,37 +109,43 @@ def random_goals(world, plan_model):
                                         max_iterations=2)
     return pddl_plan, problem, init_expanded
 
-'''
-def sequential(world):
-    n_plans = 100
-    max_plan_len = 10
-    all_plans_info = [random_plan(world, max_plan_len) for _ in range(n_plans)]
-    bald_scores = [bald(plan) for plan, _, _ in all_plans_info]
-    best_plan, problem, init_expanded = all_plans_info[np.argmax(bald_scores)]
-    return execute_plan_wrapper(world, problem, best_plan, init_expanded)
 
-def sequential_goals():
+def sequential(world, logger):
+    model = logger.load_trans_model(world)
+    all_plans_info = [random_plan(world, ret_states=True) for _ in range(SEQUENTIAL_N_PLANS)]
+    bald_scores = [sequential_bald(plan, model, world) for plan, _, _ in all_plans_info]
+    best_plan_index = np.argmax(bald_scores)
+    pddl_plan_with_states, problem, init_expanded = all_plans_info[best_plan_index]
+    return [pa for ps, pa in pddl_plan_with_states], problem, init_expanded
+
+
+def sequential_goals(world):
     pass
 
 
-def bald(plan):
-    for state, action in plan:
-        if action.name == 'move_contact':
-            predictions =
-    mp_c1 = torch.mean(predictions, dim=1)
-    mp_c0 = torch.mean(1 - predictions, dim=1)
+def sequential_bald(plan, model, world):
+    score = 0
+    for pddl_state, pddl_action in plan:
+        if pddl_action.name == 'move_contact':
+            of, ef = world.state_to_vec(pddl_state)
+            af = world.action_to_vec(pddl_action)
+            predictions = model_forward(model, [of, ef, af], single_batch=True)
+            mean_prediction = predictions.mean()
+            score += mean_prediction*bald(predictions)
+    return score
 
-    m_ent = -(mp_c1 * torch.log(mp_c1+eps) + mp_c0 * torch.log(mp_c0+eps))
+
+def bald(predictions):
+    mp_c1 = np.mean(predictions)
+    mp_c0 = np.mean(1 - predictions)
+
+    m_ent = -(mp_c1 * np.log(mp_c1+EPS) + mp_c0 * np.log(mp_c0+EPS))
 
     p_c1 = predictions
     p_c0 = 1 - predictions
-    ent_per_model = p_c1 * torch.log(p_c1+eps) + p_c0 * torch.log(p_c0+eps)
-    ent = torch.mean(ent_per_model, dim=1)
+    ent_per_model = p_c1 * np.log(p_c1+EPS) + p_c0 * np.log(p_c0+EPS)
+    ent = np.mean(ent_per_model)
 
     bald = m_ent + ent
 
     return bald
-
-
-
-'''

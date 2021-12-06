@@ -54,7 +54,7 @@ def train_class(args, trans_dataset, logger):
                                 position=(0, -1.15, 1.1),
                                 size=1,
                                 counter=True)
-        trajectory = collect_trajectory(args.data_collection_mode, world)
+        trajectory = collect_trajectory(args.data_collection_mode, world, logger)
         n_actions += len(trajectory)
 
         # add to dataset and save
@@ -126,7 +126,8 @@ if __name__ == '__main__':
                         help='path to save datasets and models to')
     parser.add_argument('--data-collection-mode',
                         type=str,
-                        choices=['random-actions', 'random-goals-opt', 'random-goals-learned'],
+                        choices=['random-actions', 'random-goals-opt', 'random-goals-learned', \
+                                'sequential'],
                         required=True,
                         help='method of data collection')
     parser.add_argument('--N',
