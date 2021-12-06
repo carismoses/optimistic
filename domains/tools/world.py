@@ -433,8 +433,7 @@ class ToolsWorld:
                         expanded_states+[('contactmotion', held_obj, grasp, pushed_obj, pushed_obj_pose, final_pose, \
                             cont, *move_params)], \
                         True
-            else:
-                return None, [], False
+            return None, [], False
 
         action_fns = [get_pick_action, get_place_action, get_move_free_action, \
                         get_move_contact_action, get_move_holding_action]
@@ -443,7 +442,6 @@ class ToolsWorld:
         attempt = 0
         while not precondition_met and attempt < attempts:
             random_action_fn = np.random.choice(action_fns)
-            print(random_action_fn)
             actions, expanded_states, precondition_met = random_action_fn()
             if precondition_met:
                 return actions, expanded_states, precondition_met
