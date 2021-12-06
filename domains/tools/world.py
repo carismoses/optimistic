@@ -443,6 +443,7 @@ class ToolsWorld:
         attempt = 0
         while not precondition_met and attempt < attempts:
             random_action_fn = np.random.choice(action_fns)
+            print(random_action_fn)
             actions, expanded_states, precondition_met = random_action_fn()
             if precondition_met:
                 return actions, expanded_states, precondition_met
