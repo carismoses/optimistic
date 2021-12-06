@@ -127,7 +127,7 @@ if __name__ == '__main__':
     parser.add_argument('--data-collection-mode',
                         type=str,
                         choices=['random-actions', 'random-goals-opt', 'random-goals-learned', \
-                                'sequential'],
+                                'sequential-plans', 'sequential-goals'],
                         required=True,
                         help='method of data collection')
     parser.add_argument('--N',

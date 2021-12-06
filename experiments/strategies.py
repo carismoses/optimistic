@@ -8,11 +8,11 @@ from pddlstream.algorithms.downward import fact_from_fd, apply_action
 from pddlstream.language.constants import Certificate
 
 from tamp.utils import execute_plan, get_simple_state, task_from_problem,   \
-                        get_fd_action
+                        get_fd_action, postprocess_plan
 from learning.utils import model_forward
 
 MAX_PLAN_LEN = 10           # max num of actions in a randomly generated plan
-SEQUENTIAL_N_PLANS = 100    # number of plans to select from
+SEQUENTIAL_N_PLANS = 50    # number of plans to select from
 EPS = 1e-5
 
 
@@ -23,10 +23,10 @@ def collect_trajectory(data_collection_mode, world, logger):
         pddl_plan, problem, init_expanded = random_goals(world, 'optimistic')
     elif data_collection_mode == 'random-goals-learned':
         pddl_plan, problem, init_expanded = random_goals(world, 'learned')
-    elif data_collection_mode == 'sequential':
-        pddl_plan, problem, init_expanded = sequential(world, logger)
-    #elif data_collection_mode == 'sequential_goals':
-    #    pddl_plan, problem, init_expanded =  sequential_goals(world)
+    elif data_collection_mode == 'sequential-plans':
+        pddl_plan, problem, init_expanded = sequential(world, logger, 'plans')
+    elif data_collection_mode == 'sequential-goals':
+        pddl_plan, problem, init_expanded =  sequential(world, logger, 'goals')
     else:
         raise NotImplementedError('Strategy %s is not implemented' % data_collection_mode)
 
@@ -86,7 +86,7 @@ def random_plan(world, ret_states=False):
 
 
 # plans to achieve a random goal under the given (optimistic or learned) model
-def random_goals(world, plan_model):
+def random_goals(world, plan_model, ret_states=True):
     goal = world.generate_random_goal()
     print('Goal: ', goal)
     print('Planning with %s model'%plan_model)
@@ -107,20 +107,36 @@ def random_goals(world, plan_model):
                                         unit_costs=True,
                                         initial_complexity=ic,
                                         max_iterations=2)
+    if ret_states:
+        task, fd_plan = postprocess_plan(problem, pddl_plan, init_expanded)
+        fd_state = set(task.init)
+        pddl_plan_with_states = []
+        if pddl_plan:
+            for fd_action, pddl_action in zip(fd_plan, pddl_plan):
+                pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
+                pddl_plan_with_states += [(pddl_state, pddl_action)]
+                new_fd_state = copy(fd_state)
+                apply_action(new_fd_state, fd_action) # apply action (optimistically) in PDDL action model
+                new_pddl_state = [fact_from_fd(sfd) for sfd in new_fd_state]
+                fd_state = new_fd_state
+        return pddl_plan_with_states, problem, init_expanded
     return pddl_plan, problem, init_expanded
 
 
-def sequential(world, logger):
+def sequential(world, logger, mode):
     model = logger.load_trans_model(world)
-    all_plans_info = [random_plan(world, ret_states=True) for _ in range(SEQUENTIAL_N_PLANS)]
+    all_plans_info = []
+    while len(all_plans_info) < SEQUENTIAL_N_PLANS:
+        if mode == 'plans':
+            plan_with_states, problem, init_expanded = random_plan(world, ret_states=True)
+        elif mode == 'goals':
+            plan_with_states, problem, init_expanded = random_goals(world, 'optimistic', ret_states=True)
+        if plan_with_states:
+            all_plans_info.append((plan_with_states, problem, init_expanded))
     bald_scores = [sequential_bald(plan, model, world) for plan, _, _ in all_plans_info]
     best_plan_index = np.argmax(bald_scores)
     pddl_plan_with_states, problem, init_expanded = all_plans_info[best_plan_index]
     return [pa for ps, pa in pddl_plan_with_states], problem, init_expanded
-
-
-def sequential_goals(world):
-    pass
 
 
 def sequential_bald(plan, model, world):
