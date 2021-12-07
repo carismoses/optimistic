@@ -58,6 +58,7 @@ def random_plan(world, ret_states=False):
     plan = []
     pddl_state = world.init_state
     all_expanded_states = pddl_state
+    problem = None
     while len(plan) < MAX_PLAN_LEN:
         # get random actions
         pddl_state = get_simple_state(pddl_state)

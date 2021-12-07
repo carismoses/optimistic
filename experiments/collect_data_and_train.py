@@ -118,7 +118,7 @@ if __name__ == '__main__':
                         help='arguments to pass into desired domain')
     parser.add_argument('--max-actions',
                         type=int,
-                        default=100,
+                        default=400,
                         help='max number of actions for the robot to attempt')
     parser.add_argument('--exp-name',
                         type=str,
