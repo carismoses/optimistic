@@ -48,13 +48,12 @@ def train_class(args, trans_dataset, logger):
                             pddl_model_type,
                             args.vis,
                             logger)
-        print('Init: ', world.init_state)
         if world.use_panda:
             world.panda.add_text('|dataset| = %i, # actions = %i' % (len(trans_dataset), n_actions),
                                 position=(0, -1.15, 1.1),
                                 size=1,
                                 counter=True)
-        trajectory = collect_trajectory(args.data_collection_mode, world, logger)
+        trajectory = collect_trajectory(args.data_collection_mode, world)
         n_actions += len(trajectory)
 
         # add to dataset and save

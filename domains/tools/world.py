@@ -35,12 +35,12 @@ class ToolsWorld:
         self.panda = PandaAgent(vis)
         self.panda.plan()
         self.objects, self.orig_poses, self.obj_init_state = self.place_objects()
+        self.panda_init_state = self.panda.get_init_state()
         self.panda.execute()
         self.place_objects()
         self.panda.plan()
         self.fixed = [self.panda.table, self.tunnel]
         self.obstacles = list(self.objects.values())
-        self.init_state = self.get_init_state()
 
         # TODO: test without gravity?? maybe will stop robot from jumping around so much
         p.setGravity(0, 0, -9.81, physicsClientId=self.panda._execution_client_id)
@@ -51,12 +51,12 @@ class ToolsWorld:
         self.n_af_in = 7
 
         # get pddl domain description
-        self.pddl_info = self.get_pddl_info(pddl_model_type, logger)
+        self.logger = logger
 
     def get_init_state(self):
-        pddl_state = self.obj_init_state
+        pddl_state = copy(self.obj_init_state)
         pddl_state += [('table', self.panda.table)]
-        pddl_state += self.panda.get_init_state()
+        pddl_state += copy(self.panda_init_state)
         random.shuffle(pddl_state)
         return pddl_state
 
@@ -160,15 +160,22 @@ class ToolsWorld:
         return pb_objects, orig_poses, init_state
 
 
-    def get_pddl_info(self, pddl_model_type, logger):
+    # pddl_model_type in {optimistic, learned, opt_no_traj}
+    def get_pddl_info(self, pddl_model_type):
+        ret_traj = True
+        if pddl_model_type == 'opt_no_traj':
+            ret_traj = False
+            pddl_model_type = 'optimistic'
         robot = self.panda.planning_robot
         opt_domain_pddl_path = 'domains/tools/domain.pddl'
         opt_streams_pddl_path = 'domains/tools/streams.pddl'
         opt_streams_map = {
             'plan-free-motion': from_fn(get_free_motion_gen(robot,
-                                                            self.fixed)),
+                                                            self.fixed,
+                                                            ret_traj=ret_traj)),
             'plan-holding-motion': from_fn(get_holding_motion_gen(robot,
-                                                                    self.fixed)),
+                                                                    self.fixed,
+                                                                    ret_traj=ret_traj)),
             'pick-inverse-kinematics': from_fn(get_ik_fn(robot,
                                                         self.fixed,
                                                         approach_frame='gripper',
@@ -181,7 +188,8 @@ class ToolsWorld:
             'sample-block-grasp': from_list_fn(get_block_grasp_gen(robot)),
             'sample-tool-grasp': from_list_fn(get_tool_grasp_gen(robot)),
             'plan-contact-motion': from_fn(get_contact_motion_gen(robot,
-                                                                    self.fixed)),
+                                                                    self.fixed,
+                                                                    ret_traj=ret_traj)),
             'sample-contact': from_list_fn(get_contact_gen(robot))
             }
 
@@ -205,21 +213,22 @@ class ToolsWorld:
 
 
     def generate_random_goal(self, feasible=False, ret_goal_feas=False, show_goal=True):
+        init_state = self.get_init_state()
         # select random point on table (not near tunnel)
         goal_xy = np.array([np.random.uniform(0.05,0.85),
                             np.random.uniform(0.2,-0.5)])
 
         # select a random block
         random_object = random.choice(list(self.objects.values()))
-        while not ('block', random_object) in self.init_state:
+        while not ('block', random_object) in init_state:
             random_object = random.choice(list(self.objects.values()))
-        init_pose = self.get_obj_pose_from_state(random_object, self.init_state)
+        init_pose = self.get_obj_pose_from_state(random_object, init_state)
 
         # add desired pose to state
         goal_pose = ((goal_xy[0], goal_xy[1], init_pose[0][2]), init_pose[1])
         final_pose = pb_robot.vobj.BodyPose(random_object, goal_pose)
         table_pose = pb_robot.vobj.BodyPose(self.panda.table, self.panda.table.get_base_link_pose())
-        self.init_state += [('pose', random_object, final_pose),
+        add_to_state = [('pose', random_object, final_pose),
                             ('supported', random_object, final_pose, self.panda.table, table_pose),
                             ('atpose', self.panda.table, table_pose),
                             ('clear', self.panda.table)] # TODO: make a place action that
@@ -239,7 +248,7 @@ class ToolsWorld:
 
         # return goal
         self.goal = ('atpose', random_object, final_pose)
-        return self.goal
+        return self.goal, add_to_state
 
 
     # TODO: select a random discrete action then ground it

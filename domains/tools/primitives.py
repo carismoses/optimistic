@@ -51,7 +51,7 @@ def ee_ik(ee_pose_world, robot, obstacles, seed_q=None):
     return conf
 
 
-def get_contact_motion_gen(robot, fixed=[], num_attempts=20):
+def get_contact_motion_gen(robot, fixed=[], num_attempts=20, ret_traj=True):
     # obj1 is tool in grasp, obj2 is at pose1, cont is in obj2 frame
     def fn(obj1, grasp, obj2, pose1, pose2, cont):
         # ee pose at contact
@@ -163,7 +163,7 @@ def contact_approach_fn(obj1, obj2, pose1, pose2, cont):
     return obj1_approach_world
 
 
-def get_free_motion_gen(robot, fixed=[]):
+def get_free_motion_gen(robot, fixed=[], ret_traj=True):
     def fn(conf1, conf2, fluents=[]):
         obstacles = assign_fluent_state(fluents)
         fluent_names = [o.get_name() for o in obstacles]
@@ -181,7 +181,7 @@ def get_free_motion_gen(robot, fixed=[]):
     return fn
 
 
-def get_holding_motion_gen(robot, fixed=[]):
+def get_holding_motion_gen(robot, fixed=[], ret_traj=True):
     def fn(conf1, conf2, obj, grasp, fluents=[]):
         obstacles = assign_fluent_state(fluents)
         fluent_names = [o.get_name() for o in obstacles]
