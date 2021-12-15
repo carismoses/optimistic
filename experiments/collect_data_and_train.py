@@ -76,7 +76,7 @@ def train_class(args, trans_dataset, logger):
 
             # save dataset, model, and accuracy plots
             logger.save_trans_dataset(trans_dataset, i=n_actions)
-            world.plot_model_accuracy(n_actions, ensemble, logger)
+            world.plot_model_accuracy(n_actions, ensemble)
             logger.save_trans_model(ensemble, i=n_actions)
             print('Saved dataset, model, and accuracy plot to %s' % logger.exp_path)
 

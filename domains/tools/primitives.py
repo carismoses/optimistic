@@ -6,6 +6,8 @@ import pb_robot
 from pb_robot.tsrs.panda_box import ComputePrePose
 from tsr.tsr import TSR
 
+from pddlstream.language.constants import Action
+
 from tamp.utils import pause, Contact, vis_frame
 
 DEBUG_FAILURE = False
@@ -51,6 +53,86 @@ def ee_ik(ee_pose_world, robot, obstacles, seed_q=None):
     return conf
 
 
+def get_traj(robot, obstacles, pddl_action, num_attempts=20):
+    if pddl_action.name == 'move_contact':
+        obj1, grasp, obj2, _, _, _, conf_approach, conf_pose1, conf_pose2, _ = pddl_action.args
+
+        orig_pose = obj1.get_base_link_pose()
+        robot.arm.Grab(obj1, grasp.grasp_objF)
+
+        #print('conf1', conf_pose1.configuration)
+        #print('conf2', conf_pose2.configuration)
+
+        ee_pose1 = robot.arm.ComputeFK(conf_pose1.configuration)
+        ee_pose2 = robot.arm.ComputeFK(conf_pose2.configuration)
+        path_len = 5
+        push_ee_positions = np.linspace(ee_pose1[:3,3],
+                                ee_pose2[:3,3],
+                                path_len)
+        push_ee_orn = ee_pose1[1]
+        push_path = [conf_pose1.configuration]
+        seed_q = conf_pose1.configuration
+        for ee_pos in push_ee_positions[1:-1]:
+            ee_tform = copy(ee_pose1)
+            ee_tform[:3,3] = ee_pos
+            for a in range(num_attempts):
+                push_conf = ee_ik(ee_tform, robot, obstacles, seed_q=seed_q)
+                #print(a, push_conf)
+                if push_conf:
+                    break
+            if not push_conf:
+                #input('failed contact motion')
+                return None, None
+            push_path.append(push_conf.configuration)
+            seed_q = push_conf.configuration
+        push_path.append(conf_pose2.configuration)
+        push_path = np.array(push_path)
+
+        robot.arm.Release(obj1)
+        obj1.set_base_link_pose(orig_pose)
+
+        # TODO: add a path that breaks contact from the object
+        command = [pb_robot.vobj.MoveToTouch(robot.arm, conf_approach.configuration, conf_pose1.configuration, None, obj2),
+                    pb_robot.vobj.JointSpacePushPath(robot.arm, push_path)]
+        init = ('contactmotion', *[a for a in pddl_action.args[:-1]]+[command])
+    elif pddl_action.name == 'move_free':
+        conf1, conf2, _ = pddl_action.args
+        a = 0
+        path = None
+        while a < num_attempts and path is None:
+            path = robot.arm.birrt.PlanToConfiguration(robot.arm, conf1.configuration, conf2.configuration, obstacles=obstacles)
+            #print(a, path)
+            a += 1
+        if path is None:
+            #input('failed free motion')
+            if DEBUG_FAILURE: input('Free motion failed')
+            return None, None
+
+        command = [pb_robot.vobj.JointSpacePath(robot.arm, path)]
+        init = ('freemotion', conf1, conf2, command)
+    elif pddl_action.name == 'move_holding':
+        obj, grasp, conf1, conf2, _ = pddl_action.args
+
+        orig_pose = obj.get_base_link_pose()
+        robot.arm.Grab(obj, grasp.grasp_objF)
+        a = 0
+        path = None
+        while a < num_attempts and path is None:
+            path = robot.arm.birrt.PlanToConfiguration(robot.arm, conf1.configuration, conf2.configuration, obstacles=obstacles)
+            #print(a, path)
+            a += 1
+        robot.arm.Release(obj)
+        obj.set_base_link_pose(orig_pose)
+
+        if path is None:
+            #input('failed holding motion')
+            if DEBUG_FAILURE: input('Holding motion failed')
+            return None, None
+        command = [pb_robot.vobj.JointSpacePath(robot.arm, path)]
+        init = ('holdingmotion', obj, grasp, conf1, conf2, command)
+    return command, init
+
+
 def get_contact_motion_gen(robot, fixed=[], num_attempts=20, ret_traj=True):
     # obj1 is tool in grasp, obj2 is at pose1, cont is in obj2 frame
     def fn(obj1, grasp, obj2, pose1, pose2, cont):
@@ -73,6 +155,10 @@ def get_contact_motion_gen(robot, fixed=[], num_attempts=20, ret_traj=True):
         obj1_pose2_world = pb_robot.geometry.tform_from_pose(pose2.pose)@\
                             pb_robot.geometry.tform_from_pose(cont.rel_pose)
         ee_pose2_world = obj1_pose2_world@grasp.grasp_objF
+
+        # grab object
+        orig_pose = obj1.get_base_link_pose()
+        robot.arm.Grab(obj1, grasp.grasp_objF)
 
         for ax in range(num_attempts):
             ## debugging
@@ -110,37 +196,28 @@ def get_contact_motion_gen(robot, fixed=[], num_attempts=20, ret_traj=True):
             #if push_path is None:
             #    if DEBUG_FAILURE: input('Push motion failed')
             #    continue
-            path_len = 20
-            push_ee_positions = np.linspace(ee_contact_world[:3,3],
-                                    ee_pose2_world[:3,3],
-                                    path_len)
-            push_ee_orn = ee_contact_world[1]
-            push_path = [conf_contact.configuration]
-            seed_q = conf_contact.configuration
-            for ee_pos in push_ee_positions[1:-1]:
-                ee_tform = copy(ee_contact_world)
-                ee_tform[:3,3] = ee_pos
-                for _ in range(num_attempts):
-                    push_conf = ee_ik(ee_tform, robot, obstacles, seed_q=seed_q)
-                    if push_conf:
-                        break
-                if not push_conf:
-                    return None
-                push_path.append(push_conf.configuration)
-                seed_q = push_conf.configuration
-            push_path.append(conf_pose2.configuration)
-            push_path = np.array(push_path)
+            if ret_traj:
+                no_traj_action = Action(name='move_contact', args=(obj1,
+                                                                    grasp,
+                                                                    obj2,
+                                                                    pose1,
+                                                                    pose2,
+                                                                    cont,
+                                                                    conf_approach,
+                                                                     conf_contact,
+                                                                    conf_pose2,
+                                                                    []))
+                command, _ = get_traj(robot, obstacles, no_traj_action, num_attempts)
+                if not command: continue
+            else:
+                command = []
 
+            robot.arm.Release(obj1)
+            obj1.set_base_link_pose(orig_pose)
 
-            # TODO: add a path that breaks contact from the object
-            command = [pb_robot.vobj.MoveToTouch(robot.arm,
-                                                    conf_approach.configuration,
-                                                    conf_contact.configuration,
-                                                    None,
-                                                    obj2),
-                        pb_robot.vobj.JointSpacePushPath(robot.arm,
-                                                    push_path)]
-            return (conf_approach, conf_pose2, command)
+            return (conf_approach, conf_contact, conf_pose2, command)
+        robot.arm.Release(obj1)
+        obj1.set_base_link_pose(orig_pose)
         return None
     return fn
 
@@ -171,39 +248,30 @@ def get_free_motion_gen(robot, fixed=[], ret_traj=True):
             if o.get_name() not in fluent_names:
                 obstacles.append(o)
 
-        path = robot.arm.birrt.PlanToConfiguration(robot.arm, conf1.configuration, conf2.configuration, obstacles=obstacles)
-
-        if path is None:
-            if DEBUG_FAILURE: input('Free motion failed')
-            return None
-        command = [pb_robot.vobj.JointSpacePath(robot.arm, path)]
+        if ret_traj:
+            no_traj_action = Action(name='move_free', args=(conf1, conf2, []))
+            command, _ = get_traj(robot, obstacles, no_traj_action)
+            if not command: return None
+        else:
+            command = []
         return (command,)
     return fn
 
 
 def get_holding_motion_gen(robot, fixed=[], ret_traj=True):
-    def fn(conf1, conf2, obj, grasp, fluents=[]):
+    def fn(obj, grasp, conf1, conf2, fluents=[]):
         obstacles = assign_fluent_state(fluents)
         fluent_names = [o.get_name() for o in obstacles]
         for o in fixed:
             if o.get_name() not in fluent_names:
                 obstacles.append(o)
 
-        old_q = robot.arm.GetJointValues()
-        orig_pose = obj.get_base_link_pose()
-        robot.arm.SetJointValues(conf1.configuration)
-        robot.arm.Grab(obj, grasp.grasp_objF)
-
-        path = robot.arm.birrt.PlanToConfiguration(robot.arm, conf1.configuration, conf2.configuration, obstacles=obstacles)
-
-        robot.arm.Release(obj)
-        obj.set_base_link_pose(orig_pose)
-        robot.arm.SetJointValues(old_q)
-
-        if path is None:
-            if DEBUG_FAILURE: input('Holding motion failed')
-            return None
-        command = [pb_robot.vobj.JointSpacePath(robot.arm, path)]
+        if ret_traj:
+            no_traj_action = Action(name='move_holding', args=(obj, grasp, conf1, conf2, []))
+            command, _ = get_traj(robot, obstacles, no_traj_action)
+            if not command: return None
+        else:
+            command = []
         return (command,)
     return fn
 

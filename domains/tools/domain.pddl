@@ -11,9 +11,9 @@
     (Pose ?o ?p)
     (Contact ?o1 ?o2 ?c)
 
-    (FreeMotion ?q1 ?t ?q2)
-    (HoldingMotion ?q1 ?t ?q2 ?o ?g)
-    (ContactMotion ?o1 ?g ?o2 ?p1 ?p2 ?c ?q1 ?q2 ?t)
+    (FreeMotion ?q1 ?q2 ?t)
+    (HoldingMotion ?o ?g ?q1 ?q2 ?t)
+    (ContactMotion ?o1 ?g ?o2 ?p1 ?p2 ?c ?q1 ?q2 ?q3 ?t)
     (PickKin ?o ?p ?g ?q1 ?q2 ?t)
     (PlaceKin ?o ?p ?g ?q1 ?q2 ?t)
     (Supported ?ot ?pt ?ob ?pb)
@@ -35,7 +35,7 @@
   ; Move in free space while not holing anything
   (:action move_free
     :parameters (?q1 ?q2 ?t)
-    :precondition (and (FreeMotion ?q1 ?t ?q2)
+    :precondition (and (FreeMotion ?q1 ?q2 ?t)
                        (AtConf ?q1)
                        (HandEmpty))
     :effect (and (AtConf ?q2)
@@ -44,8 +44,8 @@
 
   ; Move while holding Object ?o in Grasp ?g
   (:action move_holding
-    :parameters (?q1 ?q2 ?o ?g ?t)
-    :precondition (and (HoldingMotion ?q1 ?t ?q2 ?o ?g)
+    :parameters (?o ?g ?q1 ?q2 ?t)
+    :precondition (and (HoldingMotion ?o ?g ?q1 ?q2 ?t)
                        (AtConf ?q1)
                        (AtGrasp ?o ?g))
     :effect (and (AtConf ?q2)
@@ -92,8 +92,8 @@
 
   ; Make contact ?c between ?o1 being held by robot and ?o2 (at ?p2)
   (:action move_contact
-    :parameters (?o1 ?g ?o2 ?p1 ?p2 ?c ?q1 ?q2 ?t)
-    :precondition (and (ContactMotion ?o1 ?g ?o2 ?p1 ?p2 ?c ?q1 ?q2 ?t)
+    :parameters (?o1 ?g ?o2 ?p1 ?p2 ?c ?q1 ?q2 ?q3 ?t)
+    :precondition (and (ContactMotion ?o1 ?g ?o2 ?p1 ?p2 ?c ?q1 ?q2 ?q3 ?t)
                        (AtConf ?q1)
                        (AtPose ?o2 ?p1)
                        (AtGrasp ?o1 ?g)

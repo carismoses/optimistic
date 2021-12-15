@@ -190,7 +190,7 @@ def get_learned_pddl(opt_domain_pddl_path, opt_streams_pddl_path, \
 def transition(world, pddl_state, fd_state, pddl_action, fd_action):
     if world.use_panda:
         print('Executing action: ', pddl_action)
-        world.panda.execute_action(pddl_action, world.fixed, world_obstacles=world.obstacles)
+        world.panda.execute_action(pddl_action, world.fixed, world_obstacles=world.fixed)
 
     new_fd_state = copy(fd_state)
     apply_action(new_fd_state, fd_action) # apply action (optimistically) in PDDL action model

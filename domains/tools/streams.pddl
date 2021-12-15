@@ -5,15 +5,15 @@
     :domain (and (Conf ?q1) (Conf ?q2))
     :fluents (AtPose)
     :outputs (?t)
-    :certified (FreeMotion ?q1 ?t ?q2)
+    :certified (FreeMotion ?q1 ?q2 ?t)
   )
   ; Generate a motion for the robot while it is holding Object ?o in Grasp ?g
   (:stream plan-holding-motion
-    :inputs (?q1 ?q2 ?o ?g)
+    :inputs (?o ?g ?q1 ?q2)
     :domain (and (Conf ?q1) (Conf ?q2) (Grasp ?o ?g))
     :fluents (AtPose)
     :outputs (?t)
-    :certified (HoldingMotion ?q1 ?t ?q2 ?o ?g)
+    :certified (HoldingMotion ?o ?g ?q1 ?q2 ?t)
   )
   ; Generate a pick trajectory
   (:stream pick-inverse-kinematics
@@ -62,7 +62,7 @@
   (:stream plan-contact-motion
     :inputs (?o1 ?g ?o2 ?p1 ?p2 ?c)
     :domain (and (Grasp ?o1 ?g) (Block ?o2) (Pose ?o2 ?p1) (Pose ?o2 ?p2) (Contact ?o1 ?o2 ?c)); TODO: remove Block constraint
-    :outputs (?q1 ?q2 ?t)
-    :certified (and (Conf ?q1) (Conf ?q2) (ContactMotion ?o1 ?g ?o2 ?p1 ?p2 ?c ?q1 ?q2 ?t))
+    :outputs (?q1 ?q2 ?q3 ?t)
+    :certified (and (Conf ?q1) (Conf ?q2) (Conf ?q3) (ContactMotion ?o1 ?g ?o2 ?p1 ?p2 ?c ?q1 ?q2 ?q3 ?t))
   )
 )

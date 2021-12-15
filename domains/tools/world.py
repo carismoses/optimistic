@@ -18,7 +18,7 @@ from panda_wrapper.panda_agent import PandaAgent
 from tamp.utils import get_simple_state, get_learned_pddl, block_to_urdf
 from domains.tools.primitives import get_free_motion_gen, \
     get_holding_motion_gen, get_ik_fn, get_pose_gen_block, get_tool_grasp_gen, \
-    get_block_grasp_gen, get_contact_motion_gen, get_contact_gen, contact_approach_fn
+    get_block_grasp_gen, get_contact_motion_gen, get_contact_gen, contact_approach_fn, ee_ik
 from domains.tools.add_to_primitives import get_trust_model
 from learning.utils import model_forward
 
@@ -40,7 +40,6 @@ class ToolsWorld:
         self.place_objects()
         self.panda.plan()
         self.fixed = [self.panda.table, self.tunnel]
-        self.obstacles = list(self.objects.values())
 
         # TODO: test without gravity?? maybe will stop robot from jumping around so much
         p.setGravity(0, 0, -9.81, physicsClientId=self.panda._execution_client_id)
@@ -206,7 +205,7 @@ class ToolsWorld:
                                                         add_to_domain_path,
                                                         add_to_streams_path)
             streams_map = copy(opt_streams_map)
-            streams_map['trust-model'] = from_test(get_trust_model(self, logger))
+            streams_map['trust-model'] = from_test(get_trust_model(self, self.logger))
         constant_map = {}
         pddl_info = [domain_pddl, constant_map, streams_pddl, streams_map]
         return pddl_info
@@ -251,8 +250,13 @@ class ToolsWorld:
         return self.goal, add_to_state
 
 
-    # TODO: select a random discrete action then ground it
-    def random_actions(self, state):
+    # selects random optimistic actions
+    # pddl_model_type in optimistic or opt_no_traj
+    def random_actions(self, state, pddl_model_type):
+        ret_traj = True
+        if pddl_model_type == 'opt_no_traj':
+            ret_traj = False
+            pddl_model_type = 'optimistic'
         # get all stream functions
         tool_grasp_fn = get_tool_grasp_gen(self.panda.planning_robot)
         block_grasp_fn = get_block_grasp_gen(self.panda.planning_robot)
@@ -266,9 +270,9 @@ class ToolsWorld:
                                 self.fixed,
                                 approach_frame='global',
                                 backoff_frame='gripper')
-        move_contact_fn = get_contact_motion_gen(self.panda.planning_robot, self.fixed)
-        move_free_fn = get_free_motion_gen(self.panda.planning_robot, self.fixed)
-        move_holding_fn = get_holding_motion_gen(self.panda.planning_robot, self.fixed)
+        move_contact_fn = get_contact_motion_gen(self.panda.planning_robot, self.fixed, ret_traj=ret_traj)
+        move_free_fn = get_free_motion_gen(self.panda.planning_robot, self.fixed, ret_traj=ret_traj)
+        move_holding_fn = get_holding_motion_gen(self.panda.planning_robot, self.fixed, ret_traj=ret_traj)
 
         shuffled_objects = list(self.objects.values())
         random.shuffle(shuffled_objects)
@@ -355,10 +359,20 @@ class ToolsWorld:
             init_pose = self.panda.planning_robot.arm.ComputeFK(init_conf.configuration)
             init_orn = init_pose[1]
             if final_conf is None:
-                random_pos = np.array([np.random.uniform(0.05,0.85),
-                                    np.random.uniform(0.2,-0.5),
-                                    np.random.uniform(0.01, 0.8)])
-                random_conf = self.panda.planning_robot.arm.ComputeIK(pb_robot.geometry.tform_from_pose((random_pos, init_orn)))
+                n_attempts = 50
+                a = 0
+                random_conf = None
+                while random_conf is None and a < n_attempts:
+                    random_pos = np.array([np.random.uniform(0.05,0.85),
+                                        np.random.uniform(0.2,-0.5),
+                                        np.random.uniform(0.01, 0.8)])
+                    random_conf = self.panda.planning_robot.arm.ComputeIK(pb_robot.geometry.tform_from_pose((random_pos, init_orn)))
+                    if random_conf is None:
+                        continue
+                    if self.panda.planning_robot.arm.IsCollisionFree(random_conf, obstacles=self.fixed):
+                        break
+                    else:
+                        random_conf = None
                 if not random_conf:
                     return None, [], False
                 final_conf = pb_robot.vobj.BodyConf(self.panda.planning_robot, random_conf)
@@ -366,7 +380,7 @@ class ToolsWorld:
             if traj:
                 return [Action(name='move_free',
                                 args=(init_conf, final_conf, *traj))], \
-                                [('freemotion', init_conf, *traj, final_conf)], \
+                                [('freemotion', init_conf, final_conf, *traj)], \
                                 True
             else:
                 return None, [], False
@@ -384,18 +398,31 @@ class ToolsWorld:
             init_pose = self.panda.planning_robot.arm.ComputeFK(init_conf.configuration)
             init_orn = init_pose[1]
             if final_conf is None:
-                random_pos = np.array([np.random.uniform(0.05,0.85),
-                                    np.random.uniform(0.2,-0.5),
-                                    np.random.uniform(0.01, 0.8)])
-                random_conf = self.panda.planning_robot.arm.ComputeIK(pb_robot.geometry.tform_from_pose((random_pos, init_orn)))
+                orig_pose = held_obj.get_base_link_pose()
+                self.panda.planning_robot.arm.Grab(held_obj, grasp.grasp_objF)
+                n_attempts = 50
+                a = 0
+                random_conf = None
+                while random_conf is None and a < n_attempts:
+                    random_pos = np.array([np.random.uniform(0.05,0.85),
+                                        np.random.uniform(0.2,-0.5),
+                                        np.random.uniform(0.01, 0.8)])
+                    random_conf = self.panda.planning_robot.arm.ComputeIK(pb_robot.geometry.tform_from_pose((random_pos, init_orn)))
+                    if random_conf is None:
+                        continue
+                    if self.panda.planning_robot.arm.IsCollisionFree(random_conf, obstacles=self.fixed):
+                        break
+                    else:
+                        random_conf = None
+                self.panda.planning_robot.arm.Release(held_obj)
+                held_obj.set_base_link_pose(orig_pose)
                 if not random_conf:
                     return None, [], False
                 final_conf = pb_robot.vobj.BodyConf(self.panda.planning_robot, random_conf)
-            traj = move_holding_fn(init_conf, final_conf, held_obj, grasp)
+            traj = move_holding_fn(held_obj, grasp, init_conf, final_conf)
             if traj:
-                return [Action(name='move_holding', args=(init_conf, final_conf, \
-                                                        held_obj, grasp, *traj))], \
-                        [('holdingmotion', init_conf, *traj, final_conf, held_obj, grasp)], \
+                return [Action(name='move_holding', args=(held_obj, grasp, init_conf, final_conf, *traj))], \
+                        [('holdingmotion', held_obj, grasp, init_conf, final_conf, *traj)], \
                         True
             else:
                 return None, [], False
@@ -432,7 +459,7 @@ class ToolsWorld:
             move_params = move_contact_fn(held_obj, grasp, pushed_obj, pushed_obj_pose, \
                                             final_pose, cont)
             if move_params:
-                init_conf, final_conf, traj = move_params
+                init_conf, pose1_conf, final_conf, traj = move_params
                 # first have to move to initial pick conf
                 actions, expanded_states, actions_found = get_move_holding_action(final_conf=init_conf)
                 if actions_found:
@@ -536,7 +563,7 @@ class ToolsWorld:
                         size=1.5)
 
 
-    def plot_model_accuracy(self, i, model, logger):
+    def plot_model_accuracy(self, i, model):
         def get_model_inputs(tool_approach_pose, goal_pose):
             # for now assume all other blocks are at their initial poses
             num_objects = len(self.objects)
@@ -569,7 +596,7 @@ class ToolsWorld:
         pred_info = {}
         contacts_fn = get_contact_gen(self.panda.planning_robot)
         for object_name, object in self.objects.items():
-            if ('block', object) in self.init_state:
+            if ('block', object) in self.get_init_state():
                 pred_info[object_name] = {}
 
                 # generate all goal poses
@@ -659,7 +686,7 @@ class ToolsWorld:
                     ax[1].plot(*goal_pose.pose[0][:2], '.', color=str(pred))
 
             fig.suptitle('Iteration %i' % i)
-            logger.save_figure('cont_%i.png'%ci, dir='iter_%i'%i)
+            self.logger.save_figure('cont_%i.png'%ci, dir='iter_%i'%i)
             plt.close()
             #plt.show()
             #plt.close()
