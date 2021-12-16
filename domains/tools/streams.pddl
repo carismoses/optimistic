@@ -65,4 +65,8 @@
     :outputs (?q1 ?q2 ?q3 ?t)
     :certified (and (Conf ?q1) (Conf ?q2) (Conf ?q3) (ContactMotion ?o1 ?g ?o2 ?p1 ?p2 ?c ?q1 ?q2 ?q3 ?t))
   )
+  (:stream test
+    :inputs (?o)
+    :domain (Object ?o)
+    :certified (Test ?o))
 )

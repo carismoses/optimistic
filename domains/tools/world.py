@@ -18,7 +18,7 @@ from panda_wrapper.panda_agent import PandaAgent
 from tamp.utils import get_simple_state, get_learned_pddl, block_to_urdf
 from domains.tools.primitives import get_free_motion_gen, \
     get_holding_motion_gen, get_ik_fn, get_pose_gen_block, get_tool_grasp_gen, \
-    get_block_grasp_gen, get_contact_motion_gen, get_contact_gen, contact_approach_fn, ee_ik
+    get_block_grasp_gen, get_contact_motion_gen, get_contact_gen, contact_approach_fn, ee_ik, get_test
 from domains.tools.add_to_primitives import get_trust_model
 from learning.utils import model_forward
 
@@ -39,7 +39,7 @@ class ToolsWorld:
         self.panda.execute()
         self.place_objects()
         self.panda.plan()
-        self.fixed = [self.panda.table, self.tunnel]
+        self.fixed = [self.panda.table]#, self.tunnel]
 
         # TODO: test without gravity?? maybe will stop robot from jumping around so much
         p.setGravity(0, 0, -9.81, physicsClientId=self.panda._execution_client_id)
@@ -104,11 +104,12 @@ class ToolsWorld:
         self.obj_init_poses[tool_name] = pose
         init_state += [('tool', tool),
                         ('on', tool, self.panda.table),
-                        ('clear', tool), \
+                        ('clear', tool),
                         ('atpose', tool, pose),
                         ('pose', tool, pose),
                         ('freeobj', tool),
-                        ('notheavy', tool)]
+                        ('object', tool)]
+                        #('notheavy', tool)]
         '''
         # blue_block (under tunnel)
         name = 'blue_block'
@@ -134,8 +135,13 @@ class ToolsWorld:
         pb_objects[name] = block
         orig_poses[name] = pose
         self.obj_init_poses[name] = pose
-        init_state += [('block', block), ('on', block, self.panda.table), ('clear', block), \
-                        ('atpose', block, pose), ('pose', block, pose), ('freeobj', block)]
+        init_state += [('block', block),
+                        ('on', block, self.panda.table),
+                        ('clear', block),
+                        ('atpose', block, pose),
+                        ('pose', block, pose),
+                        ('freeobj', block),
+                        ('object', block)]
         '''
         # red block (notheavy --> can be picked)
         name = 'red_block'
@@ -151,11 +157,12 @@ class ToolsWorld:
                         ('atpose', block, pose), ('pose', block, pose), ('freeobj', block), \
                         ('notheavy', block)]
         '''
+        '''
         # tunnel
         tunnel_name = 'tunnel'
         tunnel, pose = self.place_object(tunnel_name, 'tamp/urdf_models/%s.urdf' % tunnel_name, (0.3, 0.4))
         self.tunnel = tunnel
-
+        '''
         return pb_objects, orig_poses, init_state
 
 
@@ -189,7 +196,8 @@ class ToolsWorld:
             'plan-contact-motion': from_fn(get_contact_motion_gen(robot,
                                                                     self.fixed,
                                                                     ret_traj=ret_traj)),
-            'sample-contact': from_list_fn(get_contact_gen(robot))
+            'sample-contact': from_list_fn(get_contact_gen(robot)),
+            'test': from_test(get_test()),
             }
 
         opt_streams_pddl = read(opt_streams_pddl_path) if opt_streams_pddl_path else None
@@ -700,20 +708,33 @@ if __name__ == '__main__':
     from pddlstream.algorithms.focused import solve_focused
     from tamp.utils import execute_plan, vis_frame
 
-    import pdb; pdb.set_trace()
+    #import pdb; pdb.set_trace()
     vis = True  # set to visualize pyBullet GUI
-    world, opt_pddl_info, pddl_info = ToolsWorld.init(None, 'optimistic', vis, logger=None)
+    world = ToolsWorld.init(None, 'optimistic', vis, logger=None)
 
     # get initial state and add yellow block goal pose to fluents
-    push_distance = 0.15
-    init = world.init_state
-    initial_point, initial_orn = world.objects['yellow_block'].get_base_link_pose()
-    final_pose = (np.add(initial_point, (push_distance, 0., 0.)), initial_orn)
-    final_yb_pose = pb_robot.vobj.BodyPose(world.objects['yellow_block'], final_pose)
-    goal = ('atpose', world.objects['yellow_block'], final_yb_pose)
-    init += [('pose', world.objects['yellow_block'], goal[2])]
+    block = world.objects['yellow_block']
+    table_pose = pb_robot.vobj.BodyPose(world.panda.table, world.panda.table.get_base_link_pose())
+    goal_pos_xy = (0.4, 0.3)
+    goal_z = pb_robot.placements.stable_z(block, world.panda.table)
+    goal_pose = ((*goal_pos_xy, goal_z), (0., 0., 0., 1.))
+    goal_pose = pb_robot.vobj.BodyPose(block, goal_pose)
 
-    problem = tuple([*pddl_info, init, goal])
+    # visualize goal in sim
+    name = 'goal_patch'
+    world.panda.execute()
+    world.place_object(name, 'tamp/urdf_models/%s.urdf' % name, goal_pos_xy)
+    world.panda.plan()
+
+    goal = ('atpose', block, goal_pose)
+    add_to_state = [('pose', block, goal_pose),
+                        ('supported', block, goal_pose, world.panda.table, table_pose),
+                        ('atpose', world.panda.table, table_pose),
+                        ('clear', world.panda.table)]
+    init = world.get_init_state()+add_to_state
+
+    problem = tuple([*world.get_pddl_info('optimistic'), init, goal])
+
 
     # call planner
     print('Init: ', init)
@@ -729,6 +750,6 @@ if __name__ == '__main__':
 
     # execute plan
     if pddl_plan:
-        trajectory, _ = execute_plan(world, problem, pddl_plan, init_expanded)
+        trajectory = execute_plan(world, problem, pddl_plan, init_expanded)
     else:
         print('No plan found.')

@@ -2,6 +2,7 @@
   (:requirements :strips :equality)
   (:predicates
     ; Types
+    (Object ?o)
     (Block ?b)
     (Tool ?to)
     (Table ?ta)
@@ -17,6 +18,7 @@
     (PickKin ?o ?p ?g ?q1 ?q2 ?t)
     (PlaceKin ?o ?p ?g ?q1 ?q2 ?t)
     (Supported ?ot ?pt ?ob ?pb)
+    (Test ?o)
 
     ; Fluents
     (On ?ot ?ob)
@@ -61,7 +63,8 @@
                        (AtConf ?q1)
                        (Clear ?ot)
                        (On ?ot ?ob)
-                       (NotHeavy ?ot)
+                       ;(NotHeavy ?ot)
+                       (Test ?ot)
                        (FreeObj ?ot))
     :effect (and (AtGrasp ?ot ?g)
                  (AtConf ?q2)

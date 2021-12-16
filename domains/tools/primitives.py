@@ -438,6 +438,13 @@ def get_block_grasp_gen(robot, add_slanted_grasps=True, add_orthogonal_grasps=Tr
     return gen
 
 
+def get_test():
+    def test(obj):
+        if 'yellow_block' in obj.get_name():
+            return False
+        return True
+    return test
+
 def get_tool_grasp_gen(robot, add_slanted_grasps=True, add_orthogonal_grasps=True):
     def gen(tool):
         tool_thickness = 0.03
