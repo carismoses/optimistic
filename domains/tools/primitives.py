@@ -65,7 +65,9 @@ def get_traj(robot, obstacles, pddl_action, num_attempts=20):
 
         ee_pose1 = robot.arm.ComputeFK(conf_pose1.configuration)
         ee_pose2 = robot.arm.ComputeFK(conf_pose2.configuration)
-        path_len = 5
+        push_dist = np.linalg.norm(ee_pose1[:2,3]-ee_pose2[:2,3])
+        push_segment_len = 0.025
+        path_len = round(push_dist/push_segment_len)
         push_ee_positions = np.linspace(ee_pose1[:3,3],
                                 ee_pose2[:3,3],
                                 path_len)
