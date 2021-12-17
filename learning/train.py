@@ -27,7 +27,7 @@ def train(dataloader, model, val_dataloader=None, n_epochs=20, loss_fn=F.binary_
         #print('Epoch', ex)
         for x, y in dataloader:
             if torch.cuda.is_available():
-                x = x.cuda()
+                x = [xi.cuda() for xi in x]
                 y = y.cuda()
             optimizer.zero_grad()
 

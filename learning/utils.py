@@ -16,7 +16,13 @@ def model_forward(model, inputs, single_batch=False):
         single_inputs = inputs
         inputs = [torch.tensor(input[None, :], dtype=torch.float64) \
                                             for input in single_inputs]
+    if torch.cuda.is_available():
+        model.cuda()
+        inputs = [inpi.cuda() for inpi in inputs]
+
     output = model.forward(inputs)
+    if torch.cuda.is_available():
+        output = output.cpu()
     return output.detach().numpy()
 
 
