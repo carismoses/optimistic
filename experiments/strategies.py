@@ -126,7 +126,7 @@ def random_goals(world, pddl_model_type, ret_states=False):
                                         unit_costs=True,
                                         initial_complexity=ic,
                                         max_iterations=2)
-    if ret_states:
+    if pddl_plan and ret_states:
         task, fd_plan = postprocess_plan(problem, pddl_plan, init_expanded)
         fd_state = set(task.init)
         pddl_plan_with_states = []
