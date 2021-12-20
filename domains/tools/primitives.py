@@ -66,7 +66,7 @@ def get_traj(robot, obstacles, pddl_action, num_attempts=20):
         ee_pose1 = robot.arm.ComputeFK(conf_pose1.configuration)
         ee_pose2 = robot.arm.ComputeFK(conf_pose2.configuration)
         push_dist = np.linalg.norm(ee_pose1[:2,3]-ee_pose2[:2,3])
-        push_segment_len = 0.025
+        push_segment_len = 0.01
         path_len = round(push_dist/push_segment_len)
         push_ee_positions = np.linspace(ee_pose1[:3,3],
                                 ee_pose2[:3,3],
@@ -285,7 +285,7 @@ def get_ik_fn(robot, fixed=[], num_attempts=4, approach_frame='gripper', backoff
             orig_pose = obj.get_base_link_pose()
             robot.arm.Grab(obj, grasp.grasp_objF)
         else:                           # avoid object to be picked when pick action
-            obstacles += [obj]
+            obstacles += [obj]          # (shouldn't collide with object with fingers open)
         obj_worldF = pb_robot.geometry.tform_from_pose(pose.pose)
         grasp_worldF = np.dot(obj_worldF, grasp.grasp_objF)
         grasp_worldR = grasp_worldF[:3,:3]

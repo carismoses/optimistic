@@ -54,7 +54,6 @@ class ToolsWorld:
 
     def get_init_state(self):
         pddl_state = copy(self.obj_init_state)
-        pddl_state += [('table', self.panda.table)]
         pddl_state += copy(self.panda_init_state)
         random.shuffle(pddl_state)
         return pddl_state
@@ -228,9 +227,9 @@ class ToolsWorld:
         final_pose = pb_robot.vobj.BodyPose(random_object, goal_pose)
         table_pose = pb_robot.vobj.BodyPose(self.panda.table, self.panda.table.get_base_link_pose())
         add_to_state = [('pose', random_object, final_pose),
-                            ('supported', random_object, final_pose, self.panda.table, table_pose),
-                            ('atpose', self.panda.table, table_pose),
-                            ('clear', self.panda.table)] # TODO: make a place action that
+                            ('supported', random_object, final_pose, self.panda.table, table_pose)]
+                            #('atpose', self.panda.table, table_pose),
+                            #('clear', self.panda.table)] # TODO: make a place action that
                                                         # doesn't have the effect of making
                                                         # things clear so can place blocks on
                                                         # table. for not hack by saying your
