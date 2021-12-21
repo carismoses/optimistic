@@ -13,7 +13,7 @@ from learning.utils import model_forward
 from domains.tools.primitives import get_traj
 
 MAX_PLAN_LEN = 6           # max num of actions in a randomly generated plan
-SEQUENTIAL_N_PLANS = 100    # number of plans to select from
+SEQUENTIAL_N_PLANS = 100   # number of plans to select from
 EPS = 1e-5
 
 
@@ -33,7 +33,10 @@ def collect_trajectory(data_collection_mode, world):
 
     if 'sequential' in data_collection_mode:
         print('Abstract Plan: ', pddl_plan)
-        traj_pddl_plan, add_to_init = solve_trajectories(world, pddl_plan)
+        ret_full_plan = 'goals' in data_collection_mode
+        traj_pddl_plan, add_to_init = solve_trajectories(world,
+                                                    pddl_plan,
+                                                    ret_full_plan=ret_full_plan)
         pddl_plan = traj_pddl_plan
         if not traj_pddl_plan:
             print('Planning trajectories failed.')
@@ -186,7 +189,7 @@ def bald(predictions):
     return bald
 
 
-def solve_trajectories(world, pddl_plan):
+def solve_trajectories(world, pddl_plan, ret_full_plan=False):
     pddl_plan_traj = []
     robot = world.panda.planning_robot
     obstacles = world.fixed # TODO: add other important things to obstacles (action-type dependent)
@@ -195,7 +198,11 @@ def solve_trajectories(world, pddl_plan):
         if pddl_action.name in ['move_free', 'move_holding', 'move_contact']:
             command, init = get_traj(robot, obstacles, pddl_action)
             if command is None:
-                return pddl_plan_traj, add_to_init
+                print('Could not solve for %s trajectories.' % pddl_action.name)
+                if ret_full_plan: # if want to ground the entire plan, then return None if that's not possible
+                    return None, None
+                else:
+                    return pddl_plan_traj, add_to_init
             pddl_plan_traj += [Action(name=pddl_action.name,
                             args=tuple([a for a in pddl_action.args[:-1]]+[command]))]
             add_to_init.append(init)
