@@ -562,6 +562,36 @@ class ToolsWorld:
                         size=1.5)
 
 
+    '''
+    PLOTTING FUNCTIONS
+    '''
+
+    def plot_block(self, ax, pos, color):
+        block_dims = np.array(self.objects['yellow_block'].get_dimensions()[:2])
+        ax.add_patch(Rectangle(pos-block_dims/2,
+                                *block_dims,
+                                color=color,
+                                fill = False))
+
+
+    def plot_tool(self, ax, rel_2d_pose, color):
+        tool_data = p.getVisualShapeData(self.objects['tool'].id, -1)
+        tool_base_dims = np.array(tool_data[0][3][:2])
+        tool_link0_dims = np.array(tool_data[1][3][:2])
+        link0_relpos = np.array([-0.185, 0.115]) # from URDF
+
+        ax.add_patch(Rectangle(rel_2d_pose[:2] - tool_base_dims/2,
+                                *tool_base_dims,
+                                angle = rel_2d_pose[2],
+                                color = color,
+                                fill = False))
+        ax.add_patch(Rectangle(rel_2d_pose[:2] + link0_relpos - tool_link0_dims/2,
+                                *tool_link0_dims,
+                                angle = rel_2d_pose[2],
+                                color = color,
+                                fill = False))
+
+
     def plot_model_accuracy(self, i, model):
         def get_model_inputs(tool_approach_pose, goal_pose):
             # for now assume all other blocks are at their initial poses
@@ -637,35 +667,20 @@ class ToolsWorld:
 
         for ci, cont in enumerate(all_contacts):
             fig, ax = plt.subplots(2)
+
             # ax[0] shows contact configuration
             ax[0].set_xlim(-.5,.5)
             ax[0].set_ylim(-.5,.5)
             ax[0].set_aspect('equal')
+
             # show a block at (0,0)
-            block_dims = np.array(self.objects[object_name].get_dimensions()[:2])
-            ax[0].add_patch(Rectangle(-block_dims/2,
-                                    *block_dims,
-                                    color='k',
-                                    fill = False))
+            self.plot_block(ax[0], np.zeros(2), 'k')
 
             # show the tool at the relative position
-            tool_data = p.getVisualShapeData(self.objects['tool'].id, -1)
-            tool_base_dims = np.array(tool_data[0][3][:2])
-            tool_link0_dims = np.array(tool_data[1][3][:2])
-            link0_relpos = np.array([-0.185, 0.115]) # from URDF
             tool_base_pos, tool_base_orn = cont.rel_pose
-
             angle = pb_robot.geometry.quat_angle_between(tool_base_orn, [0., 0., 0., 1.])
-            ax[0].add_patch(Rectangle(tool_base_pos[:2] - tool_base_dims/2,
-                                    *tool_base_dims,
-                                    angle = angle,
-                                    color = 'k',
-                                    fill = False))
-            ax[0].add_patch(Rectangle(tool_base_pos[:2] + link0_relpos - tool_link0_dims/2,
-                                    *tool_link0_dims,
-                                    angle = angle,
-                                    color = 'k',
-                                    fill = False))
+            rel_2d_pose = np.array([*tool_base_pos[:2], angle])
+            self.plot_tool(ax[0], rel_2d_pose, 'k')
 
             for object_name, cont_info in pred_info.items():
                 # ax[1] shows predictions for all goal poses for all blocks
@@ -674,11 +689,8 @@ class ToolsWorld:
                 ax[1].set_aspect('equal')
 
                 # show initial pose
-                block_dims = np.array(self.objects[object_name].get_dimensions()[:2])
                 block_initial_pos = np.array(self.obj_init_poses[object_name].pose[0][:2])
-                ax[1].add_patch(Rectangle(block_initial_pos - block_dims/2,
-                                        *block_dims,
-                                        color='y'))
+                self.plot_block(ax[1], block_initial_pos, 'y')
 
                 # show different goal poses and their predictions
                 for goal_pose, pred in cont_info[cont].items():
@@ -687,8 +699,36 @@ class ToolsWorld:
             fig.suptitle('Iteration %i' % i)
             self.logger.save_figure('cont_%i.png'%ci, dir='iter_%i'%i)
             plt.close()
-            #plt.show()
-            #plt.close()
+
+
+    def plot_datapoint(self, i):
+        fig, ax = plt.subplots()
+
+        # plot block initial pose
+        block_pos_xy = np.array(self.obj_init_poses['yellow_block'].pose[0][:2])
+        self.plot_block(ax, block_pos_xy, 'k')
+
+        # plot all goal poses colored by success and show relative contact
+        dataset = self.logger.load_trans_dataset()
+        x, y = dataset[-1]
+        of, ef, af = x
+        goal_pos_xy = af[:2]
+        color = 'r' if y == 0 else 'g'
+        self.plot_block(ax, goal_pos_xy, color)
+
+        # rel_pose from block to tool
+        tool_feature_index = np.where(of == self.objects['tool'].id)[0]
+        block_feature_index = np.where(of == self.objects['yellow_block'].id)[0]
+
+        pose_2d = np.array([*block_pos_xy, 0.0]) + ef[tool_feature_index, block_feature_index][0].numpy()
+        self.plot_tool(ax, pose_2d, color)
+
+        ax.set_xlim(0.05, 1.0)
+        ax.set_ylim(0.3, -0.6)
+        ax.set_aspect('equal')
+        fig.suptitle('Iteration %i' % i)
+        self.logger.save_figure('successes_%i.png'%i, dir='goals')
+        plt.close()
 
 
 # just for testing

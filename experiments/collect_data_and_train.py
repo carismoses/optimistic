@@ -60,6 +60,10 @@ def train_class(args, trans_dataset, logger):
         if trajectory:
             print('Adding trajectory to dataset.')
             add_trajectory_to_dataset(args, trans_dataset, trajectory, world)
+            logger.save_trans_dataset(trans_dataset, i=n_actions)
+
+        if len(trans_dataset) > 0:
+            world.plot_datapoint(n_actions)
 
         # check that at training step and there is data in the dataset
         if (n_actions-last_train_count) > args.train_freq and len(trans_dataset) > 0:
@@ -74,8 +78,7 @@ def train_class(args, trans_dataset, logger):
             for model in ensemble.models:
                 train(trans_dataloader, model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
 
-            # save dataset, model, and accuracy plots
-            logger.save_trans_dataset(trans_dataset, i=n_actions)
+            # save model and accuracy plots
             world.plot_model_accuracy(n_actions, ensemble)
             logger.save_trans_model(ensemble, i=n_actions)
             print('Saved dataset, model, and accuracy plot to %s' % logger.exp_path)
