@@ -91,11 +91,11 @@ class ExperimentLogger:
         if i is not None:
             fname = 'trans_dataset_%i.pkl' % i
         else:
-            model_files = os.listdir(os.path.join(self.exp_path, 'datasets'))
-            if len(model_files) == 0:
+            data_files = os.listdir(os.path.join(self.exp_path, 'datasets'))
+            if len(data_files) == 0:
                 raise Exception('No datasets found on args.exp_path.')
             txs = []
-            for file in model_files:
+            for file in data_files:
                 matches = re.match(r'trans_dataset_(.*).pkl', file)
                 if matches: # sometimes system files are saved here, don't parse these
                     txs += [int(matches.group(1))]
