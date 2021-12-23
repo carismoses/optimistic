@@ -13,7 +13,7 @@ from learning.utils import model_forward
 from domains.tools.primitives import get_traj
 
 MAX_PLAN_LEN = 6           # max num of actions in a randomly generated plan
-SEQUENTIAL_N_PLANS = 100   # number of plans to select from
+SEQUENTIAL_N_PLANS = 1   # number of plans to select from
 EPS = 1e-5
 
 
