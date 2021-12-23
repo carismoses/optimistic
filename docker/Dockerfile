@@ -21,7 +21,9 @@ RUN mv /optimistic/requirements.txt .
 RUN rm -r optimistic
 RUN python3.6 -m pip install --upgrade pip
 RUN apt install -y libjpeg-dev zlib1g-dev  # need to install pillow
-RUN xargs -n1 python3.6 -m pip install install --trusted-host pypi.python.org < requirements.txt
+RUN xargs -n1 python3.6 -m pip install --trusted-host pypi.python.org < requirements.txt
+RUN python3 -m pip install torch==1.10.1+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html
+RUN python3 -m pip install torchvision==0.11.2+cu113 -f https://download.pytorch.org/whl/cu113/torch_stable.html
 
 # Install pb_robot
 RUN git clone https://github.com/carismoses/pb_robot.git
