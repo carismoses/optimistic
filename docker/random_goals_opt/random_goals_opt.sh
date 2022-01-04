@@ -12,8 +12,8 @@ ln -s /pddlstream/pddlstream .
 # run training code
 python3 -m experiments.collect_data_and_train \
               --domain tools \
-              --exp-name random_goals \
-              --data-collection-mode random-goals \
+              --exp-name random_goals_opt \
+              --data-collection-mode random-goals-opt \
               --n-models 1
 
 # copy over results to minio
