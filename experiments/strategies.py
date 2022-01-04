@@ -13,11 +13,10 @@ from learning.utils import model_forward
 from domains.tools.primitives import get_traj
 
 MAX_PLAN_LEN = 6           # max num of actions in a randomly generated plan
-SEQUENTIAL_N_PLANS = 100   # number of plans to select from
 EPS = 1e-5
 
 
-def collect_trajectory(data_collection_mode, world):
+def collect_trajectory(data_collection_mode, world, n_seq_plans):
     if data_collection_mode == 'random-actions':
         pddl_plan, problem, init_expanded = random_plan(world, 'optimistic')
     elif data_collection_mode == 'random-goals-opt':
@@ -25,9 +24,9 @@ def collect_trajectory(data_collection_mode, world):
     elif data_collection_mode == 'random-goals-learned':
         pddl_plan, problem, init_expanded = random_goals(world, 'learned')
     elif data_collection_mode == 'sequential-plans':
-        pddl_plan, problem, init_expanded = sequential(world, 'plans')
+        pddl_plan, problem, init_expanded = sequential(world, 'plans', n_seq_plans)
     elif data_collection_mode == 'sequential-goals':
-        pddl_plan, problem, init_expanded =  sequential(world, 'goals')
+        pddl_plan, problem, init_expanded =  sequential(world, 'goals', n_seq_plans)
     else:
         raise NotImplementedError('Strategy %s is not implemented' % data_collection_mode)
 
@@ -145,10 +144,10 @@ def random_goals(world, pddl_model_type, ret_states=False):
     return pddl_plan, problem, init_expanded
 
 
-def sequential(world, mode):
+def sequential(world, mode, n_seq_plans):
     model = world.logger.load_trans_model(world)
     all_plans_info = []
-    while len(all_plans_info) < SEQUENTIAL_N_PLANS:
+    while len(all_plans_info) < n_seq_plans:
         if mode == 'plans':
             plan_with_states, problem, init_expanded = random_plan(world, 'opt_no_traj', ret_states=True)
         elif mode == 'goals':

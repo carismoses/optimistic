@@ -53,7 +53,7 @@ def train_class(args, trans_dataset, logger):
                                 position=(0, -1.15, 1.1),
                                 size=1,
                                 counter=True)
-        trajectory = collect_trajectory(args.data_collection_mode, world)
+        trajectory = collect_trajectory(args.data_collection_mode, world, args.n_seq_plans)
         n_actions += len(trajectory)
 
         # add to dataset and save
@@ -164,6 +164,10 @@ if __name__ == '__main__':
                         type=int,
                         default=5,
                         help='number of models in ensemble')
+    parser.add_argument('--n-seq-plans',
+                        type=int,
+                        default=100,
+                        help='number of plans used to generate search space for sequential methods')
     args = parser.parse_args()
 
     if args.debug:
