@@ -63,7 +63,7 @@ def train_class(args, trans_dataset, logger):
             logger.save_trans_dataset(trans_dataset, i=n_actions)
 
         if len(trans_dataset) > 0:
-            world.plot_datapoint(n_actions)
+            world.plot_datapoint(len(trans_dataset)-1)
 
         # check that at training step and there is data in the dataset
         if (n_actions-last_train_count) > args.train_freq and len(trans_dataset) > 0:

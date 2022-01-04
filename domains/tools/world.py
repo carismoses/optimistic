@@ -592,7 +592,7 @@ class ToolsWorld:
                                 fill = False))
 
 
-    def plot_model_accuracy(self, i, model):
+    def plot_model_accuracy(self, i, model, show=False):
         def get_model_inputs(tool_approach_pose, goal_pose):
             # for now assume all other blocks are at their initial poses
             num_objects = len(self.objects)
@@ -697,11 +697,20 @@ class ToolsWorld:
                     ax[1].plot(*goal_pose.pose[0][:2], '.', color=str(pred))
 
             fig.suptitle('Iteration %i' % i)
-            self.logger.save_figure('cont_%i.png'%ci, dir='iter_%i'%i)
-            plt.close()
+            if show:
+                plt.show()
+            else:
+                self.logger.save_figure('cont_%i.png'%ci, dir='iter_%i'%i)
+                plt.close()
 
 
-    def plot_datapoint(self, i):
+    def plot_datapoint(self, i, color=None, dir='goals'):
+        '''
+        i: index into the dataset to plot
+        color: a color string for matplotlib to use. if None then color is red
+                for 0 (infeasible) label and green for feasible label
+        dir: which subfolder within exp_path/figures/ to save the plot
+        '''
         fig, ax = plt.subplots()
 
         # plot block initial pose
@@ -710,10 +719,11 @@ class ToolsWorld:
 
         # plot all goal poses colored by success and show relative contact
         dataset = self.logger.load_trans_dataset()
-        x, y = dataset[-1]
+        x, y = dataset[i]
         of, ef, af = x
         goal_pos_xy = af[:2]
-        color = 'r' if y == 0 else 'g'
+        if color is None:
+            color = 'r' if y == 0 else 'g'
         self.plot_block(ax, goal_pos_xy, color)
 
         # rel_pose from block to tool
@@ -727,7 +737,7 @@ class ToolsWorld:
         ax.set_ylim(0.3, -0.6)
         ax.set_aspect('equal')
         fig.suptitle('Iteration %i' % i)
-        self.logger.save_figure('successes_%i.png'%i, dir='goals')
+        self.logger.save_figure('successes_%i.png'%i, dir=dir)
         plt.close()
 
 

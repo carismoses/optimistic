@@ -161,7 +161,8 @@ class ExperimentLogger:
         model = Ensemble(TransitionGNN,
                         base_args,
                         self.args.n_models)
-        model.load_state_dict(torch.load(os.path.join(self.exp_path, 'models', fname)))
+        loc = 'gpu' if torch.cuda.is_available() else 'cpu'
+        model.load_state_dict(torch.load(os.path.join(self.exp_path, 'models', fname), map_location=loc))
         return model
 
     # Planning info

@@ -190,6 +190,12 @@ def bald(predictions):
 
 
 def solve_trajectories(world, pddl_plan, ret_full_plan=False):
+    '''
+    ret_full_plan: set to True if only want to return a plan if the ENTIRE abstract
+                    plan can be grounded (trajectories solved for), else will just
+                    return the plan that it was able to ground (potentially shorter
+                    than the abstract plan)
+    '''
     pddl_plan_traj = []
     robot = world.panda.planning_robot
     obstacles = world.fixed # TODO: add other important things to obstacles (action-type dependent)
