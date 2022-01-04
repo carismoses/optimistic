@@ -100,7 +100,7 @@
                        (Held ?o1)
                        (FreeObj ?o2))
     :effect (and (AtPose ?o2 ?p2)
-                 (AtConf ?q2)
+                 (AtConf ?q3)
                  (not (AtPose ?o2 ?p1))
                  (not (AtConf ?q1)))
   )

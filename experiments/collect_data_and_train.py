@@ -143,6 +143,10 @@ if __name__ == '__main__':
     parser.add_argument('--vis',
                         action='store_true',
                         help='use to visualize robot executions.')
+    parser.add_argument('--n-seq-plans',
+                        type=int,
+                        default=100,
+                        help='number of plans used to generate search space for sequential methods')
     # Training args
     parser.add_argument('--batch-size',
                         type=int,
@@ -164,10 +168,6 @@ if __name__ == '__main__':
                         type=int,
                         default=5,
                         help='number of models in ensemble')
-    parser.add_argument('--n-seq-plans',
-                        type=int,
-                        default=100,
-                        help='number of plans used to generate search space for sequential methods')
     args = parser.parse_args()
 
     if args.debug:
