@@ -1,15 +1,8 @@
-from torch.nn import functional as F
-from torch.utils.data import DataLoader
-from argparse import Namespace
 import numpy as np
 import matplotlib.pyplot as plt
-from learning.datasets import TransDataset
 from learning.utils import model_forward
 from learning.utils import ExperimentLogger
-from learning.models.gnn import TransitionGNN
-from learning.train import train
 from domains.tools.world import ToolsWorld
-from learning.utils import ExperimentLogger
 
 
 ## Params
@@ -106,4 +99,5 @@ if __name__ == '__main__':
     ax.set_title('Model Accuracy over Training Time')
     ax.legend()
     ax.set_ylim([0.43,1])
-    plt.show()
+    plt.savefig('model_accuracy')
+    #plt.show()
