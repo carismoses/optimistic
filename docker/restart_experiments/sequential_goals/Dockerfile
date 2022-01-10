@@ -2,6 +2,7 @@
 FROM carismoses/optimistic:latest
 
 # copy experiment log into container
+WORKDIR /
 COPY sequential_goals-20220105-143004 .
 
 # run training
