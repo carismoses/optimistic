@@ -19,7 +19,11 @@ dataset_paths = {'random-actions':
                     'logs/experiments/random_goals_opt-20220104-204532',
                     'logs/experiments/random_goals_opt-20220104-204536'],
                 'sequential-goals':
-                    []}
+                    ['logs/experiments/sequential_goals-20220105-143004',
+		    'logs/experiments/sequential_goals-20220105-143605',
+		    'logs/experiments/sequential_goals-20220105-143711',
+	            'logs/experiments/sequential_goals-20220105-145239',
+                    'logs/experiments/sequential_goals-20220105-145344']}
 
 #dataset_paths = {'sequential-goals':
 #    ['logs/experiments/sequential-goals-20211223-055013']}
