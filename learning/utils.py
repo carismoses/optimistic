@@ -106,20 +106,28 @@ class ExperimentLogger:
         return self.load_dataset(fname)
 
     def get_dataset_iterator(self):
-        model_files = os.listdir(os.path.join(self.exp_path, 'datasets'))
-        if len(model_files) == 0:
-            raise Exception('No datasets found on args.exp_path.')
-        txs = []
-        datasets = []
-        for file in model_files:
-            matches = re.match(r'trans_dataset_(.*).pkl', file)
-            if matches: # sometimes system files are saved here, don't parse these
-                txs += [int(matches.group(1))]
-                datasets += [file]
+        found_files, txs = self.get_dir_indices('datasets')
         sorted_indices = np.argsort(txs)
-        sorted_dataset_names = [datasets[idx] for idx in sorted_indices]
+        sorted_file_names = [found_files[idx] for idx in sorted_indices]
         sorted_datasets = [(self.load_dataset(fname),i) for fname,i in zip(sorted_dataset_names, np.sort(txs))]
         return iter(sorted_datasets)
+
+    def get_dir_indices(self, dir):
+        files = os.listdir(os.path.join(self.exp_path, dir))
+        if len(files) == 0:
+            raise Exception('No files found on path args.exp_path/%s.' % dir)
+        if dir == 'datasets':
+            file_name = r'trans_dataset_(.*).pkl'
+        elif dir == 'models':
+            file_name = r'trans_model_(.*).pt'
+        txs = []
+        found_files = []
+        for file in files:
+            matches = re.match(file_name, file)
+            if matches: # sometimes system files are saved here, don't parse these
+                txs += [int(matches.group(1))]
+                found_files += [file]
+        return found_files, txs
 
     # Models
     def save_model(self, model, fname):
@@ -137,14 +145,7 @@ class ExperimentLogger:
         if i is not None:
             fname = 'trans_model_%i.pt' % i
         else:
-            model_files = os.listdir(os.path.join(self.exp_path, 'models'))
-            if len(model_files) == 0:
-                raise Exception('No models found on args.exp_path.')
-            txs = []
-            for file in model_files:
-                matches = re.match(r'trans_model_(.*).pt', file)
-                if matches: # sometimes system files are saved here, don't parse these
-                    txs += [int(matches.group(1))]
+            found_files, txs = self.get_dir_indices('models')
             if len(txs) == 0:
                 #print('Returning trans_model.pt. No numbered models found on path: %s' % self.exp_path)
                 fname = 'trans_model.pt'
@@ -164,6 +165,14 @@ class ExperimentLogger:
         loc = 'cuda:0' if torch.cuda.is_available() else 'cpu'
         model.load_state_dict(torch.load(os.path.join(self.exp_path, 'models', fname), map_location=loc))
         return model
+
+    # Get action count info from logger
+    def get_action_count(self):
+        _, txs = self.get_dir_indices('datasets')
+        n_actions = max(txs)
+        _, txs = self.get_dir_indices('models')
+        last_train_count = max(txs)
+        return n_actions, last_train_count
 
     # Planning info
     def save_planning_data(self, tree, goal, plan, i=None):
