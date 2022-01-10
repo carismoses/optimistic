@@ -6,7 +6,7 @@ git clone https://github.com/carismoses/optimistic.git
 
 # move experiment to right path
 mkdir -p optimistic/logs/experiments
-mv sequential_goals-20220105-143004 optimistic/logs/experiments
+mv sequential_goals-20220105-145239 optimistic/logs/experiments
 
 # link other packages
 cd optimistic
