@@ -18,7 +18,7 @@ from experiments.strategies import collect_trajectory
 def train_class(args, logger, n_actions, last_train_count):
     pddl_model_type = 'learned' if 'learned' in args.data_collection_mode else 'optimistic'
 
-    # initialize and save model
+    # get model params
     world = init_world(args.domain,
                         args.domain_args,
                         pddl_model_type,
@@ -54,7 +54,8 @@ def train_class(args, logger, n_actions, last_train_count):
                                 position=(0, -1.15, 1.1),
                                 size=1,
                                 counter=True)
-        trajectory = collect_trajectory(args.data_collection_mode, world, args.n_seq_plans)
+        progress = n_actions/args.max_actions
+        trajectory = collect_trajectory(args.data_collection_mode, world, args.n_seq_plans, progress)
         n_actions += len(trajectory)
 
         # add to dataset and save
@@ -138,7 +139,8 @@ if __name__ == '__main__':
     parser.add_argument('--data-collection-mode',
                         type=str,
                         choices=['random-actions', 'random-goals-opt', 'random-goals-learned', \
-                                'sequential-plans', 'sequential-goals'],
+                                'sequential-plans', 'sequential-goals', 'engineered-goals-dist', \
+                                'engineered-goals-size'],
                         help='method of data collection')
     parser.add_argument('--train-freq',
                         type=int,

@@ -243,6 +243,41 @@ def block_to_urdf(obj_name, urdf_path, color):
     with open(urdf_path, 'w') as handle:
         handle.write(str(block_urdf))
 
+def goal_to_urdf(name, urdf_path, color, radius):
+    length = 0.0001
+    link_urdf = odio_urdf.Link(name,
+                  odio_urdf.Inertial(
+                      odio_urdf.Origin(xyz=(0, 0, 0), rpy=(0, 0, 0)),
+                      odio_urdf.Mass(0),
+                      odio_urdf.Inertia(ixx=0,
+                                        ixy=0,
+                                        ixz=0,
+                                        iyy=0,
+                                        iyz=0,
+                                        izz=0)
+                  ),
+                  odio_urdf.Collision(
+                      odio_urdf.Origin(xyz=(0, 0, 0), rpy=(0, 0, 0)),
+                      odio_urdf.Geometry(
+                          odio_urdf.Cylinder(radius=0,
+                                            length=0)
+                      )
+                  ),
+                  odio_urdf.Visual(
+                      odio_urdf.Origin(xyz=(0, 0, 0), rpy=(0, 0, 0)),
+                      odio_urdf.Geometry(
+                          odio_urdf.Cylinder(radius=radius,
+                                            length=length)
+                      ),
+                      odio_urdf.Material('color',
+                                    odio_urdf.Color(rgba=color)
+                                    )
+                  ))
+
+    block_urdf = odio_urdf.Robot(link_urdf, name=name)
+    with open(urdf_path, 'w') as handle:
+        handle.write(str(block_urdf))
+
 def vis_frame(pb_pose, client, length=0.2, lifeTime=0.):
     pos, quat = pb_pose
     print(pos)

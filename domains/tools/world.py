@@ -15,7 +15,7 @@ from pddlstream.utils import read
 from pddlstream.language.generator import from_list_fn, from_fn, from_test
 
 from panda_wrapper.panda_agent import PandaAgent
-from tamp.utils import get_simple_state, get_learned_pddl, block_to_urdf
+from tamp.utils import get_simple_state, get_learned_pddl, block_to_urdf, goal_to_urdf
 from domains.tools.primitives import get_free_motion_gen, \
     get_holding_motion_gen, get_ik_fn, get_pose_gen_block, get_tool_grasp_gen, \
     get_block_grasp_gen, get_contact_motion_gen, get_contact_gen, contact_approach_fn, ee_ik
@@ -51,6 +51,9 @@ class ToolsWorld:
 
         # get pddl domain description
         self.logger = logger
+
+        # goal radius
+        self.goal_radius = 0.05
 
     def get_init_state(self):
         pddl_state = copy(self.obj_init_state)
@@ -210,17 +213,49 @@ class ToolsWorld:
         return pddl_info
 
 
-    def generate_random_goal(self, feasible=False, ret_goal_feas=False, show_goal=True):
+    def generate_goal(self, goal_type='random', feasible=False, ret_goal_feas=False, show_goal=True, goal_progress=None):
         init_state = self.get_init_state()
-        # select random point on table (not near tunnel)
-        goal_xy = np.array([np.random.uniform(0.05,0.85),
-                            np.random.uniform(0.2,-0.5)])
 
         # select a random block
         random_object = random.choice(list(self.objects.values()))
         while not ('block', random_object) in init_state:
             random_object = random.choice(list(self.objects.values()))
         init_pose = self.get_obj_pose_from_state(random_object, init_state)
+        init_x, init_y = init_pose[0][:2]
+
+        if 'engineered' in goal_type:
+            if goal_progress is None:
+                assert 'If using engineered goals must pass in goal_progress parameter'
+
+        min_x, max_x = 0.05, 0.85
+        min_y, max_y = 0.2, -0.5
+        min_goal_radius = 0.05
+        min_push_dist = 0.05
+
+        if goal_type == 'random' or goal_progress > 0.5:
+            # select random point on table (not near tunnel)
+            goal_xy = np.array([np.random.uniform(min_x, max_x),
+                                np.random.uniform(min_y, max_y)])
+        else:
+            max_dist = max([abs(init_x-min_x),
+                        abs(init_x-max_x),
+                        abs(init_y-min_y),
+                        abs(init_y-max_y)])
+
+            if goal_type == 'engineered-dist':
+                # select a point an increasing distance from the starting position for first half of training time (then random)
+                dist = max_dist*goal_progress*2  # want to reach max dist when goal_progress = 0.5
+                if dist < min_push_dist:
+                    dist = min_push_dist
+                direction = np.random.uniform(0, 2*np.pi) # random direction
+                goal_xy = init_pose[0][:2] + dist*np.array([np.cos(direction), np.sin(direction)])
+            elif goal_type == 'engineered-size':
+                # make the goal region increasingly larger
+                goal_xy = np.array([np.random.uniform(min_x, max_x),
+                                    np.random.uniform(min_y, max_y)])
+                new_goal_radius = max_dist*(1-goal_progress*2)
+                if new_goal_radius > min_goal_radius:
+                    self.goal_radius = new_goal_radius
 
         # add desired pose to state
         goal_pose = ((goal_xy[0], goal_xy[1], init_pose[0][2]), init_pose[1])
@@ -239,10 +274,13 @@ class ToolsWorld:
         # visualize goal patch in pyBullet
         if show_goal:
             name = 'goal_patch'
+            color = (0.0, 1.0, 0.0, 1.0)
+            urdf_path = 'tamp/urdf_models/%s.urdf' % name
+            goal_to_urdf(name, urdf_path, color, self.goal_radius)
             self.panda.execute()
-            self.place_object(name, 'tamp/urdf_models/%s.urdf' % name, goal_xy)
+            self.place_object(name, urdf_path, goal_xy)
             self.panda.plan()
-            self.place_object(name, 'tamp/urdf_models/%s.urdf' % name, goal_xy)
+            self.place_object(name, urdf_path, goal_xy)
 
         # return goal
         self.goal = ('atpose', random_object, final_pose)
@@ -545,11 +583,10 @@ class ToolsWorld:
         self.panda.execute()
         valid_transition = True
         if pddl_action.name == 'move_contact':
-            tol = 0.05
             # check that block ended up where it was supposed to (with some tolerance)
             goal_pos2 = pddl_action.args[4].pose[0]
             true_pos2 = pddl_action.args[2].get_base_link_pose()[0]
-            if np.linalg.norm(np.subtract(goal_pos2, true_pos2)) > tol:
+            if np.linalg.norm(np.subtract(goal_pos2, true_pos2)) > self.goal_radius:
                 valid_transition = False
         self.panda.plan()
         return valid_transition
