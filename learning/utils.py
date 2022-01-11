@@ -109,7 +109,7 @@ class ExperimentLogger:
         found_files, txs = self.get_dir_indices('datasets')
         sorted_indices = np.argsort(txs)
         sorted_file_names = [found_files[idx] for idx in sorted_indices]
-        sorted_datasets = [(self.load_dataset(fname),i) for fname,i in zip(sorted_dataset_names, np.sort(txs))]
+        sorted_datasets = [(self.load_dataset(fname),i) for fname,i in zip(sorted_file_names, np.sort(txs))]
         return iter(sorted_datasets)
 
     def get_dir_indices(self, dir):
