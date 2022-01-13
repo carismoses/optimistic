@@ -151,18 +151,20 @@ def goals(world, pddl_model_type, goal_type, ret_states=False, progress=None):
 
 def sequential(world, mode, n_seq_plans):
     model = world.logger.load_trans_model(world)
-    all_plans_info = []
-    while len(all_plans_info) < n_seq_plans:
+    best_plan_info = None
+    best_bald_score = 0.0
+    n_plans_searched = 0
+    while n_plans_searched < n_seq_plans:
         if mode == 'plans':
             plan_with_states, problem, init_expanded = random_plan(world, 'opt_no_traj', ret_states=True)
         elif mode == 'goals':
             plan_with_states, problem, init_expanded = goals(world, 'opt_no_traj', 'random', ret_states=True)
+        n_plans_searched += 1
         if plan_with_states:
-            all_plans_info.append((plan_with_states, problem, init_expanded))
-    bald_scores = [sequential_bald(plan, model, world) for plan, _, _ in all_plans_info]
-    best_plan_index = np.argmax(bald_scores)
-    pddl_plan_with_states, problem, init_expanded = all_plans_info[best_plan_index]
-    return [pa for ps, pa in pddl_plan_with_states], problem, init_expanded
+            bald_score = sequential_bald(plan_with_states, model, world)
+            if bald_score >= best_bald_score:
+                best_plan_info = plan_with_states, problem, init_expanded
+    return [pa for ps, pa in best_plan_info[0]], best_plan_info[1], best_plan_info[2]
 
 
 def sequential_bald(plan, model, world):
