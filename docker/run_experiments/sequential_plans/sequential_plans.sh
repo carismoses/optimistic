@@ -15,7 +15,7 @@ python3 -m experiments.collect_data_and_train \
               --exp-name sequential_plans \
               --data-collection-mode sequential-plans \
               --n-models 7 \
-              --n-seq-plans 500
+              --n-seq-plans 100
 
 # copy over results to minio
 #/./mc cp -r learning/experiments/logs/ honda_cmm/stacking/rss_camera_ready/
