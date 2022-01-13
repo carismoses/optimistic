@@ -6,12 +6,12 @@ from domains.tools.world import ToolsWorld
 
 
 ## Params
-dataset_paths = {'random-actions':
-                    ['logs/experiments/random_actions-20220104-201317',
-                    'logs/experiments/random_actions-20220104-202422',
-                    'logs/experiments/random_actions-20220104-202440',
-                    'logs/experiments/random_actions-20220104-202447',
-                    'logs/experiments/random_actions-20220104-202453'],
+dataset_paths = {#'random-actions':
+                 #   ['logs/experiments/random_actions-20220104-201317',
+                 #   'logs/experiments/random_actions-20220104-202422',
+                 #   'logs/experiments/random_actions-20220104-202440',
+                 #   'logs/experiments/random_actions-20220104-202447',
+                 #   'logs/experiments/random_actions-20220104-202453'],
                 'random-goals-opt':
                     ['logs/experiments/random_goals_opt-20220104-204547',
                     'logs/experiments/random_goals_opt-20220104-203849',
@@ -20,10 +20,23 @@ dataset_paths = {'random-actions':
                     'logs/experiments/random_goals_opt-20220104-204536'],
                 'sequential-goals':
                     ['logs/experiments/sequential_goals-20220105-143004',
-		    'logs/experiments/sequential_goals-20220105-143605',
+		    #'logs/experiments/sequential_goals-20220105-143605',
 		    'logs/experiments/sequential_goals-20220105-143711',
 	            'logs/experiments/sequential_goals-20220105-145239',
-                    'logs/experiments/sequential_goals-20220105-145344']}
+                    'logs/experiments/sequential_goals-20220105-145344'],
+		'engineered-goals-dist':
+		    ['logs/experiments/engineered_goals_dist-20220112-162941',
+		    'logs/experiments/engineered_goals_dist-20220112-162947',
+		    'logs/experiments/engineered_goals_dist-20220112-162956',
+		    'logs/experiments/engineered_goals_dist-20220112-163004',
+		    'logs/experiments/engineered_goals_dist-20220112-163058'],
+		'engineered-goals-size':
+		    ['logs/experiments/engineered_goals_size-20220112-172108',
+		    'logs/experiments/engineered_goals_size-20220112-172115',
+		    'logs/experiments/engineered_goals_size-20220112-172119',
+		    'logs/experiments/engineered_goals_size-20220112-172125',
+ 		    'logs/experiments/engineered_goals_size-20220112-172129']
+		}
 
 #dataset_paths = {'sequential-goals':
 #    ['logs/experiments/sequential-goals-20211223-055013']}
@@ -36,7 +49,7 @@ n_layers = 5
 n_of_in = 1
 n_af_in = 7
 n_ef_in = 3
-max_actions = 400
+max_actions = 300
 
 
 if __name__ == '__main__':
