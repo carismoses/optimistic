@@ -1,6 +1,9 @@
+import os
 import time
 from copy import copy
 import numpy as np
+import dill as pickle
+import argparse
 
 from pddlstream.utils import INF
 from pddlstream.algorithms.focused import solve_focused
@@ -11,33 +14,34 @@ from tamp.utils import execute_plan, get_simple_state, task_from_problem,   \
                         get_fd_action, postprocess_plan
 from learning.utils import model_forward
 from domains.tools.primitives import get_traj
+from domains.utils import init_world
 
 
 MAX_PLAN_LEN = 6           # max num of actions in a randomly generated plan
 EPS = 1e-5
 
 
-def collect_trajectory(data_collection_mode, world, n_seq_plans, progress):
-    if data_collection_mode == 'random-actions':
+def collect_trajectory(world, args, pddl_model_type, logger, progress):
+    if args.data_collection_mode == 'random-actions':
         pddl_plan, problem, init_expanded = random_plan(world, 'optimistic')
-    elif data_collection_mode == 'random-goals-opt':
+    elif args.data_collection_mode == 'random-goals-opt':
         pddl_plan, problem, init_expanded = goals(world, 'optimistic', 'random')
-    elif data_collection_mode == 'random-goals-learned':
+    elif args.data_collection_mode == 'random-goals-learned':
         pddl_plan, problem, init_expanded = goals(world, 'learned', 'random')
-    elif data_collection_mode == 'sequential-plans':
-        pddl_plan, problem, init_expanded = sequential(world, 'plans', n_seq_plans)
-    elif data_collection_mode == 'sequential-goals':
-        pddl_plan, problem, init_expanded =  sequential(world, 'goals', n_seq_plans)
-    elif data_collection_mode == 'engineered-goals-dist':
+    elif args.data_collection_mode == 'sequential-plans':
+        pddl_plan, problem, init_expanded = sequential(world, 'plans', args.n_seq_plans)
+    elif args.data_collection_mode == 'sequential-goals':
+        pddl_plan, problem, init_expanded =  sequential(world, 'goals', args.n_seq_plans)
+    elif args.data_collection_mode == 'engineered-goals-dist':
         pddl_plan, problem, init_expanded = goals(world, 'optimistic', 'engineered-dist', progress=progress)
-    elif data_collection_mode == 'engineered-goals-size':
+    elif args.data_collection_mode == 'engineered-goals-size':
         pddl_plan, problem, init_expanded = goals(world, 'optimistic', 'engineered-size', progress=progress)
     else:
-        raise NotImplementedError('Strategy %s is not implemented' % data_collection_mode)
+        raise NotImplementedError('Strategy %s is not implemented' % args.data_collection_mode)
 
-    if 'sequential' in data_collection_mode:
+    if 'sequential' in args.data_collection_mode:
         print('Abstract Plan: ', pddl_plan)
-        ret_full_plan = 'goals' in data_collection_mode
+        ret_full_plan = 'goals' in args.data_collection_mode
         traj_pddl_plan, add_to_init = solve_trajectories(world,
                                                     pddl_plan,
                                                     ret_full_plan=ret_full_plan)
@@ -119,7 +123,6 @@ def goals(world, pddl_model_type, goal_type, ret_states=False, progress=None):
                             position=(0, -1, 1),
                             size=1.5)
 
-    # generate plan (using PDDLStream) to reach random goal
     pddl_info = world.get_pddl_info(pddl_model_type)
     problem = tuple([*pddl_info, world.get_init_state()+add_to_state, goal])
     print('Init: ', world.get_init_state()+add_to_state)
@@ -221,3 +224,63 @@ def solve_trajectories(world, pddl_plan, ret_full_plan=False):
         else:
             pddl_plan_traj.append(pddl_action)
     return pddl_plan_traj, add_to_init
+
+
+def add_trajectory_to_dataset(args, trans_dataset, trajectory, world):
+    for (state, pddl_action, next_state, opt_accuracy) in trajectory:
+        if (pddl_action.name == 'move_contact' and args.domain == 'tools') or \
+            (pddl_action.name in ['place', 'pickplace'] and args.domain == 'ordered_blocks'):
+            object_features, edge_features = world.state_to_vec(state)
+            action_features = world.action_to_vec(pddl_action)
+            # assume object features don't change for now
+            _, next_edge_features = world.state_to_vec(next_state)
+            delta_edge_features = next_edge_features-edge_features
+            trans_dataset.add_to_dataset(object_features,
+                                            edge_features,
+                                            action_features,
+                                            next_edge_features,
+                                            delta_edge_features,
+                                            opt_accuracy)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--in-pkl',
+                        type=str,
+                        required=True,
+                        help='pickle file containing planner args')
+    parser.add_argument('--out-pkl',
+                        type=str,
+                        required=True,
+                        help='pickle file to write output to')
+    args = parser.parse_args()
+
+    # read input args
+    with open(args.in_pkl, 'rb') as handle:
+        planner_args, pddl_model_type, logger, progress, n_actions = pickle.load(handle)
+
+    world = init_world(planner_args.domain,
+                        planner_args.domain_args,
+                        pddl_model_type,
+                        planner_args.vis,
+                        logger)
+
+    # call planner
+    trajectory = collect_trajectory(world, planner_args, pddl_model_type, logger, progress)
+    n_actions += len(trajectory)
+
+    # add to dataset and save
+    if trajectory:
+        print('Adding trajectory to dataset.')
+        dataset = logger.load_trans_dataset()
+        add_trajectory_to_dataset(planner_args, dataset, trajectory, world)
+        logger.save_trans_dataset(dataset, i=n_actions)
+
+    # disconnect from world
+    world.disconnect()
+
+    # return results
+    if os.path.exists(args.out_pkl):
+        os.remove(args.out_pkl)
+    with open(args.out_pkl, 'wb') as handle:
+        pickle.dump([trajectory, n_actions], handle)

@@ -22,6 +22,9 @@ from domains.tools.primitives import get_free_motion_gen, \
 from domains.tools.add_to_primitives import get_trust_model
 from learning.utils import model_forward
 
+N_OF_IN = 1
+N_EF_IN = 3
+N_AF_IN = 7
 
 # TODO: make parent world template class
 class ToolsWorld:
@@ -29,6 +32,10 @@ class ToolsWorld:
     def init(domain_args, pddl_model_type, vis, logger=None):
         world = ToolsWorld(vis, pddl_model_type, logger)
         return world
+
+    @staticmethod
+    def get_model_params():
+        return N_OF_IN, N_EF_IN, N_AF_IN
 
     def __init__(self, vis, pddl_model_type, logger):
         self.use_panda = True
@@ -45,9 +52,9 @@ class ToolsWorld:
         p.setGravity(0, 0, -9.81, physicsClientId=self.panda._execution_client_id)
 
         # GNN model params
-        self.n_of_in = 1
-        self.n_ef_in = 3
-        self.n_af_in = 7
+        self.n_of_in = N_OF_IN
+        self.n_ef_in = N_EF_IN
+        self.n_af_in = N_AF_IN
 
         # get pddl domain description
         self.logger = logger
