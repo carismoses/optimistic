@@ -167,6 +167,7 @@ def sequential(world, mode, n_seq_plans):
             bald_score = sequential_bald(plan_with_states, model, world)
             if bald_score >= best_bald_score:
                 best_plan_info = plan_with_states, problem, init_expanded
+                best_bald_score = bald_score
     return [pa for ps, pa in best_plan_info[0]], best_plan_info[1], best_plan_info[2]
 
 
