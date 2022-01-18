@@ -162,8 +162,8 @@ def sequential(world, mode, n_seq_plans):
             plan_with_states, problem, init_expanded = random_plan(world, 'opt_no_traj', ret_states=True)
         elif mode == 'goals':
             plan_with_states, problem, init_expanded = goals(world, 'opt_no_traj', 'random', ret_states=True)
-        n_plans_searched += 1
         if plan_with_states:
+            n_plans_searched += 1
             bald_score = sequential_bald(plan_with_states, model, world)
             if bald_score >= best_bald_score:
                 best_plan_info = plan_with_states, problem, init_expanded
