@@ -41,6 +41,8 @@ def collect_trajectory(world, args, pddl_model_type, logger, progress):
 
     if 'sequential' in args.data_collection_mode:
         print('Abstract Plan: ', pddl_plan)
+        # if plan is to achieve a given goal then only return a low-level plan if it
+        # reaches the goal. otherwise can return the plan found until planning failed
         ret_full_plan = 'goals' in args.data_collection_mode
         traj_pddl_plan, add_to_init = solve_trajectories(world,
                                                     pddl_plan,
@@ -54,6 +56,9 @@ def collect_trajectory(world, args, pddl_model_type, logger, progress):
                                     size=1.5)
             return []
         init_expanded = Certificate(add_to_init+init_expanded.all_facts, [])
+    else:
+        # preimage_facts in init_expanded was causing a pickling error, so just use all_facts
+        init_expanded = Certificate(init_expanded.all_facts, [])
     if pddl_plan:
         print('Plan: ', pddl_plan)
         if world.use_panda:
@@ -158,6 +163,7 @@ def sequential(world, mode, n_seq_plans):
     best_bald_score = 0.0
     n_plans_searched = 0
     while n_plans_searched < n_seq_plans:
+        # need to return states to calculate the sequential score
         if mode == 'plans':
             plan_with_states, problem, init_expanded = random_plan(world, 'opt_no_traj', ret_states=True)
         elif mode == 'goals':
