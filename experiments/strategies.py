@@ -160,7 +160,7 @@ def goals(world, pddl_model_type, goal_type, ret_states=False, progress=None):
 def sequential(world, mode, n_seq_plans):
     model = world.logger.load_trans_model(world)
     best_plan_info = None
-    best_bald_score = 0.0
+    best_bald_score = float('-inf')
     n_plans_searched = 0
     while n_plans_searched < n_seq_plans:
         # need to return states to calculate the sequential score

@@ -79,6 +79,10 @@ def train_class(args, logger, n_actions, last_train_count):
             print('Trajectory collection failed.')
         else:
             print('Successfully collected trajectory.')
+            if all([t_seg[3] for t_seg in trajectory]):
+                print('All feasible actions.')
+            else:
+                print('Infeasible action attempted.')
         #if len(trans_dataset) > 0:
         #    world.plot_datapoint(len(trans_dataset)-1)
 
