@@ -42,6 +42,15 @@ class Ensemble(nn.Module):
         return torch.cat(preds)
 
 
+class OptimisticEnsemble(Ensemble):
+    """ Just predicts 1 for all inputs """
+    def __init__(self, base_model, base_args, n_models):
+        super(OptimisticEnsemble, self).__init__(base_model, base_args, n_models)
+
+    def forward(self, x):
+        return torch.ones(self.n_models)
+
+
 # Test creation of an ensemble.
 if __name__ == '__main__':
     ensemble = Ensemble(base_model=MLP,

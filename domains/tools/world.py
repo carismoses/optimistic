@@ -29,15 +29,18 @@ N_AF_IN = 7
 # TODO: make parent world template class
 class ToolsWorld:
     @staticmethod
-    def init(domain_args, pddl_model_type, vis, logger=None):
-        world = ToolsWorld(vis, pddl_model_type, logger)
+    def init(domain_args, pddl_model_type, vis, logger=None, planning_model_i=None):
+        world = ToolsWorld(vis, pddl_model_type, logger, planning_model_i)
         return world
 
     @staticmethod
     def get_model_params():
         return N_OF_IN, N_EF_IN, N_AF_IN
 
-    def __init__(self, vis, pddl_model_type, logger):
+    def __init__(self, vis, pddl_model_type, logger, planning_model_i):
+        # initial block poses
+        self.init_pos_yellow = (0.4, -0.3)
+
         self.use_panda = True
         self.panda = PandaAgent(vis)
         self.panda.plan()
@@ -58,8 +61,19 @@ class ToolsWorld:
 
         # get pddl domain description
         self.logger = logger
+        self.planning_model_i = planning_model_i
 
-        # goal radius
+        # goal sampling properties
+        self.min_x, self.max_x = 0.05, 0.85
+        self.min_y, self.max_y = 0.2, -0.5
+        self.min_goal_radius = 0.05
+        self.min_push_dist = 0.05
+
+        init_x, init_y = self.init_pos_yellow
+        self.max_dist = max([abs(init_x-self.min_x),
+                        abs(init_x-self.max_x),
+                        abs(init_y-self.min_y),
+                        abs(init_y-self.max_y)])
         self.goal_radius = 0.05
 
     def get_init_state(self):
@@ -136,7 +150,7 @@ class ToolsWorld:
         # yellow block (heavy --> must be pushed)
         name = 'yellow_block'
         color = (1.0, 1.0, 0.0, 1.0)
-        pos_xy = (0.4, -0.3)
+        pos_xy = self.init_pos_yellow
         urdf_path = 'tamp/urdf_models/%s.urdf' % name
         block_to_urdf(name, urdf_path, color)
         block, pose = self.place_object(name, urdf_path, pos_xy)
@@ -214,10 +228,16 @@ class ToolsWorld:
                                                         add_to_domain_path,
                                                         add_to_streams_path)
             streams_map = copy(opt_streams_map)
-            streams_map['trust-model'] = from_test(get_trust_model(self, self.logger))
+            streams_map['trust-model'] = from_test(get_trust_model(self, self.logger, planning_model_i=self.planning_model_i))
         constant_map = {}
         pddl_info = [domain_pddl, constant_map, streams_pddl, streams_map]
         return pddl_info
+
+
+    def change_goal_space(self, progress):
+        new_goal_radius = self.max_dist*(1-progress*2)
+        if new_goal_radius > self.min_goal_radius:
+            self.goal_radius = new_goal_radius
 
 
     def generate_goal(self, goal_type='random', feasible=False, ret_goal_feas=False, show_goal=True, goal_progress=None):
@@ -234,20 +254,15 @@ class ToolsWorld:
             if goal_progress is None:
                 assert 'If using engineered goals must pass in goal_progress parameter'
 
-        min_x, max_x = 0.05, 0.85
-        min_y, max_y = 0.2, -0.5
-        min_goal_radius = 0.05
-        min_push_dist = 0.05
-
         if goal_type == 'random' or goal_progress > 0.5:
             # select random point on table (not near tunnel)
-            goal_xy = np.array([np.random.uniform(min_x, max_x),
-                                np.random.uniform(min_y, max_y)])
+            goal_xy = np.array([np.random.uniform(self.min_x, self.max_x),
+                                np.random.uniform(self.min_y, self.max_y)])
         else:
-            max_dist = max([abs(init_x-min_x),
-                        abs(init_x-max_x),
-                        abs(init_y-min_y),
-                        abs(init_y-max_y)])
+            max_dist = max([abs(init_x-self.min_x),
+                        abs(init_x-self.max_x),
+                        abs(init_y-self.min_y),
+                        abs(init_y-self.max_y)])
 
             if goal_type == 'engineered-dist':
                 # select a point an increasing distance from the starting position for first half of training time (then random)
@@ -258,11 +273,9 @@ class ToolsWorld:
                 goal_xy = init_pose[0][:2] + dist*np.array([np.cos(direction), np.sin(direction)])
             elif goal_type == 'engineered-size':
                 # make the goal region increasingly larger
-                goal_xy = np.array([np.random.uniform(min_x, max_x),
-                                    np.random.uniform(min_y, max_y)])
-                new_goal_radius = max_dist*(1-goal_progress*2)
-                if new_goal_radius > min_goal_radius:
-                    self.goal_radius = new_goal_radius
+                self.change_goal_space(goal_progress)
+                goal_xy = np.array([np.random.uniform(self.min_x, self.max_x),
+                                    np.random.uniform(self.min_y, self.max_y)])
 
         # add desired pose to state
         goal_pose = ((goal_xy[0], goal_xy[1], init_pose[0][2]), init_pose[1])

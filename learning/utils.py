@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from learning.models.gnn import TransitionGNN
-from learning.models.ensemble import Ensemble
+from learning.models.ensemble import Ensemble, OptimisticEnsemble
 
 
 def model_forward(model, inputs, single_batch=False):
@@ -24,6 +24,23 @@ def model_forward(model, inputs, single_batch=False):
     if torch.cuda.is_available():
         output = output.cpu()
     return output.detach().numpy()
+
+
+def add_trajectory_to_dataset(args, trans_dataset, trajectory, world):
+    for (state, pddl_action, next_state, opt_accuracy) in trajectory:
+        if (pddl_action.name == 'move_contact' and args.domain == 'tools') or \
+            (pddl_action.name in ['place', 'pickplace'] and args.domain == 'ordered_blocks'):
+            object_features, edge_features = world.state_to_vec(state)
+            action_features = world.action_to_vec(pddl_action)
+            # assume object features don't change for now
+            _, next_edge_features = world.state_to_vec(next_state)
+            delta_edge_features = next_edge_features-edge_features
+            trans_dataset.add_to_dataset(object_features,
+                                            edge_features,
+                                            action_features,
+                                            next_edge_features,
+                                            delta_edge_features,
+                                            opt_accuracy)
 
 
 class ExperimentLogger:
@@ -159,9 +176,14 @@ class ExperimentLogger:
                     'n_af_in': world.n_af_in,
                     'n_hidden': self.args.n_hidden,
                     'n_layers': self.args.n_layers}
-        model = Ensemble(TransitionGNN,
-                        base_args,
-                        self.args.n_models)
+        if self.args.data_collection_mode == 'curriculum' and i == 0:
+            model = OptimisticEnsemble(TransitionGNN,
+                            base_args,
+                            self.args.n_models)
+        else:
+            model = Ensemble(TransitionGNN,
+                            base_args,
+                            self.args.n_models)
         loc = 'cuda:0' if torch.cuda.is_available() else 'cpu'
         model.load_state_dict(torch.load(os.path.join(self.exp_path, 'models', fname), map_location=loc))
         return model

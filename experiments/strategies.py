@@ -12,7 +12,7 @@ from pddlstream.language.constants import Certificate, Action
 
 from tamp.utils import execute_plan, get_simple_state, task_from_problem,   \
                         get_fd_action, postprocess_plan
-from learning.utils import model_forward
+from learning.utils import model_forward, add_trajectory_to_dataset
 from domains.tools.primitives import get_traj
 from domains.utils import init_world
 
@@ -21,12 +21,12 @@ MAX_PLAN_LEN = 6           # max num of actions in a randomly generated plan
 EPS = 1e-5
 
 
-def collect_trajectory(world, args, pddl_model_type, logger, progress):
+def collect_trajectory(world, args, logger):
     if args.data_collection_mode == 'random-actions':
         pddl_plan, problem, init_expanded = random_plan(world, 'optimistic')
     elif args.data_collection_mode == 'random-goals-opt':
         pddl_plan, problem, init_expanded = goals(world, 'optimistic', 'random')
-    elif args.data_collection_mode == 'random-goals-learned':
+    elif args.data_collection_mode in ['random-goals-learned', 'curriculum']:
         pddl_plan, problem, init_expanded = goals(world, 'learned', 'random')
     elif args.data_collection_mode == 'sequential-plans':
         pddl_plan, problem, init_expanded = sequential(world, 'plans', args.n_seq_plans)
@@ -231,23 +231,6 @@ def solve_trajectories(world, pddl_plan, ret_full_plan=False):
         else:
             pddl_plan_traj.append(pddl_action)
     return pddl_plan_traj, add_to_init
-
-
-def add_trajectory_to_dataset(args, trans_dataset, trajectory, world):
-    for (state, pddl_action, next_state, opt_accuracy) in trajectory:
-        if (pddl_action.name == 'move_contact' and args.domain == 'tools') or \
-            (pddl_action.name in ['place', 'pickplace'] and args.domain == 'ordered_blocks'):
-            object_features, edge_features = world.state_to_vec(state)
-            action_features = world.action_to_vec(pddl_action)
-            # assume object features don't change for now
-            _, next_edge_features = world.state_to_vec(next_state)
-            delta_edge_features = next_edge_features-edge_features
-            trans_dataset.add_to_dataset(object_features,
-                                            edge_features,
-                                            action_features,
-                                            next_edge_features,
-                                            delta_edge_features,
-                                            opt_accuracy)
 
 
 if __name__ == '__main__':
