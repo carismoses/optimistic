@@ -129,11 +129,11 @@ class ExperimentLogger:
         sorted_datasets = [(self.load_dataset(fname),i) for fname,i in zip(sorted_file_names, np.sort(txs))]
         return iter(sorted_datasets)
 
-    def get_model_iterator(self):
+    def get_model_iterator(self, world):
         found_files, txs = self.get_dir_indices('models')
         sorted_indices = np.argsort(txs)
         sorted_file_names = [found_files[idx] for idx in sorted_indices]
-        sorted_models = [(self.load_trans_model(fname, i=i),i) for fname,i in zip(sorted_file_names, np.sort(txs))]
+        sorted_models = [(self.load_trans_model(world, i=i),i) for fname,i in zip(sorted_file_names, np.sort(txs))]
         return iter(sorted_models)
 
     def get_dir_indices(self, dir):
