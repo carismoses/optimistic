@@ -24,3 +24,4 @@ tamp/urdf_models/red_block.urdf
 tamp/urdf_models/blue_block.urdf
 tamp/urdf_models/yellow_block.urdf
 docker/restart_experiments/sequential_goals/experiments
+gifs/
