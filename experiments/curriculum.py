@@ -71,7 +71,7 @@ def run_curric(args, logger, n_actions):
             else:
                 dataset = logger.load_trans_dataset(i=n_actions)
             inital_len_dataset = len(dataset)
-            add_trajectory_to_dataset(args, dataset, trajectory, world)
+            add_trajectory_to_dataset(args.domain, dataset, trajectory, world)
             n_actions += len(dataset) - inital_len_dataset
             logger.save_trans_dataset(dataset, i=n_actions)
 

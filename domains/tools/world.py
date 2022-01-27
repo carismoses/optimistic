@@ -235,7 +235,7 @@ class ToolsWorld:
 
 
     def change_goal_space(self, progress):
-        new_goal_radius = self.max_dist*(1-progress*2)
+        new_goal_radius = self.max_dist*(1-progress)
         if new_goal_radius > self.min_goal_radius:
             self.goal_radius = new_goal_radius
 
@@ -606,7 +606,8 @@ class ToolsWorld:
             # check that block ended up where it was supposed to (with some tolerance)
             goal_pos2 = pddl_action.args[4].pose[0]
             true_pos2 = pddl_action.args[2].get_base_link_pose()[0]
-            if np.linalg.norm(np.subtract(goal_pos2, true_pos2)) > self.goal_radius:
+            dist_to_goal = np.linalg.norm(np.subtract(goal_pos2, true_pos2))
+            if dist_to_goal > self.goal_radius:
                 valid_transition = False
         self.panda.plan()
         return valid_transition
@@ -761,12 +762,13 @@ class ToolsWorld:
                 plt.close()
 
 
-    def plot_datapoint(self, i, color=None, dir='goals'):
+    def plot_datapoint(self, i, color=None, dir='goals', show=False):
         '''
         i: index into the dataset to plot
         color: a color string for matplotlib to use. if None then color is red
                 for 0 (infeasible) label and green for feasible label
         dir: which subfolder within exp_path/figures/ to save the plot
+        show: boolean indicating if want to show the resulting image (blocking)
         '''
         fig, ax = plt.subplots()
 
@@ -795,7 +797,11 @@ class ToolsWorld:
         ax.set_aspect('equal')
         fig.suptitle('Iteration %i' % i)
         self.logger.save_figure('successes_%i.png'%i, dir=dir)
-        plt.close()
+
+        if show:
+            plt.show()
+        else:
+            plt.close()
 
 
 # just for testing

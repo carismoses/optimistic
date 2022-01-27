@@ -21,29 +21,29 @@ MAX_PLAN_LEN = 6           # max num of actions in a randomly generated plan
 EPS = 1e-5
 
 
-def collect_trajectory(world, args, logger):
-    if args.data_collection_mode == 'random-actions':
+def collect_trajectory(world, args, logger, data_collection_mode, n_seq_plans=None, ret_plan=False):
+    if data_collection_mode == 'random-actions':
         pddl_plan, problem, init_expanded = random_plan(world, 'optimistic')
-    elif args.data_collection_mode == 'random-goals-opt':
+    elif data_collection_mode == 'random-goals-opt':
         pddl_plan, problem, init_expanded = goals(world, 'optimistic', 'random')
-    elif args.data_collection_mode in ['random-goals-learned', 'curriculum']:
+    elif data_collection_mode in ['random-goals-learned', 'curriculum']:
         pddl_plan, problem, init_expanded = goals(world, 'learned', 'random')
-    elif args.data_collection_mode == 'sequential-plans':
-        pddl_plan, problem, init_expanded = sequential(world, 'plans', args.n_seq_plans)
-    elif args.data_collection_mode == 'sequential-goals':
-        pddl_plan, problem, init_expanded =  sequential(world, 'goals', args.n_seq_plans)
-    elif args.data_collection_mode == 'engineered-goals-dist':
+    elif data_collection_mode == 'sequential-plans':
+        pddl_plan, problem, init_expanded = sequential(world, 'plans', n_seq_plans)
+    elif data_collection_mode == 'sequential-goals':
+        pddl_plan, problem, init_expanded =  sequential(world, 'goals', n_seq_plans)
+    elif data_collection_mode == 'engineered-goals-dist':
         pddl_plan, problem, init_expanded = goals(world, 'optimistic', 'engineered-dist', progress=progress)
-    elif args.data_collection_mode == 'engineered-goals-size':
+    elif data_collection_mode == 'engineered-goals-size':
         pddl_plan, problem, init_expanded = goals(world, 'optimistic', 'engineered-size', progress=progress)
     else:
-        raise NotImplementedError('Strategy %s is not implemented' % args.data_collection_mode)
+        raise NotImplementedError('Strategy %s is not implemented' % data_collection_mode)
 
-    if 'sequential' in args.data_collection_mode:
+    if 'sequential' in data_collection_mode:
         print('Abstract Plan: ', pddl_plan)
         # if plan is to achieve a given goal then only return a low-level plan if it
         # reaches the goal. otherwise can return the plan found until planning failed
-        ret_full_plan = 'goals' in args.data_collection_mode
+        ret_full_plan = 'goals' in data_collection_mode
         traj_pddl_plan, add_to_init = solve_trajectories(world,
                                                     pddl_plan,
                                                     ret_full_plan=ret_full_plan)
@@ -54,7 +54,10 @@ def collect_trajectory(world, args, logger):
                 world.panda.add_text('Planning trajectories failed.',
                                     position=(0, -1, 1),
                                     size=1.5)
-            return []
+            if ret_plan:
+                return [], None
+            else:
+                return []
         init_expanded = Certificate(add_to_init+init_expanded.all_facts, [])
     else:
         # preimage_facts in init_expanded was causing a pickling error, so just use all_facts
@@ -65,7 +68,10 @@ def collect_trajectory(world, args, logger):
             world.panda.add_text('Executing found plan',
                                 position=(0, -1, 1),
                                 size=1.5)
-        return execute_plan(world, problem, pddl_plan, init_expanded)
+        if ret_plan:
+            return execute_plan(world, problem, pddl_plan, init_expanded), (problem, pddl_plan, init_expanded)
+        else:
+            return execute_plan(world, problem, pddl_plan, init_expanded)
     else:
         print('Planning failed.')
         if not pddl_plan and world.use_panda:
@@ -73,7 +79,10 @@ def collect_trajectory(world, args, logger):
                                 position=(0, -1, 1),
                                 size=1.5)
             time.sleep(.5)
-        return []
+        if ret_plan:
+            return [], None
+        else:
+            return []
 
 
 # finds a random plan where all preconditions are met (in optimistic model)
@@ -256,14 +265,14 @@ if __name__ == '__main__':
                         logger)
 
     # call planner
-    trajectory = collect_trajectory(world, planner_args, pddl_model_type, logger, progress)
+    trajectory = collect_trajectory(world, planner_args, logger, planner_args.data_collection_mode, planner_args.n_seq_plans)
     n_actions += len(trajectory)
 
     # add to dataset and save
     if trajectory:
         print('Adding trajectory to dataset.')
         dataset = logger.load_trans_dataset()
-        add_trajectory_to_dataset(planner_args, dataset, trajectory, world)
+        add_trajectory_to_dataset(planner_args.domain, dataset, trajectory, world)
         logger.save_trans_dataset(dataset, i=n_actions)
 
     # disconnect from world

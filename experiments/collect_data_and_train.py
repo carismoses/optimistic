@@ -17,7 +17,7 @@ from learning.models.ensemble import Ensemble
 from learning.train import train
 #from domains.utils import init_world
 from domains.tools.world import ToolsWorld
-from experiments.strategies import collect_trajectory
+
 
 def train_class(args, logger, n_actions, last_train_count):
     pddl_model_type = 'learned' if 'learned' in args.data_collection_mode else 'optimistic'
