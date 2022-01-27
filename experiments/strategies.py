@@ -21,7 +21,7 @@ MAX_PLAN_LEN = 6           # max num of actions in a randomly generated plan
 EPS = 1e-5
 
 
-def collect_trajectory(world, args, logger, data_collection_mode, n_seq_plans=None, ret_plan=False):
+def collect_trajectory(world, logger, data_collection_mode, n_seq_plans=None, ret_plan=False):
     if data_collection_mode == 'random-actions':
         pddl_plan, problem, init_expanded = random_plan(world, 'optimistic')
     elif data_collection_mode == 'random-goals-opt':
@@ -265,7 +265,7 @@ if __name__ == '__main__':
                         logger)
 
     # call planner
-    trajectory = collect_trajectory(world, planner_args, logger, planner_args.data_collection_mode, planner_args.n_seq_plans)
+    trajectory = collect_trajectory(world, logger, planner_args.data_collection_mode, planner_args.n_seq_plans)
     n_actions += len(trajectory)
 
     # add to dataset and save

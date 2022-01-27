@@ -22,7 +22,7 @@ def gen_dataset(args):
 
         # change goal space, plan for and execute trajectory
         world.change_goal_space(args.goal_progress)
-        trajectory, plan_data = collect_trajectory(world, args, logger, 'random-goals-opt', ret_plan=True)
+        trajectory, plan_data = collect_trajectory(world, logger, 'random-goals-opt', ret_plan=True)
 
         # if trajectory returned, visualize and add to dataset
         if trajectory:

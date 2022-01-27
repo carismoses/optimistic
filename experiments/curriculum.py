@@ -56,7 +56,7 @@ def run_curric(args, logger, n_actions):
                             planning_model_i=planning_model_i)
         progress = curric_level / num_curric_levels
         world.change_goal_space(progress)
-        trajectory = collect_trajectory(world, args, logger)
+        trajectory = collect_trajectory(world, logger, args.data_collection_mode)
 
         # if trajectory returned, add to dataset
         if trajectory:
