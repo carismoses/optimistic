@@ -4,36 +4,52 @@ from learning.datasets import TransDataset
 from learning.utils import ExperimentLogger, add_trajectory_to_dataset
 from tamp.utils import execute_plan
 from domains.utils import init_world
-from experiments.strategies import collect_trajectory
+from experiments.strategies import collect_trajectory_wrapper
 import matplotlib.pyplot as plt
 
 def gen_dataset(args):
-    plt.ion()
+    #plt.ion()
+    n_actions = 0
     logger = ExperimentLogger.setup_experiment_directory(args, 'experiments')
     dataset = TransDataset()
-    while len(dataset) < args.max_actions:
-        print('|dataset| = %i' % len(dataset))
-        vis = False
-        world = init_world('tools',
-                            None,
-                            'optimistic',
-                            vis,
-                            logger)
+    logger.save_trans_dataset(dataset, i=n_actions)
 
-        # change goal space, plan for and execute trajectory
-        world.change_goal_space(args.goal_progress)
-        trajectory, plan_data = collect_trajectory(world, logger, 'random-goals-opt', ret_plan=True)
+    while n_actions < args.max_actions:
+        print('|dataset| = %i' % n_actions)
+
+        pddl_model_type = 'optimistic'
+        args.domain = 'tools'
+        args.domain_args = None
+        args.vis = False
+        args.data_collection_mode = 'random-goals-opt'
+        args.n_seq_plans = None
+        trajectory, n_actions = collect_trajectory_wrapper(args,
+                                                    pddl_model_type,
+                                                    logger,
+                                                    args.goal_progress,
+                                                    n_actions,
+                                                    separate_process=True)
 
         # if trajectory returned, visualize and add to dataset
         if trajectory:
-            # add to dataset
-            add_trajectory_to_dataset('tools', dataset, trajectory, world)
-            logger.save_trans_dataset(dataset, i=len(dataset))
-
             # visualize goal and success
-            world.plot_datapoint(i=len(dataset)-1, show=args.vis_performance)
+            #world.plot_datapoint(i=n_actions-1, show=args.vis_performance)
+
+            if args.balanced:
+                # balance dataset by removing added element if makes it unbalanced
+                num_per_class = args.max_actions // 2
+
+                dataset = logger.load_trans_dataset()
+                n_datapoints = len(dataset)
+                num_pos_datapoints = sum([y for x,y in dataset])
+                num_neg_datapoints = n_datapoints - num_pos_datapoints
+                if num_pos_datapoints > num_per_class or num_neg_datapoints > num_per_class:
+                    print('Removing last added dataset.')
+                    logger.remove_dataset(i=n_actions)
+                    n_actions -= 1
 
             # optionally replay with pyBullet
+            '''
             if args.vis_performance:
                 answer = input('Replay with pyBullet (r) or not (ENTER)?')
                 plt.close()
@@ -51,6 +67,7 @@ def gen_dataset(args):
                     color = 'g' if success else 'r'
                     world.plot_datapoint(i=len(dataset)-1, color=color, show=True)
                     world.disconnect()
+            '''
 
 
 if __name__ == '__main__':
@@ -75,28 +92,6 @@ if __name__ == '__main__':
     parser.add_argument('--vis-performance',
                         action='store_true',
                         help='use to visualize success/failure of robot executions and optionally replay with pyBullet.')
-
-    # Training args
-    parser.add_argument('--batch-size',
-                        type=int,
-                        default=16,
-                        help='training batch size')
-    parser.add_argument('--n-epochs',
-                        type=int,
-                        default=300,
-                        help='training epochs')
-    parser.add_argument('--n-hidden',
-                        type=int,
-                        default=32,
-                        help='number of hidden units in network')
-    parser.add_argument('--n-layers',
-                        type=int,
-                        default=5,
-                        help='number of layers in GNN node and edge networks')
-    parser.add_argument('--n-models',
-                        type=int,
-                        default=5,
-                        help='number of models in ensemble')
     args = parser.parse_args()
 
     if args.debug:
