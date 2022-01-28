@@ -4,6 +4,7 @@ from copy import copy
 import numpy as np
 import dill as pickle
 import argparse
+import subprocess
 
 from pddlstream.utils import INF
 from pddlstream.algorithms.focused import solve_focused
@@ -21,6 +22,51 @@ MAX_PLAN_LEN = 6           # max num of actions in a randomly generated plan
 EPS = 1e-5
 
 
+def collect_trajectory_wrapper(args, pddl_model_type, logger, progress, n_actions, separate_process=False):
+    if separate_process:
+        # write solver args to file (remove if one is there)
+        tmp_dir = 'temp'
+        os.makedirs(tmp_dir, exist_ok=True)
+        in_pkl = '%s/solver_args.pkl' % tmp_dir
+        out_pkl = '%s/solver_solution.pkl' % tmp_dir
+        if os.path.exists(in_pkl):
+            os.remove(in_pkl)
+        with open(in_pkl, 'wb') as handle:
+            pickle.dump([args, pddl_model_type, logger, progress, n_actions], handle)
+
+        # call planner with pickle file
+        print('Collecting trajectory.')
+        proc = subprocess.run(["python3", "-m", "experiments.strategies", \
+                            "--in-pkl", in_pkl, \
+                            "--out-pkl", out_pkl], stdout=subprocess.PIPE)
+
+        # read results from pickle file
+        with open(out_pkl, 'rb') as handle:
+            trajectory, n_actions = pickle.load(handle)
+    else:
+        world = init_world(planner_args.domain,
+                            planner_args.domain_args,
+                            pddl_model_type,
+                            planner_args.vis,
+                            logger)
+        world.change_goal_space(progress)
+
+        # call planner
+        trajectory = collect_trajectory(world, logger, planner_args.data_collection_mode, planner_args.n_seq_plans)
+        n_actions += 1
+
+        # add to dataset and save
+        if trajectory:
+            print('Adding trajectory to dataset.')
+            dataset = logger.load_trans_dataset()
+            add_trajectory_to_dataset(planner_args.domain, dataset, trajectory, world)
+            logger.save_trans_dataset(dataset, i=n_actions)
+
+        # disconnect from world
+        world.disconnect()
+    return trajectory, n_actions
+
+
 def collect_trajectory(world, logger, data_collection_mode, n_seq_plans=None, ret_plan=False):
     if data_collection_mode == 'random-actions':
         pddl_plan, problem, init_expanded = random_plan(world, 'optimistic')
@@ -32,10 +78,6 @@ def collect_trajectory(world, logger, data_collection_mode, n_seq_plans=None, re
         pddl_plan, problem, init_expanded = sequential(world, 'plans', n_seq_plans)
     elif data_collection_mode == 'sequential-goals':
         pddl_plan, problem, init_expanded =  sequential(world, 'goals', n_seq_plans)
-    elif data_collection_mode == 'engineered-goals-dist':
-        pddl_plan, problem, init_expanded = goals(world, 'optimistic', 'engineered-dist', progress=progress)
-    elif data_collection_mode == 'engineered-goals-size':
-        pddl_plan, problem, init_expanded = goals(world, 'optimistic', 'engineered-size', progress=progress)
     else:
         raise NotImplementedError('Strategy %s is not implemented' % data_collection_mode)
 
@@ -128,8 +170,8 @@ def random_plan(world, pddl_model_type, ret_states=False):
 
 
 # plans to achieve a random goal under the given (optimistic or learned) model
-def goals(world, pddl_model_type, goal_type, ret_states=False, progress=None):
-    goal, add_to_state = world.generate_goal(goal_type, goal_progress=progress)
+def goals(world, pddl_model_type, goal_type, ret_states=False):
+    goal, add_to_state = world.generate_goal(goal_type)
     print('Goal: ', goal)
     print('Planning with %s model'%pddl_model_type)
     if world.use_panda:
@@ -263,10 +305,11 @@ if __name__ == '__main__':
                         pddl_model_type,
                         planner_args.vis,
                         logger)
+    world.change_goal_space(progress)
 
     # call planner
     trajectory = collect_trajectory(world, logger, planner_args.data_collection_mode, planner_args.n_seq_plans)
-    n_actions += len(trajectory)
+    n_actions += 1
 
     # add to dataset and save
     if trajectory:

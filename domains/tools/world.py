@@ -235,12 +235,13 @@ class ToolsWorld:
 
 
     def change_goal_space(self, progress):
-        new_goal_radius = self.max_dist*(1-progress)
-        if new_goal_radius > self.min_goal_radius:
-            self.goal_radius = new_goal_radius
+        if progress is not None:
+            new_goal_radius = self.max_dist*(1-progress)
+            if new_goal_radius > self.min_goal_radius:
+                self.goal_radius = new_goal_radius
 
 
-    def generate_goal(self, goal_type='random', feasible=False, ret_goal_feas=False, show_goal=True, goal_progress=None):
+    def generate_goal(self, goal_type='random', feasible=False, ret_goal_feas=False, show_goal=True):
         init_state = self.get_init_state()
 
         # select a random block
@@ -250,32 +251,9 @@ class ToolsWorld:
         init_pose = self.get_obj_pose_from_state(random_object, init_state)
         init_x, init_y = init_pose[0][:2]
 
-        if 'engineered' in goal_type:
-            if goal_progress is None:
-                assert 'If using engineered goals must pass in goal_progress parameter'
-
-        if goal_type == 'random' or goal_progress > 0.5:
-            # select random point on table (not near tunnel)
-            goal_xy = np.array([np.random.uniform(self.min_x, self.max_x),
-                                np.random.uniform(self.min_y, self.max_y)])
-        else:
-            max_dist = max([abs(init_x-self.min_x),
-                        abs(init_x-self.max_x),
-                        abs(init_y-self.min_y),
-                        abs(init_y-self.max_y)])
-
-            if goal_type == 'engineered-dist':
-                # select a point an increasing distance from the starting position for first half of training time (then random)
-                dist = max_dist*goal_progress*2  # want to reach max dist when goal_progress = 0.5
-                if dist < min_push_dist:
-                    dist = min_push_dist
-                direction = np.random.uniform(0, 2*np.pi) # random direction
-                goal_xy = init_pose[0][:2] + dist*np.array([np.cos(direction), np.sin(direction)])
-            elif goal_type == 'engineered-size':
-                # make the goal region increasingly larger
-                self.change_goal_space(goal_progress)
-                goal_xy = np.array([np.random.uniform(self.min_x, self.max_x),
-                                    np.random.uniform(self.min_y, self.max_y)])
+        # select random point on table (not near tunnel)
+        goal_xy = np.array([np.random.uniform(self.min_x, self.max_x),
+                            np.random.uniform(self.min_y, self.max_y)])
 
         # add desired pose to state
         goal_pose = ((goal_xy[0], goal_xy[1], init_pose[0][2]), init_pose[1])

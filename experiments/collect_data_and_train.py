@@ -1,25 +1,17 @@
-import torch
-import numpy as np
 import argparse
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
-import time
-from pprint import pformat
-import matplotlib.pyplot as plt
-import os
-import pickle
-import subprocess
 
 from learning.datasets import TransDataset
 from learning.utils import ExperimentLogger
 from learning.models.gnn import TransitionGNN
 from learning.models.ensemble import Ensemble
 from learning.train import train
-#from domains.utils import init_world
+from experiments.strategies import collect_trajectory_wrapper
 from domains.tools.world import ToolsWorld
 
 
-def train_class(args, logger, n_actions, last_train_count):
+def train_class(args, logger, n_actions):
     pddl_model_type = 'learned' if 'learned' in args.data_collection_mode else 'optimistic'
 
     # get model params
@@ -39,41 +31,18 @@ def train_class(args, logger, n_actions, last_train_count):
                                 args.n_models)
         logger.save_trans_model(ensemble, i=0)
     else:
-        trans_dataset = logger.load_trans_dataset(n_actions)
+        trans_dataset = logger.load_trans_dataset(i=n_actions)
 
     while n_actions < args.max_actions:
-        print('|dataset| = %i, # actions = %i' % (len(trans_dataset), n_actions))
-        #world = init_world(args.domain,
-        #                    args.domain_args,
-        #                    pddl_model_type,
-        #                    args.vis,
-        #                    logger)
-        #if world.use_panda:
-        #    world.panda.add_text('|dataset| = %i, # actions = %i' % (len(trans_dataset), n_actions),
-        #                        position=(0, -1.15, 1.1),
-        #                        size=1,
-        #                        counter=True)
-        progress = n_actions/args.max_actions
+        print('|dataset| = %i' % len(trans_dataset))
 
-        # write solver args to file (remove if one is there)
-        tmp_dir = 'temp'
-        os.makedirs(tmp_dir, exist_ok=True)
-        in_pkl = '%s/solver_args.pkl' % tmp_dir
-        out_pkl = '%s/solver_solution.pkl' % tmp_dir
-        if os.path.exists(in_pkl):
-            os.remove(in_pkl)
-        with open(in_pkl, 'wb') as handle:
-            pickle.dump([args, pddl_model_type, logger, progress, n_actions], handle)
-
-        # call planner with pickle file
-        print('Collecting trajectory.')
-        proc = subprocess.run(["python3", "-m", "experiments.strategies", \
-                            "--in-pkl", in_pkl, \
-                            "--out-pkl", out_pkl], stdout=subprocess.PIPE)
-
-        # read results from pickle file
-        with open(out_pkl, 'rb') as handle:
-            trajectory, n_actions = pickle.load(handle)
+        progress = None
+        trajectory, n_actions = collect_trajectory_wrapper(args,
+                                                    pddl_model_type,
+                                                    logger,
+                                                    progress,
+                                                    n_actions,
+                                                    separate_process=True)
 
         if not trajectory:
             print('Trajectory collection failed.')
@@ -83,14 +52,10 @@ def train_class(args, logger, n_actions, last_train_count):
                 print('All feasible actions.')
             else:
                 print('Infeasible action attempted.')
-        #if len(trans_dataset) > 0:
-        #    world.plot_datapoint(len(trans_dataset)-1)
 
         # check that at training step and there is data in the dataset
         trans_dataset = logger.load_trans_dataset()
-        if (n_actions-last_train_count) > args.train_freq and len(trans_dataset) > 0:
-            last_train_count = n_actions
-
+        if not n_actions % args.train_freq and len(trans_dataset) > 0:
             # initialize and train new model
             ensemble = Ensemble(TransitionGNN,
                                     base_args,
@@ -101,10 +66,8 @@ def train_class(args, logger, n_actions, last_train_count):
                 train(trans_dataloader, model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
 
             # save model and accuracy plots
-            #world.plot_model_accuracy(n_actions, ensemble)
             logger.save_trans_model(ensemble, i=n_actions)
             print('Saved dataset, model, and accuracy plot to %s' % logger.exp_path)
-
 
 
 if __name__ == '__main__':
@@ -125,7 +88,7 @@ if __name__ == '__main__':
     parser.add_argument('--domain',
                         type=str,
                         choices=['ordered_blocks', 'tools'],
-                        default='ordered_blocks',
+                        default='tools',
                         help='domain to generate data from')
     parser.add_argument('--domain-args',
                         nargs='+',
@@ -184,7 +147,7 @@ if __name__ == '__main__':
         if not args.exp_path:
             assert 'Must set the --exp-path to restart experiment'
         logger = ExperimentLogger(args.exp_path)
-        n_actions, last_train_count = logger.get_action_count()
+        n_actions = logger.get_action_count()
         args = logger.args
     else:
         if not args.exp_name:
@@ -192,7 +155,7 @@ if __name__ == '__main__':
         if not args.data_collection_mode:
             assert 'Must set the --data-collection-mode when starting a new experiment'
         logger = ExperimentLogger.setup_experiment_directory(args, 'experiments')
-        n_actions, last_train_count = 0, 0
+        n_actions = 0
 
-    train_class(args, logger, n_actions, last_train_count)
+    train_class(args, logger, n_actions)
     print('Run saved to %s' % logger.exp_path)

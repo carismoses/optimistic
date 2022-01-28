@@ -103,6 +103,9 @@ class ExperimentLogger:
             dataset = pickle.load(handle)
         return dataset
 
+    def remove_dataset(self, i):
+        os.remove(os.path.join(self.exp_path, 'datasets', 'trans_dataset_%i.pkl'%i))
+
     def load_trans_dataset(self, i=None, balanced=False):
         # NOTE: returns the highest numbered model if i is not given
         if i is not None:
@@ -199,9 +202,7 @@ class ExperimentLogger:
     def get_action_count(self):
         _, txs = self.get_dir_indices('datasets')
         n_actions = max(txs)
-        _, txs = self.get_dir_indices('models')
-        last_train_count = max(txs)
-        return n_actions, last_train_count
+        return n_actions
 
     # Planning info
     def save_planning_data(self, tree, goal, plan, i=None):
