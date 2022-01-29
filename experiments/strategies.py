@@ -53,13 +53,13 @@ def collect_trajectory_wrapper(args, pddl_model_type, logger, progress, n_action
 
         # call planner
         trajectory = collect_trajectory(world, logger, planner_args.data_collection_mode, planner_args.n_seq_plans)
-        n_actions += 1
 
         # add to dataset and save
         if trajectory:
             print('Adding trajectory to dataset.')
             dataset = logger.load_trans_dataset()
             add_trajectory_to_dataset(planner_args.domain, dataset, trajectory, world)
+            n_actions += 1
             logger.save_trans_dataset(dataset, i=n_actions)
 
         # disconnect from world
@@ -309,13 +309,13 @@ if __name__ == '__main__':
 
     # call planner
     trajectory = collect_trajectory(world, logger, planner_args.data_collection_mode, planner_args.n_seq_plans)
-    n_actions += 1
 
     # add to dataset and save
     if trajectory:
         print('Adding trajectory to dataset.')
         dataset = logger.load_trans_dataset()
         add_trajectory_to_dataset(planner_args.domain, dataset, trajectory, world)
+        n_actions += 1
         logger.save_trans_dataset(dataset, i=n_actions)
 
     # disconnect from world
