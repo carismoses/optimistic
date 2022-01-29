@@ -209,7 +209,7 @@ def goals(world, pddl_model_type, goal_type, ret_states=False):
 
 
 def sequential(world, mode, n_seq_plans):
-    model = world.logger.load_trans_model(world)
+    model = world.logger.load_trans_model()
     best_plan_info = None
     best_bald_score = float('-inf')
     n_plans_searched = 0

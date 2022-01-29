@@ -6,6 +6,7 @@ import torch
 import datetime
 import matplotlib.pyplot as plt
 import numpy as np
+from argparse import Namespace
 
 from learning.models.gnn import TransitionGNN
 from learning.models.ensemble import Ensemble, OptimisticEnsemble
@@ -45,11 +46,15 @@ def add_trajectory_to_dataset(domain, trans_dataset, trajectory, world):
 
 class ExperimentLogger:
 
-    def __init__(self, exp_path):
+    def __init__(self, exp_path, add_args=None):
         self.exp_path = exp_path
 
         with open(os.path.join(self.exp_path, 'args.pkl'), 'rb') as handle:
             self.args = pickle.load(handle)
+
+        if add_args:
+            del self.args.debug   # args.debug will be in both args sets and cause an error
+            self.args = Namespace(**vars(self.args), **vars(add_args))
 
     @staticmethod
     def setup_experiment_directory(args, root_folder):
@@ -132,11 +137,11 @@ class ExperimentLogger:
         sorted_datasets = [(self.load_dataset(fname),i) for fname,i in zip(sorted_file_names, np.sort(txs))]
         return iter(sorted_datasets)
 
-    def get_model_iterator(self, world):
+    def get_model_iterator(self):
         found_files, txs = self.get_dir_indices('models')
         sorted_indices = np.argsort(txs)
         sorted_file_names = [found_files[idx] for idx in sorted_indices]
-        sorted_models = [(self.load_trans_model(world, i=i),i) for fname,i in zip(sorted_file_names, np.sort(txs))]
+        sorted_models = [(self.load_trans_model(i=i),i) for fname,i in zip(sorted_file_names, np.sort(txs))]
         return iter(sorted_models)
 
     def get_dir_indices(self, dir):
@@ -167,7 +172,7 @@ class ExperimentLogger:
             fname = 'trans_model.pt'
         self.save_model(model, fname)
 
-    def load_trans_model(self, world, i=None):
+    def load_trans_model(self, i=None):
         # NOTE: returns the highest numbered model if i is not given
         if i is not None:
             fname = 'trans_model_%i.pt' % i
@@ -181,9 +186,10 @@ class ExperimentLogger:
                 fname = 'trans_model_%i.pt' % i
                 #print('Loading model %s.' % fname)
 
-        base_args = {'n_of_in': world.n_of_in,
-                    'n_ef_in': world.n_ef_in,
-                    'n_af_in': world.n_af_in,
+        n_of_in, n_ef_in, n_af_in = ToolsWorld.get_model_params()
+        base_args = {'n_of_in': n_of_in,
+                    'n_ef_in': n_ef_in,
+                    'n_af_in': n_af_in,
                     'n_hidden': self.args.n_hidden,
                     'n_layers': self.args.n_layers}
         if self.args.data_collection_mode == 'curriculum' and i == 0:
