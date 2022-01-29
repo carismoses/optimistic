@@ -1,5 +1,6 @@
-echo N_ACTIONS = 100
-echo BALANCED = False
-echo EXP_NAME = unbalanced_0p0
-echo GP = 0.0
-echo N_DATASETS = 5
+N_ACTIONS=100
+BALANCED=False
+EXP_NAME=unbalanced_0p0
+GP=0.0
+N_DATASETS=5
+
