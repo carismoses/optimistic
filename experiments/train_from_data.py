@@ -30,8 +30,7 @@ def train_from_data(args, logger):
     max_actions = len(largest_dataset)
     for i in range(0, max_actions+1, args.train_freq):
         if i > 0:
-            n_models = 1
-            ensemble = Ensemble(TransitionGNN, base_args, n_models)
+            ensemble = Ensemble(TransitionGNN, base_args, args.n_models)
             dataset = logger.load_trans_dataset(i=i)
             print('Training model from |dataset| = %i' % len(dataset))
             dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
@@ -48,14 +47,6 @@ if __name__ == '__main__':
     parser.add_argument('--debug',
                         action='store_true',
                         help='use to run in debug mode')
-    parser.add_argument('--domain',
-                        type=str,
-                        choices=['ordered_blocks', 'tools'],
-                        default='tools',
-                        help='domain to generate data from')
-    parser.add_argument('--domain-args',
-                        nargs='+',
-                        help='arguments to pass into desired domain')
     parser.add_argument('--dataset-exp-path',
                         type=str,
                         help='path to save datasets and models to (unless a restart, then use exp-path)')
@@ -63,9 +54,6 @@ if __name__ == '__main__':
                         type=int,
                         default=10,
                         help='number of actions between model training')
-    parser.add_argument('--vis',
-                        action='store_true',
-                        help='use to visualize robot executions.')
 
     # Training args
     parser.add_argument('--batch-size',
@@ -84,11 +72,15 @@ if __name__ == '__main__':
                         type=int,
                         default=5,
                         help='number of layers in GNN node and edge networks')
+    parser.add_argument('--n-models',
+                        type=int,
+                        default=1,
+                        help='number of models in ensemble')
 
     args = parser.parse_args()
 
     if args.debug:
         import pdb; pdb.set_trace()
 
-    logger = ExperimentLogger(args.dataset_exp_path)
+    logger = ExperimentLogger(args.dataset_exp_path, add_args=args)
     train_from_data(args, logger)

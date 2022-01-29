@@ -18,11 +18,6 @@ def gen_dataset(args):
         print('|dataset| = %i' % n_actions)
 
         pddl_model_type = 'optimistic'
-        args.domain = 'tools'
-        args.domain_args = None
-        args.vis = False
-        args.data_collection_mode = 'random-goals-opt'
-        args.n_seq_plans = None
         trajectory, n_actions = collect_trajectory_wrapper(args,
                                                     pddl_model_type,
                                                     logger,
@@ -68,7 +63,7 @@ def gen_dataset(args):
                     world.plot_datapoint(i=len(dataset)-1, color=color, show=True)
                     world.disconnect()
             '''
-
+    return logger
 
 if __name__ == '__main__':
     # Data collection args
@@ -92,9 +87,41 @@ if __name__ == '__main__':
     parser.add_argument('--vis-performance',
                         action='store_true',
                         help='use to visualize success/failure of robot executions and optionally replay with pyBullet.')
+    parser.add_argument('--vis',
+                        action='store_true',
+                        help='use to visualize robot executions.')
+    parser.add_argument('--n-seq-plans',
+                        type=int,
+                        default=100,
+                        help='number of plans used to generate search space for sequential methods')
+    parser.add_argument('--domain',
+                        type=str,
+                        choices=['ordered_blocks', 'tools'],
+                        default='tools',
+                        help='domain to generate data from')
+    parser.add_argument('--domain-args',
+                        nargs='+',
+                        help='arguments to pass into desired domain')
+    parser.add_argument('--data-collection-mode',
+                        type=str,
+                        default='random-goals-opt',
+                        choices=['random-actions', 'random-goals-opt', 'random-goals-learned', \
+                                'sequential-plans', 'sequential-goals', 'engineered-goals-dist', \
+                                'engineered-goals-size'],
+                        help='method of data collection')
+    parser.add_argument('--n-datasets',
+                        type=int,
+                        default=1,
+                        help='number of datasets to generate')
     args = parser.parse_args()
 
     if args.debug:
         import pdb; pdb.set_trace()
 
-    gen_dataset(args)
+    dataset_paths = []
+    for _ in range(args.n_datasets):
+        logger = gen_dataset(args)
+        dataset_paths.append(logger.exp_path)
+
+    print('---Dataset paths---')
+    print(dataset_paths)
