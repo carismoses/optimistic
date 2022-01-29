@@ -76,7 +76,8 @@ if __name__ == '__main__':
                         default=400,
                         help='max number of actions for the robot to attempt')
     parser.add_argument('--balanced',
-                        action='store_true',
+                        type=bool,
+                        default=False,
                         help='use if want balanced feasible/infeasible dataset')
     parser.add_argument('--exp-name',
                         type=str,
