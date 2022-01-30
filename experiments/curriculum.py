@@ -84,7 +84,7 @@ def run_curric(args, logger, n_actions):
                 if planning_model_i == 0:
                     ensemble = Ensemble(TransitionGNN, base_args, args.n_models)
                 else:
-                    ensemble = logger.load_trans_model(world, i=planning_model_i)
+                    ensemble = logger.load_trans_model(i=planning_model_i)
                 dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
                 for model in ensemble.models:
                     train(dataloader, model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
@@ -172,7 +172,7 @@ if __name__ == '__main__':
         if not args.exp_path:
             assert 'Must set the --exp-path to restart experiment'
         logger = ExperimentLogger(args.exp_path)
-        n_actions, _ = logger.get_action_count()
+        n_actions = logger.get_action_count()
         args = logger.args
     else:
         if not args.exp_name:
