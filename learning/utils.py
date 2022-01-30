@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from argparse import Namespace
 
-from domains.tools.world import ToolsWorld
+#from domains.tools.world import ToolsWorld
 from learning.models.gnn import TransitionGNN
 from learning.models.ensemble import Ensemble, OptimisticEnsemble
 
@@ -187,10 +187,10 @@ class ExperimentLogger:
                 fname = 'trans_model_%i.pt' % i
                 #print('Loading model %s.' % fname)
 
-        n_of_in, n_ef_in, n_af_in = ToolsWorld.get_model_params()
-        base_args = {'n_of_in': n_of_in,
-                    'n_ef_in': n_ef_in,
-                    'n_af_in': n_af_in,
+        #n_of_in, n_ef_in, n_af_in = ToolsWorld.get_model_params()
+        base_args = {'n_of_in': 1,#n_of_in,
+                    'n_ef_in': 3,#n_ef_in,
+                    'n_af_in': 7,#n_af_in,
                     'n_hidden': self.args.n_hidden,
                     'n_layers': self.args.n_layers}
         if self.args.data_collection_mode == 'curriculum' and i == 0:
