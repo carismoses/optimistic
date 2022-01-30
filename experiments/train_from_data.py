@@ -47,9 +47,10 @@ if __name__ == '__main__':
     parser.add_argument('--debug',
                         action='store_true',
                         help='use to run in debug mode')
-    parser.add_argument('--dataset-exp-path',
+    parser.add_argument('--dataset-exp-paths',
                         type=str,
-                        help='path to save datasets and models to (unless a restart, then use exp-path)')
+                        nargs='+',
+                        help='paths to datasets that need to be trained')
     parser.add_argument('--train-freq',
                         type=int,
                         default=10,
@@ -82,5 +83,7 @@ if __name__ == '__main__':
     if args.debug:
         import pdb; pdb.set_trace()
 
-    logger = ExperimentLogger(args.dataset_exp_path, add_args=args)
-    train_from_data(args, logger)
+    for dataset_exp_path in args.dataset_exp_paths:
+        print('Training models on path: ', dataset_exp_path)
+        logger = ExperimentLogger(dataset_exp_path, add_args=args)
+        train_from_data(args, logger)

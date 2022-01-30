@@ -1,0 +1,6 @@
+PATH1=logs/experiments/unbalanced_0p1-20220129-183320
+PATH2=logs/experiments/unbalanced_0p1-20220129-232844
+PATH3=logs/experiments/unbalanced_0p1-20220130-023426
+PATH4=logs/experiments/unbalanced_0p1-20220130-061053
+PATH5=logs/experiments/unbalanced_0p1-20220130-085119
+TRAIN_FREQ=1
