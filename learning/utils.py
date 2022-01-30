@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from argparse import Namespace
 
+from domains.tools.world import ToolsWorld
 from learning.models.gnn import TransitionGNN
 from learning.models.ensemble import Ensemble, OptimisticEnsemble
 
