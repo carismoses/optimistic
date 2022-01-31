@@ -53,9 +53,13 @@ class ExperimentLogger:
         with open(os.path.join(self.exp_path, 'args.pkl'), 'rb') as handle:
             self.args = pickle.load(handle)
 
+        # add args and save
         if add_args:
             del self.args.debug   # args.debug will be in both args sets and cause an error
             self.args = Namespace(**vars(self.args), **vars(add_args))
+            os.remove(os.path.join(exp_path, 'args.pkl'))
+            with open(os.path.join(exp_path, 'args.pkl'), 'wb') as handle:
+                pickle.dump(self.args, handle)
 
     @staticmethod
     def setup_experiment_directory(args, root_folder):
