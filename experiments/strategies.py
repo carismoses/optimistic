@@ -22,7 +22,7 @@ MAX_PLAN_LEN = 6           # max num of actions in a randomly generated plan
 EPS = 1e-5
 
 
-def collect_trajectory_wrapper(args, pddl_model_type, logger, progress, n_actions, separate_process=False):
+def collect_trajectory_wrapper(args, pddl_model_type, dataset_logger, progress, n_actions, separate_process=False, model_logger=None):
     if separate_process:
         # write solver args to file (remove if one is there)
         tmp_dir = 'temp'
@@ -32,7 +32,7 @@ def collect_trajectory_wrapper(args, pddl_model_type, logger, progress, n_action
         if os.path.exists(in_pkl):
             os.remove(in_pkl)
         with open(in_pkl, 'wb') as handle:
-            pickle.dump([args, pddl_model_type, logger, progress, n_actions], handle)
+            pickle.dump([args, pddl_model_type, dataset_logger, progress, n_actions, model_logger], handle)
 
         # call planner with pickle file
         print('Collecting trajectory.')
@@ -48,26 +48,26 @@ def collect_trajectory_wrapper(args, pddl_model_type, logger, progress, n_action
                             planner_args.domain_args,
                             pddl_model_type,
                             planner_args.vis,
-                            logger)
+                            model_logger)
         world.change_goal_space(progress)
 
         # call planner
-        trajectory = collect_trajectory(world, logger, planner_args.data_collection_mode, planner_args.n_seq_plans)
+        trajectory = collect_trajectory(world, planner_args.data_collection_mode, planner_args.n_seq_plans)
 
         # add to dataset and save
         if trajectory:
             print('Adding trajectory to dataset.')
-            dataset = logger.load_trans_dataset()
+            dataset = dataset_logger.load_trans_dataset()
             add_trajectory_to_dataset(planner_args.domain, dataset, trajectory, world)
             n_actions += 1
-            logger.save_trans_dataset(dataset, i=n_actions)
+            dataset_logger.save_trans_dataset(dataset, i=n_actions)
 
         # disconnect from world
         world.disconnect()
     return trajectory, n_actions
 
 
-def collect_trajectory(world, logger, data_collection_mode, n_seq_plans=None, ret_plan=False):
+def collect_trajectory(world, data_collection_mode, n_seq_plans=None, ret_plan=False):
     if data_collection_mode == 'random-actions':
         pddl_plan, problem, init_expanded = random_plan(world, 'optimistic')
     elif data_collection_mode == 'random-goals-opt':
@@ -298,25 +298,25 @@ if __name__ == '__main__':
 
     # read input args
     with open(args.in_pkl, 'rb') as handle:
-        planner_args, pddl_model_type, logger, progress, n_actions = pickle.load(handle)
+        planner_args, pddl_model_type, dataset_logger, progress, n_actions, model_logger = pickle.load(handle)
 
     world = init_world(planner_args.domain,
                         planner_args.domain_args,
                         pddl_model_type,
                         planner_args.vis,
-                        logger)
+                        model_logger)
     world.change_goal_space(progress)
 
     # call planner
-    trajectory = collect_trajectory(world, logger, planner_args.data_collection_mode, planner_args.n_seq_plans)
+    trajectory = collect_trajectory(world, planner_args.data_collection_mode, planner_args.n_seq_plans)
 
     # add to dataset and save
     if trajectory:
         print('Adding trajectory to dataset.')
-        dataset = logger.load_trans_dataset()
+        dataset = dataset_logger.load_trans_dataset()
         add_trajectory_to_dataset(planner_args.domain, dataset, trajectory, world)
         n_actions += 1
-        logger.save_trans_dataset(dataset, i=n_actions)
+        dataset_logger.save_trans_dataset(dataset, i=n_actions)
 
     # disconnect from world
     world.disconnect()

@@ -7,7 +7,7 @@ from domains.utils import init_world
 from experiments.strategies import collect_trajectory_wrapper
 import matplotlib.pyplot as plt
 
-def gen_dataset(args):
+def gen_dataset(args, model_path):
     #plt.ion()
     n_actions = 0
     logger = ExperimentLogger.setup_experiment_directory(args, 'experiments')
@@ -17,13 +17,19 @@ def gen_dataset(args):
     while n_actions < args.max_actions:
         print('|dataset| = %i' % n_actions)
 
-        pddl_model_type = 'optimistic'
+        if model_path is None:
+            pddl_model_type = 'optimistic'
+            model_logger = None
+        else:
+            pddl_model_type = 'learned'
+            model_logger = ExperimentLogger(model_path)
         trajectory, n_actions = collect_trajectory_wrapper(args,
                                                     pddl_model_type,
                                                     logger,
                                                     args.goal_progress,
                                                     n_actions,
-                                                    separate_process=True)
+                                                    separate_process=True,
+                                                    model_logger=model_logger)
 
         # if trajectory returned, visualize and add to dataset
         if trajectory:
@@ -114,14 +120,33 @@ if __name__ == '__main__':
                         type=int,
                         default=1,
                         help='number of datasets to generate')
+    # for now this assumes that you always want to use the most trained model on the path for planning
+    # (as opposed to a different i)
+    parser.add_argument('--model-paths',
+                        type=str,
+                        nargs='+',
+                        help='list of model paths to use for planning')
     args = parser.parse_args()
 
     if args.debug:
         import pdb; pdb.set_trace()
 
+    if len(args.model_paths) > 1:
+        assert len(args.model_paths) == args.n_datasets, 'If using multiple models to generate datasets \
+                        then should generate the same number of datasets'
+
+    if len(args.model_paths) > 0:
+        assert 'learned' in args.data_collection_mode, 'Must use learned model if passing in model paths'
+
     dataset_paths = []
-    for _ in range(args.n_datasets):
-        logger = gen_dataset(args)
+    for di in range(args.n_datasets):
+        if len(args.model_paths) == 0:
+            model_path = None
+        elif len(args.model_paths) == 1:
+            model_path = args.model_paths[0]
+        else:
+            model_path = args.model_paths[di]
+        logger = gen_dataset(args, model_path)
         dataset_paths.append(logger.exp_path)
 
     print('---Dataset paths---')

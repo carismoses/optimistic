@@ -628,7 +628,7 @@ class ToolsWorld:
                                 fill = False))
 
 
-    def plot_model_accuracy(self, i, model, show=False):
+    def plot_model_accuracy(self, i, model, logger, show=False):
         def get_model_inputs(tool_approach_pose, goal_pose):
             # for now assume all other blocks are at their initial poses
             num_objects = len(self.objects)
@@ -736,11 +736,11 @@ class ToolsWorld:
             if show:
                 plt.show()
             else:
-                self.logger.save_figure('cont_%i.png'%ci, dir='iter_%i'%i)
+                logger.save_figure('cont_%i.png'%ci, dir='iter_%i'%i)
                 plt.close()
 
 
-    def plot_datapoint(self, i, color=None, dir='goals', show=False):
+    def plot_datapoint(self, i, logger, color=None, dir='goals', show=False):
         '''
         i: index into the dataset to plot
         color: a color string for matplotlib to use. if None then color is red
@@ -755,7 +755,7 @@ class ToolsWorld:
         self.plot_block(ax, block_pos_xy, 'k')
 
         # plot all goal poses colored by success and show relative contact
-        dataset = self.logger.load_trans_dataset()
+        dataset = logger.load_trans_dataset()
         x, y = dataset[i]
         of, ef, af = x
         goal_pos_xy = af[:2]
@@ -774,7 +774,7 @@ class ToolsWorld:
         ax.set_ylim(0.3, -0.6)
         ax.set_aspect('equal')
         fig.suptitle('Iteration %i' % i)
-        self.logger.save_figure('successes_%i.png'%i, dir=dir)
+        logger.save_figure('successes_%i.png'%i, dir=dir)
 
         if show:
             plt.show()
