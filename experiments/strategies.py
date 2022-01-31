@@ -44,21 +44,24 @@ def collect_trajectory_wrapper(args, pddl_model_type, dataset_logger, progress, 
         with open(out_pkl, 'rb') as handle:
             trajectory, n_actions = pickle.load(handle)
     else:
-        world = init_world(planner_args.domain,
-                            planner_args.domain_args,
+        # in sequential method data collection and training happen simultaneously
+        if 'sequential' in args.data_collection_mode:
+            model_logger = dataset_logger
+        world = init_world(args.domain,
+                            args.domain_args,
                             pddl_model_type,
-                            planner_args.vis,
+                            args.vis,
                             model_logger)
         world.change_goal_space(progress)
 
         # call planner
-        trajectory = collect_trajectory(world, planner_args.data_collection_mode, planner_args.n_seq_plans)
+        trajectory = collect_trajectory(world, args.data_collection_mode, args.n_seq_plans)
 
         # add to dataset and save
         if trajectory:
             print('Adding trajectory to dataset.')
             dataset = dataset_logger.load_trans_dataset()
-            add_trajectory_to_dataset(planner_args.domain, dataset, trajectory, world)
+            add_trajectory_to_dataset(args.domain, dataset, trajectory, world)
             n_actions += 1
             dataset_logger.save_trans_dataset(dataset, i=n_actions)
 
@@ -300,6 +303,9 @@ if __name__ == '__main__':
     with open(args.in_pkl, 'rb') as handle:
         planner_args, pddl_model_type, dataset_logger, progress, n_actions, model_logger = pickle.load(handle)
 
+    # in sequential method data collection and training happen simultaneously
+    if 'sequential' in planner_args.data_collection_mode:
+        model_logger = dataset_logger
     world = init_world(planner_args.domain,
                         planner_args.domain_args,
                         pddl_model_type,
