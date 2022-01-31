@@ -26,3 +26,4 @@ tamp/urdf_models/yellow_block.urdf
 tamp/urdf_models/goal_patch.urdf
 docker/restart_experiments/sequential_goals/experiments
 gifs/
+env_vars/

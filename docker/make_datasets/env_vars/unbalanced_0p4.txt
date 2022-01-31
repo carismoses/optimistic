@@ -1,5 +1,0 @@
-N_ACTIONS=100
-BALANCED=False
-EXP_NAME=unbalanced_0p4
-GP=0.4
-N_DATASETS=5
