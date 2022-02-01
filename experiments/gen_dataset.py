@@ -82,8 +82,9 @@ if __name__ == '__main__':
                         default=400,
                         help='max number of actions for the robot to attempt')
     parser.add_argument('--balanced',
-                        type=bool,
-                        default=False,
+                        type=str,
+                        default='False',
+                        choices=['False', 'True'],
                         help='use if want balanced feasible/infeasible dataset')
     parser.add_argument('--exp-name',
                         type=str,
@@ -130,6 +131,8 @@ if __name__ == '__main__':
 
     if args.debug:
         import pdb; pdb.set_trace()
+
+    args.balanced = args.balanced == 'True'
 
     if len(args.model_paths) > 1:
         assert len(args.model_paths) == args.n_datasets, 'If using multiple models to generate datasets \
