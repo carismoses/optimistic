@@ -134,12 +134,15 @@ if __name__ == '__main__':
 
     args.balanced = args.balanced == 'True'
 
-    if len(args.model_paths) > 1:
-        assert len(args.model_paths) == args.n_datasets, 'If using multiple models to generate datasets \
-                        then should generate the same number of datasets'
+    if args.model_paths:
+        if len(args.model_paths) > 1:
+            assert len(args.model_paths) == args.n_datasets, 'If using multiple models to generate datasets \
+                            then should generate the same number of datasets'
 
-    if len(args.model_paths) > 0:
-        assert 'learned' in args.data_collection_mode, 'Must use learned model if passing in model paths'
+        if len(args.model_paths) > 0:
+            assert 'learned' in args.data_collection_mode, 'Must use learned model if passing in model paths'
+    else:
+        args.model_paths = []
 
     dataset_paths = []
     for di in range(args.n_datasets):
