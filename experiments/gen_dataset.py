@@ -7,25 +7,20 @@ from domains.utils import init_world
 from experiments.strategies import collect_trajectory_wrapper
 import matplotlib.pyplot as plt
 
-def gen_dataset(args, model_path):
-    #plt.ion()
-    n_actions = 0
-    logger = ExperimentLogger.setup_experiment_directory(args, 'experiments')
-    dataset = TransDataset()
-    logger.save_trans_dataset(dataset, i=n_actions)
+def gen_dataset(args, n_actions, dataset_logger, model_logger):
+    if n_actions == 0:
+        dataset = TransDataset()
+        dataset_logger.save_trans_dataset(dataset, i=n_actions)
 
     while n_actions < args.max_actions:
         print('|dataset| = %i' % n_actions)
-
-        if model_path is None:
+        if model_logger is None:
             pddl_model_type = 'optimistic'
-            model_logger = None
         else:
             pddl_model_type = 'learned'
-            model_logger = ExperimentLogger(model_path)
         trajectory, n_actions = collect_trajectory_wrapper(args,
                                                     pddl_model_type,
-                                                    logger,
+                                                    dataset_logger,
                                                     args.goal_progress,
                                                     n_actions,
                                                     separate_process=True,
@@ -40,13 +35,13 @@ def gen_dataset(args, model_path):
                 # balance dataset by removing added element if makes it unbalanced
                 num_per_class = args.max_actions // 2
 
-                dataset = logger.load_trans_dataset()
+                dataset = dataset_logger.load_trans_dataset()
                 n_datapoints = len(dataset)
                 num_pos_datapoints = sum([y for x,y in dataset])
                 num_neg_datapoints = n_datapoints - num_pos_datapoints
                 if num_pos_datapoints > num_per_class or num_neg_datapoints > num_per_class:
                     print('Removing last added dataset.')
-                    logger.remove_dataset(i=n_actions)
+                    dataset_logger.remove_dataset(i=n_actions)
                     n_actions -= 1
 
             # optionally replay with pyBullet
@@ -62,18 +57,29 @@ def gen_dataset(args, model_path):
                                         None,
                                         'optimistic',
                                         vis,
-                                        logger)
+                                        dataset_logger)
                     trajectory = execute_plan(world, *plan_data)
                     success = all([t_seg[3] for t_seg in trajectory])
                     color = 'g' if success else 'r'
                     world.plot_datapoint(i=len(dataset)-1, color=color, show=True)
                     world.disconnect()
             '''
-    return logger
+    return dataset_logger
 
 if __name__ == '__main__':
     # Data collection args
     parser = argparse.ArgumentParser()
+    # if restarting an experiment, only need to set the following 2 arguments
+    # (all other args will be taken from the initial run)
+    # NOTE: you can only finish a single dataset at a time with this method
+    parser.add_argument('--restart',
+                        action='store_true',
+                        help='use if want to restart from a crash (must also pass in exp-path)')
+    parser.add_argument('--exp-path',
+                        type=str,
+                        help='the exp-path to restart from')
+
+
     parser.add_argument('--debug',
                         action='store_true',
                         help='use to run in debug mode')
@@ -132,28 +138,43 @@ if __name__ == '__main__':
     if args.debug:
         import pdb; pdb.set_trace()
 
-    args.balanced = args.balanced == 'True'
-
-    if args.model_paths:
-        if len(args.model_paths) > 1:
-            assert len(args.model_paths) == args.n_datasets, 'If using multiple models to generate datasets \
-                            then should generate the same number of datasets'
-
-        if len(args.model_paths) > 0:
-            assert 'learned' in args.data_collection_mode, 'Must use learned model if passing in model paths'
+    if args.restart:
+        if not args.exp_path:
+            assert 'Must set the --exp-path to restart experiment'
+        dataset_logger = ExperimentLogger(args.exp_path)
+        n_actions = dataset_logger.get_action_count()
+        dataset_args = dataset_logger.args
+        model_logger = ExperimentLogger(dataset_args.data_model_path) if dataset_args.data_model_path else None
+        gen_dataset(dataset_args, n_actions, dataset_logger, model_logger)
+        print('Finished dataset path: %s' % args.exp_path)
     else:
-        args.model_paths = []
+        n_actions = 0
+        args.balanced = args.balanced == 'True'
+        if args.model_paths:
+            if len(args.model_paths) > 1:
+                assert len(args.model_paths) == args.n_datasets, 'If using multiple models to generate datasets \
+                                then should generate the same number of datasets'
 
-    dataset_paths = []
-    for di in range(args.n_datasets):
-        if len(args.model_paths) == 0:
-            model_path = None
-        elif len(args.model_paths) == 1:
-            model_path = args.model_paths[0]
+            if len(args.model_paths) > 0:
+                assert 'learned' in args.data_collection_mode, 'Must use learned model if passing in model paths'
         else:
-            model_path = args.model_paths[di]
-        logger = gen_dataset(args, model_path)
-        dataset_paths.append(logger.exp_path)
+            args.model_paths = []
 
-    print('---Dataset paths---')
-    print(dataset_paths)
+        dataset_paths = []
+        for di in range(args.n_datasets):
+            if len(args.model_paths) == 0:
+                model_path = None
+                model_logger = None
+            elif len(args.model_paths) == 1:
+                model_path = args.model_paths[0]
+                model_logger = ExperimentLogger(model_path)
+            else:
+                model_path = args.model_paths[di]
+                model_logger = ExperimentLogger(model_path)
+            args.data_model_path = model_path
+            dataset_logger = ExperimentLogger.setup_experiment_directory(args, 'experiments')
+            gen_dataset(args, n_actions, dataset_logger, model_logger)
+            dataset_paths.append(dataset_logger.exp_path)
+
+        print('---Dataset paths---')
+        print(dataset_paths)
