@@ -8,6 +8,7 @@ venv/
 *.pkl
 *.backup
 *.png
+*.svg
 *.swo
 *.swp
 .venv/
