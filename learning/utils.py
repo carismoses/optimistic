@@ -195,8 +195,8 @@ class ExperimentLogger:
         base_args = {'n_of_in': 1,#n_of_in,
                     'n_ef_in': 3,#n_ef_in,
                     'n_af_in': 7,#n_af_in,
-                    'n_hidden': 32,#self.args.n_hidden,
-                    'n_layers': 5}#self.args.n_layers}
+                    'n_hidden': self.args.n_hidden,
+                    'n_layers': self.args.n_layers}
         #if self.args.data_collection_mode == 'curriculum' and i == 0:
         #    model = OptimisticEnsemble(TransitionGNN,
         #                    base_args,
@@ -204,7 +204,7 @@ class ExperimentLogger:
         #else:
         model = Ensemble(TransitionGNN,
                             base_args,
-                            1)#self.args.n_models)
+                            self.args.n_models)
         loc = 'cuda:0' if torch.cuda.is_available() else 'cpu'
         model.load_state_dict(torch.load(os.path.join(self.exp_path, 'models', fname), map_location=loc))
         return model
