@@ -25,10 +25,10 @@ def get_contact_gen(robot):
 
         rel_z = 0
         # for now defining 4 contact points (pose from obj2 to obj1)
-        rel_points_xy = [(-(half_length+half_b), 0),
-                        ((half_length-tool_thickness-half_b), -(half_tool+half_b)),
-                        ((half_length+half_b), -(half_width)),
-                        ((half_length-half_tool), -(tool_width-half_tool+half_b))]
+        rel_points_xy = [#(-(half_length+half_b), 0),
+                        ((half_length-tool_thickness-half_b), -(half_tool+half_b)),]
+                        #((half_length+half_b), -(half_width)),
+                        #((half_length-half_tool), -(tool_width-half_tool+half_b))]
 
         contacts = []
         for rel_point_xy in rel_points_xy:

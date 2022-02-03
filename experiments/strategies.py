@@ -216,6 +216,8 @@ def sequential(world, mode, n_seq_plans):
     best_plan_info = None
     best_bald_score = float('-inf')
     n_plans_searched = 0
+    bald_scores, states = [], []
+    i = 0
     while n_plans_searched < n_seq_plans:
         # need to return states to calculate the sequential score
         if mode == 'plans':
@@ -224,14 +226,19 @@ def sequential(world, mode, n_seq_plans):
             plan_with_states, problem, init_expanded = goals(world, 'opt_no_traj', 'random', ret_states=True)
         if plan_with_states:
             n_plans_searched += 1
-            bald_score = sequential_bald(plan_with_states, model, world)
+            bald_score, state = sequential_bald(plan_with_states, model, world, ret_states=True)
+            bald_scores.append(bald_score)
+            states.append(state)
             if bald_score >= best_bald_score:
+                best_i = i
                 best_plan_info = plan_with_states, problem, init_expanded
                 best_bald_score = bald_score
+            i += 1
+    world.visualize_bald(bald_scores, states, model, best_i, world.logger)
     return [pa for ps, pa in best_plan_info[0]], best_plan_info[1], best_plan_info[2]
 
 
-def sequential_bald(plan, model, world):
+def sequential_bald(plan, model, world, ret_states=False):
     score = 0
     for pddl_state, pddl_action in plan:
         if pddl_action.name == 'move_contact':
@@ -240,7 +247,10 @@ def sequential_bald(plan, model, world):
             predictions = model_forward(model, [of, ef, af], single_batch=True)
             mean_prediction = predictions.mean()
             score += mean_prediction*bald(predictions)
-    return score
+    if ret_states:
+        return score, [of, ef, af]
+    else:
+        return score
 
 
 def bald(predictions):

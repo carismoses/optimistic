@@ -3,8 +3,10 @@ import os
 import numpy as np
 import random
 from shutil import copyfile
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
+import time
 
 import pybullet as p
 
@@ -601,13 +603,76 @@ class ToolsWorld:
     '''
     PLOTTING FUNCTIONS
     '''
+    def visualize_bald(self, bald_scores, states, model, best_i, logger):
+        fig, axes = plt.subplots(2, figsize=(10,10))
 
-    def plot_block(self, ax, pos, color):
+        for ax in axes:
+            ax.set_xlim(self.min_x, self.max_x)
+            ax.set_ylim(self.min_y, self.max_y)
+            ax.set_aspect('equal')
+
+            # show a block at initial pos
+            self.plot_block(ax, self.init_pos_yellow, color='k', linestyle='--')
+
+        # visualize model predictions for random goals
+        contacts_fn = get_contact_gen(self.panda.planning_robot)
+        N = 100
+        s_m = matplotlib.cm.ScalarMappable(cmap='viridis', norm=plt.Normalize(vmin=0, vmax=1))
+        for _ in range(N):
+            goal_pose, _ = self.generate_goal(goal_type='random')
+            contacts = contacts_fn(self.objects['tool'], self.objects['yellow_block'])
+            cont = contacts[0][0]   # NOTE: this was when I was debugging and there was only 1 possible contact
+
+            # NOTE this will generate approach configurations that might
+            # not actually be able to follow a push path (due to kinematic constraints)
+            tool_approach = contact_approach_fn(self.objects['tool'],
+                                                    self.objects['yellow_block'],
+                                                    self.obj_init_poses['yellow_block'],
+                                                    goal_pose[2],
+                                                    cont)
+            vof, vef, va = self.get_model_inputs(tool_approach, goal_pose[2])
+            mean_pred = model_forward(model, [vof, vef, va], single_batch=True).mean().squeeze()
+            std_pred =  model_forward(model, [vof, vef, va], single_batch=True).std().squeeze()
+
+            self.plot_block(axes[0], goal_pose[2].pose[0][:2], color=s_m.to_rgba(mean_pred))
+            self.plot_block(axes[1], goal_pose[2].pose[0][:2], color=s_m.to_rgba(std_pred))
+
+            print(goal_pose[2].pose[0][:2])
+
+        axes[0].set_title('Mean Predictions')
+        axes[1].set_title('Std Predictions')
+
+        # visualize goal that was selected by BALD
+        best_state = states[best_i]
+        vof, vef, va = best_state
+        self.plot_block(axes[0], va[:2], color='r', linestyle='--')
+        self.plot_block(axes[1], va[:2], color='r', linestyle='--')
+
+        # visualize all BALD scores
+        max_score = max(bald_scores)
+        normalized_scores = [score/max_score for score in bald_scores]
+        for n_score, state in zip(normalized_scores, states):
+            vof, vef, va = state
+            axes[0].plot(*va[:2], 'xk')#, color=str(n_score))
+            axes[1].plot(*va[:2], 'xk')#, color=str(n_score))
+            print(va[:2], n_score)
+
+        fig.subplots_adjust(right=0.8)
+        cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
+        fig.colorbar(s_m, cax=cbar_ax)
+
+        ts = time.strftime('%Y%m%d-%H%M%S')
+        logger.save_figure('bald_scores_%s.svg' % ts, dir='bald_scores')
+        plt.close()
+
+
+    def plot_block(self, ax, pos, color, linestyle='-'):
         block_dims = np.array(self.objects['yellow_block'].get_dimensions()[:2])
         ax.add_patch(Rectangle(pos-block_dims/2,
                                 *block_dims,
                                 color=color,
-                                fill = False))
+                                fill = False,
+                                linestyle=linestyle))
 
 
     def plot_tool(self, ax, rel_2d_pose, color):
@@ -628,36 +693,37 @@ class ToolsWorld:
                                 fill = False))
 
 
-    def plot_model_accuracy(self, i, model, logger, show=False):
-        def get_model_inputs(tool_approach_pose, goal_pose):
-            # for now assume all other blocks are at their initial poses
-            num_objects = len(self.objects)
-            object_features = np.zeros((num_objects, self.n_of_in))
-            for oi, object in enumerate(self.objects.values()):
-                object_features[oi] = object.id
-            edge_features = np.zeros((num_objects, num_objects, self.n_ef_in))
-            for oi, (oi_name, object_i) in enumerate(self.objects.items()):
-                for oj, (oj_name, object_j) in enumerate(self.objects.items()):
-                    if oi == oj:
-                        edge_features[oi,oj,:] = np.zeros(self.n_ef_in)
+    def get_model_inputs(self, tool_approach_pose, goal_pose):
+        # for now assume all other blocks are at their initial poses
+        num_objects = len(self.objects)
+        object_features = np.zeros((num_objects, self.n_of_in))
+        for oi, object in enumerate(self.objects.values()):
+            object_features[oi] = object.id
+        edge_features = np.zeros((num_objects, num_objects, self.n_ef_in))
+        for oi, (oi_name, object_i) in enumerate(self.objects.items()):
+            for oj, (oj_name, object_j) in enumerate(self.objects.items()):
+                if oi == oj:
+                    edge_features[oi,oj,:] = np.zeros(self.n_ef_in)
+                else:
+                    if object_i == self.objects['tool']:
+                        obj_i_pos, obj_i_orn = tool_approach_pose
                     else:
-                        if object_i == self.objects['tool']:
-                            obj_i_pos, obj_i_orn = tool_approach_pose
-                        else:
-                            obj_i_pos, obj_i_orn = self.obj_init_poses[oi_name].pose
-                        if object_j == self.objects['tool']:
-                            obj_j_pos, obj_j_orn = tool_approach_pose
-                        else:
-                            obj_j_pos, obj_j_orn = self.obj_init_poses[oj_name].pose
-                        rel_pos = np.array(obj_i_pos) - np.array(obj_j_pos)
-                        rel_angle = pb_robot.geometry.quat_angle_between(obj_i_orn, obj_j_orn)
-                        edge_features[oi,oj,:2] = rel_pos[:2]
-                        edge_features[oi,oj,2] = rel_angle
-            action_vec = np.zeros(self.n_af_in)
-            action_vec[:3] = goal_pose.pose[0]
-            action_vec[3:] = goal_pose.pose[1]
-            return object_features, edge_features, action_vec
+                        obj_i_pos, obj_i_orn = self.obj_init_poses[oi_name].pose
+                    if object_j == self.objects['tool']:
+                        obj_j_pos, obj_j_orn = tool_approach_pose
+                    else:
+                        obj_j_pos, obj_j_orn = self.obj_init_poses[oj_name].pose
+                    rel_pos = np.array(obj_i_pos) - np.array(obj_j_pos)
+                    rel_angle = pb_robot.geometry.quat_angle_between(obj_i_orn, obj_j_orn)
+                    edge_features[oi,oj,:2] = rel_pos[:2]
+                    edge_features[oi,oj,2] = rel_angle
+        action_vec = np.zeros(self.n_af_in)
+        action_vec[:3] = goal_pose.pose[0]
+        action_vec[3:] = goal_pose.pose[1]
+        return object_features, edge_features, action_vec
 
+
+    def plot_model_accuracy(self, i, model, logger, show=False):
         pred_info = {}
         contacts_fn = get_contact_gen(self.panda.planning_robot)
         for object_name, object in self.objects.items():
@@ -688,7 +754,7 @@ class ToolsWorld:
                                                                 goal_pose,
                                                                 cont[0])
 
-                        vof, vef, va = get_model_inputs(tool_approach, goal_pose)
+                        vof, vef, va = self.get_model_inputs(tool_approach, goal_pose)
                         pred_info[object_name][cont[0]][goal_pose] = model_forward(model, [vof, vef, va], single_batch=True).mean().squeeze()
 
         # visualize
