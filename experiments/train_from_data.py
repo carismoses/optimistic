@@ -17,7 +17,7 @@ from domains.tools.world import ToolsWorld
 from experiments.strategies import collect_trajectory_wrapper
 
 
-def train_from_data(args, logger):
+def train_from_data(args, logger, start_i):
     # get model params
     n_of_in, n_ef_in, n_af_in = ToolsWorld.get_model_params()
     base_args = {'n_of_in': n_of_in,
@@ -28,8 +28,9 @@ def train_from_data(args, logger):
 
     largest_dataset = logger.load_trans_dataset()
     max_actions = len(largest_dataset)
+
     for i in range(0, max_actions+1, args.train_freq):
-        if i > 0:
+        if i > start_i:
             ensemble = Ensemble(TransitionGNN, base_args, args.n_models)
             dataset = logger.load_trans_dataset(i=i)
             print('Training model from |dataset| = %i' % len(dataset))
@@ -85,5 +86,15 @@ if __name__ == '__main__':
 
     for dataset_exp_path in args.dataset_exp_paths:
         print('Training models on path: ', dataset_exp_path)
-        logger = ExperimentLogger(dataset_exp_path, add_args=args)
-        train_from_data(args, logger)
+        logger = ExperimentLogger(dataset_exp_path)
+
+        # check if models already in logger
+        _, indices = logger.get_dir_indices('models')
+        models_exist = len(indices) > 0
+        if models_exist:
+            print('Adding to models already in logger')
+        else:
+            logger.add_model_args(args)
+
+        start_i = 0 if not models_exist else max(indices)
+        train_from_data(args, logger, start_i)
