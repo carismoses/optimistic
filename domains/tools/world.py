@@ -244,7 +244,7 @@ class ToolsWorld:
                 self.goal_radius = new_goal_radius
 
 
-    def generate_goal(self, goal_type='random', feasible=False, ret_goal_feas=False, show_goal=True):
+    def generate_goal(self, goal_type='random', feasible=False, ret_goal_feas=False, show_goal=False):
         init_state = self.get_init_state()
 
         # select a random block
@@ -273,6 +273,8 @@ class ToolsWorld:
                                                         # (then it becomes not clear)
 
         # visualize goal patch in pyBullet
+        # WARNING: SHOWING THE GOAL MESSES UP THE ROBOT INTERACTIONS AND CAUSES COLLISIONS!
+        # Do not use if trying to collect accurate data !!
         if show_goal:
             name = 'goal_patch'
             color = (0.0, 1.0, 0.0, 1.0)
@@ -604,6 +606,9 @@ class ToolsWorld:
     '''
     PLOTTING FUNCTIONS
     '''
+    # NOTE: This was written when the contact sampling space was just a single contact
+    # (for debugging). If using with full contact space search you will get
+    # incorrect plots
     def visualize_bald(self, bald_scores, states, model, best_i, logger):
         def make_array(minv, maxv, step):
             if minv > maxv:
