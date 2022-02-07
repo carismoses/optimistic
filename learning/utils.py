@@ -47,19 +47,11 @@ def add_trajectory_to_dataset(domain, trans_dataset, trajectory, world):
 
 class ExperimentLogger:
 
-    def __init__(self, exp_path, add_args=None):
+    def __init__(self, exp_path):
         self.exp_path = exp_path
 
         with open(os.path.join(self.exp_path, 'args.pkl'), 'rb') as handle:
             self.args = pickle.load(handle)
-
-        # add args and save
-        if add_args:
-            del self.args.debug   # args.debug will be in both args sets and cause an error
-            self.args = Namespace(**vars(self.args), **vars(add_args))
-            os.remove(os.path.join(exp_path, 'args.pkl'))
-            with open(os.path.join(exp_path, 'args.pkl'), 'wb') as handle:
-                pickle.dump(self.args, handle)
 
     @staticmethod
     def setup_experiment_directory(args, root_folder):
@@ -92,6 +84,14 @@ class ExperimentLogger:
             pickle.dump(args, handle)
 
         return ExperimentLogger(exp_path)
+
+    def add_model_args(self, add_args):
+        # add args and save
+        del self.args.debug   # args.debug will be in both args sets and cause an error
+        self.args = Namespace(**vars(self.args), **vars(add_args))
+        os.remove(os.path.join(self.exp_path, 'args.pkl'))
+        with open(os.path.join(self.exp_path, 'args.pkl'), 'wb') as handle:
+            pickle.dump(self.args, handle)
 
     # Datasets
     def save_dataset(self, dataset, fname):
@@ -152,7 +152,7 @@ class ExperimentLogger:
     def get_dir_indices(self, dir):
         files = os.listdir(os.path.join(self.exp_path, dir))
         if len(files) == 0:
-            raise Exception('No files found on path args.exp_path/%s.' % dir)
+            print('No files found on path args.exp_path/%s.' % dir)
         if dir == 'datasets':
             file_name = r'trans_dataset_(.*).pkl'
         elif dir == 'models':

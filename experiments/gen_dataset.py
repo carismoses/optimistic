@@ -144,7 +144,12 @@ if __name__ == '__main__':
         dataset_logger = ExperimentLogger(args.exp_path)
         n_actions = dataset_logger.get_action_count()
         dataset_args = dataset_logger.args
-        model_logger = ExperimentLogger(dataset_args.data_model_path) if dataset_args.data_model_path else None
+        if args.max_actions > dataset_args.max_actions:
+            print('Adding %i to previous max actions' % (args.max_actions - dataset_args.max_actions))
+            dataset_args.max_actions = args.max_actions
+
+        model_logger = ExperimentLogger(dataset_args.data_model_path) \
+                            if 'data_model_path' in vars(dataset_args) else None
         gen_dataset(dataset_args, n_actions, dataset_logger, model_logger)
         print('Finished dataset path: %s' % args.exp_path)
     else:
