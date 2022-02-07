@@ -81,18 +81,19 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_lo
         print('Abstract Plan: ', pddl_plan)
         # if plan is to achieve a given goal then only return a low-level plan if it
         # reaches the goal. otherwise can return the plan found until planning failed
-        ret_full_plan = 'goals' in data_collection_mode
+        ret_full_plan = 'goals' in args.data_collection_mode
         traj_pddl_plan, add_to_init = solve_trajectories(world,
                                                     pddl_plan,
                                                     ret_full_plan=ret_full_plan)
-        init_expanded = Certificate(add_to_init+init_expanded.all_facts, [])
-        pddl_plan = traj_pddl_plan
         if not traj_pddl_plan:
             print('Planning trajectories failed.')
             if world.use_panda:
                 world.panda.add_text('Planning trajectories failed.',
                                     position=(0, -1, 1),
                                     size=1.5)
+        else:
+            init_expanded = Certificate(add_to_init+init_expanded.all_facts, [])
+            pddl_plan = traj_pddl_plan
     else:
         # preimage_facts in init_expanded was causing a pickling error, so just use all_facts
         init_expanded = Certificate(init_expanded.all_facts, [])
@@ -230,6 +231,7 @@ def sequential(world, mode, n_seq_plans):
 
 def sequential_bald(plan, model, world, ret_states=False):
     score = 0
+    of, ef, af = None, None, None
     for pddl_state, pddl_action in plan:
         if pddl_action.name == 'move_contact':
             of, ef = world.state_to_vec(pddl_state)

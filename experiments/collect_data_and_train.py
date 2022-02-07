@@ -34,6 +34,7 @@ def train_class(args, logger, n_actions):
         trans_dataset = logger.load_trans_dataset(i=n_actions)
 
     while n_actions < args.max_actions:
+        trans_dataset = logger.load_trans_dataset()
         print('# actions = %i, |dataset| = %i' % (n_actions, len(trans_dataset)))
 
         progress = None
