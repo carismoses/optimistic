@@ -18,52 +18,55 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
             pddl_model_type = 'optimistic'
         else:
             pddl_model_type = 'learned'
-        trajectory, n_actions = collect_trajectory_wrapper(args,
+        trajectory = collect_trajectory_wrapper(args,
                                                     pddl_model_type,
                                                     dataset_logger,
                                                     args.goal_progress,
-                                                    n_actions,
                                                     separate_process=True,
                                                     model_logger=model_logger)
-
+        n_actions += len(trajectory)
         # if trajectory returned, visualize and add to dataset
-        if trajectory:
-            # visualize goal and success
-            #world.plot_datapoint(i=n_actions-1, show=args.vis_performance)
+        #if trajectory:
+        # visualize goal and success
+        #world.plot_datapoint(i=n_actions-1, show=args.vis_performance)
 
-            if args.balanced:
-                # balance dataset by removing added element if makes it unbalanced
-                num_per_class = args.max_actions // 2
+        # NOTE: This doesn't work when actions are executed actions as opposed
+        # to actions in the dataset. Commenting out for now until need to
+        # generate new test datasets
+        '''
+        if args.balanced:
+            # balance dataset by removing added element if makes it unbalanced
+            num_per_class = args.max_actions // 2
 
-                dataset = dataset_logger.load_trans_dataset()
-                n_datapoints = len(dataset)
-                num_pos_datapoints = sum([y for x,y in dataset])
-                num_neg_datapoints = n_datapoints - num_pos_datapoints
-                if num_pos_datapoints > num_per_class or num_neg_datapoints > num_per_class:
-                    print('Removing last added dataset.')
-                    dataset_logger.remove_dataset(i=n_actions)
-                    n_actions -= 1
-
-            # optionally replay with pyBullet
-            '''
-            if args.vis_performance:
-                answer = input('Replay with pyBullet (r) or not (ENTER)?')
-                plt.close()
-                if answer == 'r':
-                    # make new world to visualize plan execution
-                    world.disconnect()
-                    vis = True
-                    world = init_world('tools',
-                                        None,
-                                        'optimistic',
-                                        vis,
-                                        dataset_logger)
-                    trajectory = execute_plan(world, *plan_data)
-                    success = all([t_seg[3] for t_seg in trajectory])
-                    color = 'g' if success else 'r'
-                    world.plot_datapoint(i=len(dataset)-1, color=color, show=True)
-                    world.disconnect()
-            '''
+            dataset = dataset_logger.load_trans_dataset()
+            n_datapoints = len(dataset)
+            num_pos_datapoints = sum([y for x,y in dataset])
+            num_neg_datapoints = n_datapoints - num_pos_datapoints
+            if num_pos_datapoints > num_per_class or num_neg_datapoints > num_per_class:
+                print('Removing last added dataset.')
+                dataset_logger.remove_dataset(i=n_actions)
+                n_actions -= 1
+        '''
+        # optionally replay with pyBullet
+        '''
+        if args.vis_performance:
+            answer = input('Replay with pyBullet (r) or not (ENTER)?')
+            plt.close()
+            if answer == 'r':
+                # make new world to visualize plan execution
+                world.disconnect()
+                vis = True
+                world = init_world('tools',
+                                    None,
+                                    'optimistic',
+                                    vis,
+                                    dataset_logger)
+                trajectory = execute_plan(world, *plan_data)
+                success = all([t_seg[3] for t_seg in trajectory])
+                color = 'g' if success else 'r'
+                world.plot_datapoint(i=len(dataset)-1, color=color, show=True)
+                world.disconnect()
+        '''
     return dataset_logger
 
 if __name__ == '__main__':

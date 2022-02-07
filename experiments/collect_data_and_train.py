@@ -34,15 +34,14 @@ def train_class(args, logger, n_actions):
         trans_dataset = logger.load_trans_dataset(i=n_actions)
 
     while n_actions < args.max_actions:
-        print('|dataset| = %i' % len(trans_dataset))
+        print('# actions = %i, |dataset| = %i' % (n_actions, len(trans_dataset)))
 
         progress = None
-        trajectory, n_actions = collect_trajectory_wrapper(args,
-                                                    pddl_model_type,
-                                                    logger,
-                                                    progress,
-                                                    n_actions,
-                                                    separate_process=True)
+        trajectory = collect_trajectory_wrapper(args,
+                                                pddl_model_type,
+                                                logger,
+                                                progress,
+                                                separate_process=False)
 
         if not trajectory:
             print('Trajectory collection failed.')
@@ -53,21 +52,23 @@ def train_class(args, logger, n_actions):
             else:
                 print('Infeasible action attempted.')
 
-        # check that at training step and there is data in the dataset
-        trans_dataset = logger.load_trans_dataset()
-        if not n_actions % args.train_freq and len(trans_dataset) > 0:
-            # initialize and train new model
-            ensemble = Ensemble(TransitionGNN,
-                                    base_args,
-                                    args.n_models)
-            print('Training ensemble.')
-            trans_dataloader = DataLoader(trans_dataset, batch_size=args.batch_size, shuffle=True)
-            for model in ensemble.models:
-                train(trans_dataloader, model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
-
-            # save model and accuracy plots
-            logger.save_trans_model(ensemble, i=n_actions)
-            print('Saved dataset, model, and accuracy plot to %s' % logger.exp_path)
+        # train at training freq
+        for action_i in range(n_actions+1, n_actions+len(trajectory)+1):
+            if not action_i % args.train_freq:
+                trans_dataset = logger.load_trans_dataset(i=action_i)
+                ensemble = Ensemble(TransitionGNN,
+                                        base_args,
+                                        args.n_models)
+                if len(trans_dataset) > 0:
+                    # initialize and train new model
+                    print('Training ensemble.')
+                    trans_dataloader = DataLoader(trans_dataset, batch_size=args.batch_size, shuffle=True)
+                    for model in ensemble.models:
+                        train(trans_dataloader, model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
+                # save model and accuracy plots
+                logger.save_trans_model(ensemble, i=action_i)
+                print('Saved model to %s' % logger.exp_path)
+        n_actions += len(trajectory)
 
 
 if __name__ == '__main__':

@@ -28,7 +28,9 @@ def model_forward(model, inputs, single_batch=False):
     return output.detach().numpy()
 
 
-def add_trajectory_to_dataset(domain, trans_dataset, trajectory, world):
+def add_trajectory_to_dataset(domain, dataset_logger, trajectory, world):
+    if len(trajectory) > 0: print('Adding trajectory to dataset.')
+    dataset, n_actions = dataset_logger.load_trans_dataset(ret_i=True)
     for (state, pddl_action, next_state, opt_accuracy) in trajectory:
         if (pddl_action.name == 'move_contact' and domain == 'tools') or \
             (pddl_action.name in ['place', 'pickplace'] and domain == 'ordered_blocks'):
@@ -37,12 +39,15 @@ def add_trajectory_to_dataset(domain, trans_dataset, trajectory, world):
             # assume object features don't change for now
             _, next_edge_features = world.state_to_vec(next_state)
             delta_edge_features = next_edge_features-edge_features
-            trans_dataset.add_to_dataset(object_features,
-                                            edge_features,
-                                            action_features,
-                                            next_edge_features,
-                                            delta_edge_features,
-                                            opt_accuracy)
+            dataset.add_to_dataset(object_features,
+                                    edge_features,
+                                    action_features,
+                                    next_edge_features,
+                                    delta_edge_features,
+                                    opt_accuracy)
+        n_actions += 1
+        dataset_logger.save_trans_dataset(dataset, i=n_actions)
+    return n_actions
 
 
 class ExperimentLogger:
@@ -116,7 +121,7 @@ class ExperimentLogger:
     def remove_dataset(self, i):
         os.remove(os.path.join(self.exp_path, 'datasets', 'trans_dataset_%i.pkl'%i))
 
-    def load_trans_dataset(self, i=None, balanced=False):
+    def load_trans_dataset(self, i=None, balanced=False, ret_i=False):
         # NOTE: returns the highest numbered model if i is not given
         if i is not None:
             fname = 'trans_dataset_%i.pkl' % i
@@ -133,6 +138,8 @@ class ExperimentLogger:
             fname = 'trans_dataset_%i.pkl' % i
         if balanced:
             fname = 'balanced_dataset.pkl'
+        if ret_i:
+            return self.load_dataset(fname), i
         return self.load_dataset(fname)
 
     def get_dataset_iterator(self):

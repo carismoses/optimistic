@@ -14,7 +14,6 @@ from learning.models.ensemble import Ensemble, OptimisticEnsemble
 from learning.train import train
 from domains.utils import init_world
 from domains.tools.world import ToolsWorld
-from experiments.strategies import collect_trajectory_wrapper
 
 
 def train_from_data(args, logger, start_i):
@@ -26,17 +25,17 @@ def train_from_data(args, logger, start_i):
                 'n_hidden': args.n_hidden,
                 'n_layers': args.n_layers}
 
-    largest_dataset = logger.load_trans_dataset()
-    max_actions = len(largest_dataset)
+    largest_dataset, max_actions = logger.load_trans_dataset(ret_i=True)
 
     for i in range(0, max_actions+1, args.train_freq):
         if i > start_i:
             ensemble = Ensemble(TransitionGNN, base_args, args.n_models)
             dataset = logger.load_trans_dataset(i=i)
-            print('Training model from |dataset| = %i' % len(dataset))
-            dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
-            for model in ensemble.models:
-                train(dataloader, model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
+            if len(dataset) > 0:
+                print('Training model from |dataset| = %i' % len(dataset))
+                dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
+                for model in ensemble.models:
+                    train(dataloader, model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
 
             # save model and accuracy plots
             logger.save_trans_model(ensemble, i=i)
