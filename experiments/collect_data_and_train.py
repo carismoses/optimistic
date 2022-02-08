@@ -42,7 +42,7 @@ def train_class(args, logger, n_actions):
                                                 pddl_model_type,
                                                 logger,
                                                 progress,
-                                                separate_process=False)
+                                                separate_process=True)
 
         if not trajectory:
             print('Trajectory collection failed.')
