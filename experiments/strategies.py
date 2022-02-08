@@ -93,7 +93,7 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_lo
                                     size=1.5)
         else:
             init_expanded = Certificate(add_to_init+init_expanded.all_facts, [])
-            pddl_plan = traj_pddl_plan
+        pddl_plan = traj_pddl_plan
     else:
         # preimage_facts in init_expanded was causing a pickling error, so just use all_facts
         init_expanded = Certificate(init_expanded.all_facts, [])
