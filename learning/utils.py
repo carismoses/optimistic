@@ -237,20 +237,36 @@ class ExperimentLogger:
     # save trajectory data
     def save_trajectories(self, trajectories, i):
         import dill
-        with open(os.path.join(self.exp_path, 'eval_trajs', 'trajs_%i.pkl' % i), 'wb') as handle:
+        path = os.path.join(self.exp_path, 'eval_trajs')
+        file_name = 'trajs_%i.pkl' % i
+        if not os.path.exists(path):
+            os.makedirs(path)
+        with open(os.path.join(path, file_name), 'wb') as handle:
             dill.dump(trajectories, handle)
 
     def load_trajectories(self, i):
-        with open(os.path.join(self.exp_path, 'eval_trajs', 'trajs_%i.pkl' % i), 'rb') as handle:
+        path = os.path.join(self.exp_path, 'eval_trajs')
+        file_name = 'trajs_%i.pkl' % i
+        if not os.path.exists(path):
+            os.makedirs(path)
+        with open(os.path.join(path, file_name), 'rb') as handle:
             trajectories = pickle.load(handle)
         return trajectories
 
     def save_goals(self, goals):
-        with open(os.path.join(self.exp_path, 'goals', 'goals.pkl'), 'wb') as handle:
+        path = os.path.join(self.exp_path, 'goals')
+        file_name = 'goals.pkl'
+        if not os.path.exists(path):
+            os.makedirs(path)
+        with open(os.path.join(path, file_name), 'wb') as handle:
             pickle.dump(goals, handle)
 
     def load_goals(self):
-        with open(os.path.join(self.exp_path, 'goals', 'goals.pkl'), 'rb') as handle:
+        path = os.path.join(self.exp_path, 'goals')
+        file_name = 'goals.pkl'
+        if not os.path.exists(path):
+            os.makedirs(path)
+        with open(os.path.join(path, file_name), 'rb') as handle:
             goals = pickle.load(handle)
         return goals
 
