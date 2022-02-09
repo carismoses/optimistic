@@ -114,7 +114,7 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_lo
             time.sleep(.5)
 
     # add to dataset and save
-    add_trajectory_to_dataset(args.domain, dataset_logger, trajectory, world)
+    add_trajectory_to_dataset(args.domain, dataset_logger, trajectory, world, args.max_actions)
 
     # disconnect from world
     world.disconnect()

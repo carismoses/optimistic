@@ -55,7 +55,7 @@ def train_class(args, logger, n_actions):
 
         # train at training freq
         for action_i in range(n_actions+1, n_actions+len(trajectory)+1):
-            if not action_i % args.train_freq:
+            if not action_i % args.train_freq and action_i < args.max_actions:
                 trans_dataset = logger.load_trans_dataset(i=action_i)
                 ensemble = Ensemble(TransitionGNN,
                                         base_args,
