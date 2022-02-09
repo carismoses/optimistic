@@ -40,7 +40,7 @@ if __name__ == '__main__':
                                                         'learned',
                                                         None,
                                                         None,
-                                                        separate_process=False,
+                                                        separate_process=True,
                                                         model_logger=logger,
                                                         save_to_dataset=False,
                                                         goal=goal)
