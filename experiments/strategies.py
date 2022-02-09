@@ -23,7 +23,8 @@ EPS = 1e-5
 
 
 def collect_trajectory_wrapper(args, pddl_model_type, dataset_logger, progress, \
-                            separate_process=False, model_logger=None):
+                            separate_process=False, model_logger=None, save_to_dataset=True, \
+                            goal=None):
     if separate_process:
         # write solver args to file (remove if one is there)
         tmp_dir = 'temp'
@@ -33,7 +34,7 @@ def collect_trajectory_wrapper(args, pddl_model_type, dataset_logger, progress, 
         if os.path.exists(in_pkl):
             os.remove(in_pkl)
         with open(in_pkl, 'wb') as handle:
-            pickle.dump([args, pddl_model_type, dataset_logger, progress, model_logger], handle)
+            pickle.dump([args, pddl_model_type, dataset_logger, progress, model_logger, save_to_dataset, goal], handle)
 
         # call planner with pickle file
         print('Collecting trajectory.')
@@ -47,11 +48,11 @@ def collect_trajectory_wrapper(args, pddl_model_type, dataset_logger, progress, 
     else:
         # call planner
         trajectory = collect_trajectory(args, pddl_model_type, \
-                                    dataset_logger, progress, model_logger)
+                                    dataset_logger, progress, model_logger, save_to_dataset, goal)
     return trajectory
 
 
-def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_logger):
+def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_logger, save_to_dataset, goal):
     # in sequential method data collection and training happen simultaneously
     if 'sequential' in args.data_collection_mode:
         model_logger = dataset_logger
@@ -65,7 +66,7 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_lo
     if args.data_collection_mode == 'random-actions':
         pddl_plan, problem, init_expanded = random_plan(world, 'optimistic')
     elif args.data_collection_mode == 'random-goals-opt':
-        pddl_plan, problem, init_expanded = goals(world, 'optimistic', 'random')
+        pddl_plan, problem, init_expanded = goals(world, 'optimistic', 'random', goal)
     elif args.data_collection_mode in ['random-goals-learned', 'curriculum']:
         pddl_plan, problem, init_expanded = goals(world, 'learned', 'random')
     elif args.data_collection_mode == 'sequential-plans':
@@ -113,8 +114,9 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_lo
                                 size=1.5)
             time.sleep(.5)
 
-    # add to dataset and save
-    add_trajectory_to_dataset(args.domain, dataset_logger, trajectory, world, args.max_actions)
+    if save_to_dataset:
+        # add to dataset and save
+        add_trajectory_to_dataset(args.domain, dataset_logger, trajectory, world, args.max_actions)
 
     # disconnect from world
     world.disconnect()
@@ -164,8 +166,11 @@ def random_plan(world, pddl_model_type, ret_states=False):
 
 
 # plans to achieve a random goal under the given (optimistic or learned) model
-def goals(world, pddl_model_type, goal_type, ret_states=False):
-    goal, add_to_state = world.generate_goal(goal_type)
+def goals(world, pddl_model_type, goal_type, goal=None, ret_states=False):
+    if goal is None:
+        goal, add_to_state = world.generate_goal(goal_type)
+    else:
+        goal, add_to_state = goal
     print('Goal: ', goal)
     print('Planning with %s model'%pddl_model_type)
     if world.use_panda:

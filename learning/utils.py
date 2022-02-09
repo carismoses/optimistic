@@ -85,6 +85,8 @@ class ExperimentLogger:
             os.mkdir(os.path.join(exp_path, 'datasets'))
             os.mkdir(os.path.join(exp_path, 'models'))
             os.mkdir(os.path.join(exp_path, 'figures'))
+            os.mkdir(os.path.join(exp_path, 'eval_trajs'))
+            os.mkdir(os.path.join(exp_path, 'goals'))
 
         with open(os.path.join(exp_path, 'args.pkl'), 'wb') as handle:
             pickle.dump(args, handle)
@@ -157,6 +159,13 @@ class ExperimentLogger:
         sorted_models = [(self.load_trans_model(i=i),i) for fname,i in zip(sorted_file_names, np.sort(txs))]
         return iter(sorted_models)
 
+    def get_trajectories_iterator(self):
+        found_files, txs = self.get_dir_indices('eval_trajs')
+        sorted_indices = np.argsort(txs)
+        sorted_file_names = [found_files[idx] for idx in sorted_indices]
+        sorted_trajs = [(self.load_trajectories(i=i),i) for fname,i in zip(sorted_file_names, np.sort(txs))]
+        return iter(sorted_trajs)
+
     def get_dir_indices(self, dir):
         files = os.listdir(os.path.join(self.exp_path, dir))
         if len(files) == 0:
@@ -165,6 +174,8 @@ class ExperimentLogger:
             file_name = r'trans_dataset_(.*).pkl'
         elif dir == 'models':
             file_name = r'trans_model_(.*).pt'
+        elif dir == 'eval_trajs':
+            file_name = r'trajs_(.*).pkl'
         txs = []
         found_files = []
         for file in files:
@@ -222,6 +233,26 @@ class ExperimentLogger:
         _, txs = self.get_dir_indices('datasets')
         n_actions = max(txs)
         return n_actions
+
+    # save trajectory data
+    def save_trajectories(self, trajectories, i):
+        import dill
+        with open(os.path.join(self.exp_path, 'eval_trajs', 'trajs_%i.pkl' % i), 'wb') as handle:
+            dill.dump(trajectories, handle)
+
+    def load_trajectories(self, i):
+        with open(os.path.join(self.exp_path, 'eval_trajs', 'trajs_%i.pkl' % i), 'rb') as handle:
+            trajectories = pickle.load(handle)
+        return trajectories
+
+    def save_goals(self, goals):
+        with open(os.path.join(self.exp_path, 'goals', 'goals.pkl'), 'wb') as handle:
+            pickle.dump(goals, handle)
+
+    def load_goals(self):
+        with open(os.path.join(self.exp_path, 'goals', 'goals.pkl'), 'rb') as handle:
+            goals = pickle.load(handle)
+        return goals
 
     # Planning info
     def save_planning_data(self, tree, goal, plan, i=None):
