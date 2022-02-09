@@ -1,7 +1,7 @@
 import argparse
 
 from learning.datasets import TransDataset
-from learning.utils import ExperimentLogger, add_trajectory_to_dataset
+from experiments.utils import ExperimentLogger, add_trajectory_to_dataset
 from tamp.utils import execute_plan
 from domains.utils import init_world
 from experiments.strategies import collect_trajectory_wrapper
@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 def gen_dataset(args, n_actions, dataset_logger, model_logger):
     if n_actions == 0:
         dataset = TransDataset()
-        dataset_logger.save_trans_dataset(dataset, i=n_actions)
+        dataset_logger.save_dataset(dataset, 'trans', i=n_actions)
 
     while n_actions < args.max_actions:
         print('|dataset| = %i' % n_actions)
@@ -38,7 +38,7 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
             # balance dataset by removing added element if makes it unbalanced
             num_per_class = args.max_actions // 2
 
-            dataset = dataset_logger.load_trans_dataset()
+            dataset = dataset_logger.load_dataset('trans')
             n_datapoints = len(dataset)
             num_pos_datapoints = sum([y for x,y in dataset])
             num_neg_datapoints = n_datapoints - num_pos_datapoints
@@ -142,8 +142,7 @@ if __name__ == '__main__':
         import pdb; pdb.set_trace()
 
     if args.restart:
-        if not args.exp_path:
-            assert 'Must set the --exp-path to restart experiment'
+        assert args.exp_path, 'Must set the --exp-path to restart experiment'
         dataset_logger = ExperimentLogger(args.exp_path)
         n_actions = dataset_logger.get_action_count()
         dataset_args = dataset_logger.args

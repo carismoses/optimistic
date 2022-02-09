@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import argparse
 
-from learning.utils import ExperimentLogger
+from experiments.utils import ExperimentLogger
 
 
 dataset_paths = ['logs/experiments/test_dataset_progress0p0-20220127-194636',
@@ -20,7 +20,7 @@ dataset_paths = ['logs/experiments/test_dataset_progress0p0-20220127-194636',
 def train():
     for path in dataset_paths:
         logger = ExperimentLogger(path)
-        dataset = logger.load_trans_dataset()
+        dataset = logger.load_dataset('trans')
         for i in range(5):
 
             n_total = len(dataset)

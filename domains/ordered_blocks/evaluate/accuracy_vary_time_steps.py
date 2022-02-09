@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import itertools
 
-from learning.utils import ExperimentLogger
+from experiments.utils import ExperimentLogger
 from learning.utils import model_forward
 from domains.ordered_blocks.world import OrderedBlocksWorld
 from evaluate.utils import recc_dict
@@ -24,8 +24,8 @@ def calc_time_step_accs(test_num_blocks, test_dataset, method, model_paths, worl
             if t > max_T:
                 i += 1
                 try:
-                    trans_model = logger.load_trans_model(i=i)
-                    train_dataset = logger.load_trans_dataset(i=i)
+                    trans_model = logger.load_model('trans', i=i)
+                    train_dataset = logger.load_dataset('trans', i=i)
                     max_T = len(train_dataset)
                 except:
                     print('Model %s ends at timestep %i' % (model_path, max_T))

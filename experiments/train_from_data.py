@@ -8,7 +8,7 @@ from pprint import pformat
 import matplotlib.pyplot as plt
 
 from learning.datasets import TransDataset
-from learning.utils import ExperimentLogger, add_trajectory_to_dataset
+from experiments.utils import ExperimentLogger, add_trajectory_to_dataset
 from learning.models.gnn import TransitionGNN
 from learning.models.ensemble import Ensemble, OptimisticEnsemble
 from learning.train import train
@@ -25,12 +25,12 @@ def train_from_data(args, logger, start_i):
                 'n_hidden': args.n_hidden,
                 'n_layers': args.n_layers}
 
-    largest_dataset, max_actions = logger.load_trans_dataset(ret_i=True)
+    largest_dataset, max_actions = logger.load_dataset('trans', ret_i=True)
 
     for i in range(0, max_actions+1, args.train_freq):
         if i > start_i:
             ensemble = Ensemble(TransitionGNN, base_args, args.n_models)
-            dataset = logger.load_trans_dataset(i=i)
+            dataset = logger.load_dataset('trans', i=i)
             if len(dataset) > 0:
                 print('Training model from |dataset| = %i' % len(dataset))
                 dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
@@ -38,7 +38,7 @@ def train_from_data(args, logger, start_i):
                     train(dataloader, model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
 
             # save model and accuracy plots
-            logger.save_trans_model(ensemble, i=i)
+            logger.save_model(ensemble, 'trans', i=i)
 
 
 if __name__ == '__main__':
@@ -88,7 +88,7 @@ if __name__ == '__main__':
         logger = ExperimentLogger(dataset_exp_path)
 
         # check if models already in logger
-        _, indices = logger.get_dir_indices('models')
+        _, indices = logger.get_dir_indices('trans', 'model')
         models_exist = len(indices) > 0
         if models_exist:
             print('Adding to models already in logger')

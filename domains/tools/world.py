@@ -244,7 +244,7 @@ class ToolsWorld:
                 self.goal_radius = new_goal_radius
 
 
-    def generate_goal(self, goal_type='random', feasible=False, ret_goal_feas=False, show_goal=False):
+    def generate_goal(self, feasible=False, ret_goal_feas=False, show_goal=False):
         init_state = self.get_init_state()
 
         # select a random block
@@ -537,6 +537,11 @@ class ToolsWorld:
                         return pb_robot.geometry.pose_from_tform(ee_pose@np.linalg.inv(grasp_objF))
 
 
+    def goal_to_vec(self, goal):
+        goal_orn = pb_robot.geometry.quat_angle_between(goal[2].pose[1], [0., 0., 0., 1.])
+        return np.array([*goal[2].pose[0][:2], goal_orn])
+
+
     def state_to_vec(self, state):
         state = get_simple_state(state)
 
@@ -693,7 +698,7 @@ class ToolsWorld:
                 print(va[:2], n_score)
 
         # plot all previously executed goal poses colored by action success
-        dataset = logger.load_trans_dataset()
+        dataset = logger.load_dataset('trans')
         for x, y in dataset:
             of, ef, af = x
             goal_pos_xy = af[:2]
@@ -871,7 +876,7 @@ class ToolsWorld:
         self.plot_block(ax, block_pos_xy, 'k')
 
         # plot all goal poses colored by success and show relative contact
-        dataset = logger.load_trans_dataset()
+        dataset = logger.load_dataset('trans')
         x, y = dataset[i]
         of, ef, af = x
         goal_pos_xy = af[:2]

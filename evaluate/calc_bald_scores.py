@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 
-from learning.utils import ExperimentLogger
+from experiments.utils import ExperimentLogger
 from experiments.strategies import bald
 from learning.utils import model_forward
 from domains.utils import init_world
@@ -28,12 +28,12 @@ for ei, (exp_name, exp_path) in enumerate(dataset_paths.items()):
     exp_path = exp_path[0]
     bald_scores = []
     logger = ExperimentLogger(exp_path)
-    model = logger.load_trans_model(i=0)
+    model = logger.load_model('trans', i=0)
     next_model_i = 12
     xs = []
     for dataset, di in logger.get_dataset_iterator():
         if di > next_model_i:
-            model = logger.load_trans_model(i=next_model_i)
+            model = logger.load_model('trans', i=next_model_i)
             next_model_i += 12
         if len(dataset) > 0:
             (of, ef, af), l = dataset[-1]

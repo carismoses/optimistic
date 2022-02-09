@@ -4,6 +4,26 @@ import torch
 from torch.utils.data import Dataset
 from learning.models.gnn import TransitionGNN
 
+
+class GoalDataset(Dataset):
+    def __init__(self):
+        self.goals = torch.tensor([], dtype=torch.float64)
+        self.feasibility = torch.tensor([], dtype=torch.float64)
+
+    def __getitem__(self, ix):
+        return [self.goals[ix], self.feasibility[ix]]
+
+    def __len__(self):
+        return len(self.goals)
+
+    def add_to_dataset(self, goal_vec, feasibility):
+        if not isinstance(goal_vec, torch.Tensor):
+            self.goals = torch.cat([self.goals, torch.tensor([goal_vec])])
+            self.feasibility = torch.cat([self.feasibility, torch.tensor([feasibility])])
+        else:
+            self.goals = torch.cat([self.goals, goal_vec.unsqueeze(dim=0)])
+            self.feasibility = torch.cat([self.feasibility, feasibility.unsqueeze(dim=0)])
+
 class TransDataset(Dataset):
     def __init__(self):
         self.object_features = torch.tensor([], dtype=torch.float64)

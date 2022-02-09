@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 
 from learning.train import train
 from learning.models.gnn import TransitionGNN
-from learning.utils import ExperimentLogger
+from experiments.utils import ExperimentLogger
 from learning.datasets import model_forward
 from domains.tools.world import ToolsWorld
 
@@ -26,7 +26,7 @@ hiddens = [32]
 batch_sizes = [16, 32, 64]
 ########
 test_dataset_logger = ExperimentLogger(test_dataset_path)
-test_dataset = test_dataset_logger.load_trans_dataset(i=test_dataset_index)
+test_dataset = test_dataset_logger.load_dataset('trans', i=test_dataset_index)
 world, _, _ = ToolsWorld.init(None, 'optimistic', False, None)
 
 all_losses = {}
@@ -78,7 +78,7 @@ plt.show()
 accuracies = []
 for mi in itertools.count():
     try:
-        model = model_logger.load_trans_model(world, i=mi)
+        model = model_logger.load_model('trans', i=mi)
     except:
         break
     count = 0

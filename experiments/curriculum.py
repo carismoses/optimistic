@@ -11,7 +11,7 @@ import pickle
 import subprocess
 
 from learning.datasets import TransDataset
-from learning.utils import ExperimentLogger, add_trajectory_to_dataset
+from experiments.utils import ExperimentLogger, add_trajectory_to_dataset
 from learning.models.gnn import TransitionGNN
 from learning.models.ensemble import Ensemble, OptimisticEnsemble
 from learning.train import train
@@ -32,7 +32,7 @@ def run_curric(args, logger, n_actions):
     # save initial fully optimistic model
     if n_actions == 0:
         ensemble = OptimisticEnsemble(TransitionGNN, base_args, args.n_models)
-        logger.save_trans_model(ensemble, i=0)
+        logger.save_model(ensemble, 'trans', i=0)
 
     num_curric_levels = args.max_actions // args.actions_per_curric
     corr_max_actions = num_curric_levels * args.actions_per_curric
@@ -69,11 +69,11 @@ def run_curric(args, logger, n_actions):
             if not n_actions % args.actions_per_curric:
                 dataset = TransDataset()
             else:
-                dataset = logger.load_trans_dataset(i=n_actions)
+                dataset = logger.load_dataset('trans', i=n_actions)
             inital_len_dataset = len(dataset)
             add_trajectory_to_dataset(args.domain, dataset, trajectory, world)
             n_actions += len(dataset) - inital_len_dataset
-            logger.save_trans_dataset(dataset, i=n_actions)
+            logger.save_dataset(dataset, 'trans', i=n_actions)
 
 
             # if at training freq, train model
@@ -84,12 +84,12 @@ def run_curric(args, logger, n_actions):
                 if planning_model_i == 0:
                     ensemble = Ensemble(TransitionGNN, base_args, args.n_models)
                 else:
-                    ensemble = logger.load_trans_model(i=planning_model_i)
+                    ensemble = logger.load_model('trans', i=planning_model_i)
                 dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
                 for model in ensemble.models:
                     train(dataloader, model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
                 # save model and accuracy plots
-                logger.save_trans_model(ensemble, i=n_actions)
+                logger.save_model(ensemble, 'trans', i=n_actions)
                 print('Saved dataset, model, and accuracy plot to %s' % logger.exp_path)
         else:
             print('Trajectory collection failed.')
@@ -169,20 +169,17 @@ if __name__ == '__main__':
         import pdb; pdb.set_trace()
 
     if args.restart:
-        if not args.exp_path:
-            assert 'Must set the --exp-path to restart experiment'
+        assert args.exp_path, 'Must set the --exp-path to restart experiment'
         logger = ExperimentLogger(args.exp_path)
         n_actions = logger.get_action_count()
         args = logger.args
     else:
-        if not args.exp_name:
-            assert 'Must set the --exp-name to start a new experiment'
-        if not args.data_collection_mode:
-            assert 'Must set the --data-collection-mode when starting a new experiment'
-        if args.train_freq <= args.actions_per_curric:
-            assert 'Train frequency must be <= actions per curriculum'
-        if not args.actions_per_curric % args.train_freq:
-            assert 'train freq must be a divisor of actions per curric'
+        assert args.exp_name, 'Must set the --exp-name to start a new experiment'
+        assert args.data_collection_mode, 'Must set the --data-collection-mode when starting a new experiment'
+        condition = args.train_freq > args.actions_per_curric
+        assert condition, 'Train frequency must be <= actions per curriculum'
+        condition = args.actions_per_curric % args.train_freq
+        assert condition, 'train freq must be a divisor of actions per curric'
         logger = ExperimentLogger.setup_experiment_directory(args, 'experiments')
         n_actions = 0
 

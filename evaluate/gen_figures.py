@@ -1,4 +1,4 @@
-from learning.utils import ExperimentLogger
+from experiments.utils import ExperimentLogger
 from domains.utils import init_world
 
 exp_paths = ['logs/experiments/sequential_goals-20220120-030537',
@@ -19,7 +19,7 @@ for exp_path in exp_paths:
                         logger)
 
     # get largest dataset to see highest index
-    trans_dataset = logger.load_trans_dataset()
+    trans_dataset = logger.load_dataset('trans')
     max_i = len(trans_dataset)
     print(max_i)
 

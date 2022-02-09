@@ -2,9 +2,10 @@ import argparse
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 
-from learning.datasets import TransDataset
-from learning.utils import ExperimentLogger
+from learning.datasets import TransDataset, GoalDataset
+from experiments.utils import ExperimentLogger
 from learning.models.gnn import TransitionGNN
+from learning.models.mlp import MLP
 from learning.models.ensemble import Ensemble
 from learning.train import train
 from experiments.strategies import collect_trajectory_wrapper
@@ -16,25 +17,36 @@ def train_class(args, logger, n_actions):
 
     # get model params
     n_of_in, n_ef_in, n_af_in = ToolsWorld.get_model_params()
-    base_args = {'n_of_in': n_of_in,
+    trans_args = {'n_of_in': n_of_in,
                 'n_ef_in': n_ef_in,
                 'n_af_in': n_af_in,
+                'n_hidden': args.n_hidden,
+                'n_layers': args.n_layers}
+
+    goal_args = {'n_in': 3,
                 'n_hidden': args.n_hidden,
                 'n_layers': args.n_layers}
 
     # save initial (empty) dataset
     if n_actions == 0:
         trans_dataset = TransDataset()
-        logger.save_trans_dataset(trans_dataset, i=0)
+        logger.save_dataset(trans_dataset, 'trans', i=0)
         ensemble = Ensemble(TransitionGNN,
-                                base_args,
+                                trans_args,
                                 args.n_models)
-        logger.save_trans_model(ensemble, i=0)
+        logger.save_model(ensemble, 'trans', i=0)
+        if args.data_collection_mode == 'sequential-goal-space':
+            goal_dataset = GoalDataset()
+            logger.save_dataset(goal_dataset, 'goal', i=0)
+            goal_ensemble = Ensemble(MLP,
+                                    goal_args,
+                                    args.n_models)
+            logger.save_model(goal_ensemble, 'goal', i=0)
     else:
-        trans_dataset = logger.load_trans_dataset(i=n_actions)
+        trans_dataset = logger.load_dataset('trans', i=n_actions)
 
     while n_actions < args.max_actions:
-        trans_dataset = logger.load_trans_dataset()
+        trans_dataset = logger.load_dataset('trans')
         print('# actions = %i, |dataset| = %i' % (n_actions, len(trans_dataset)))
 
         progress = None
@@ -56,18 +68,31 @@ def train_class(args, logger, n_actions):
         # train at training freq
         for action_i in range(n_actions+1, n_actions+len(trajectory)+1):
             if not action_i % args.train_freq:
-                trans_dataset = logger.load_trans_dataset(i=action_i)
+                trans_dataset = logger.load_dataset('trans', i=action_i)
                 ensemble = Ensemble(TransitionGNN,
-                                        base_args,
+                                        trans_args,
                                         args.n_models)
+                if args.data_collection_mode == 'sequential-goal-space':
+                    goal_dataset = logger.load_dataset('goal', i=action_i)
+                    goal_ensemble = Ensemble(MLP,
+                                            goal_args,
+                                            args.n_models)
                 if len(trans_dataset) > 0:
                     # initialize and train new model
                     print('Training ensemble.')
                     trans_dataloader = DataLoader(trans_dataset, batch_size=args.batch_size, shuffle=True)
                     for model in ensemble.models:
                         train(trans_dataloader, model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
+
+                    if args.data_collection_mode == 'sequential-goal-space':
+                        goal_dataloader = DataLoader(goal_dataset, batch_size=args.batch_size, shuffle=True)
+                        for model in goal_ensemble.models:
+                            train(goal_dataloader, model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
+
                 # save model and accuracy plots
-                logger.save_trans_model(ensemble, i=action_i)
+                logger.save_model(ensemble, 'trans', i=action_i)
+                if args.data_collection_mode == 'sequential-goal-space':
+                    logger.save_model(goal_ensemble, 'goal', i=action_i)
                 print('Saved model to %s' % logger.exp_path)
         n_actions += len(trajectory)
 
@@ -105,8 +130,7 @@ if __name__ == '__main__':
     parser.add_argument('--data-collection-mode',
                         type=str,
                         choices=['random-actions', 'random-goals-opt', 'random-goals-learned', \
-                                'sequential-plans', 'sequential-goals', 'engineered-goals-dist', \
-                                'engineered-goals-size'],
+                                'sequential-plans', 'sequential-goals', 'sequential-goal-space'],
                         help='method of data collection')
     parser.add_argument('--train-freq',
                         type=int,
@@ -146,16 +170,13 @@ if __name__ == '__main__':
         import pdb; pdb.set_trace()
 
     if args.restart:
-        if not args.exp_path:
-            assert 'Must set the --exp-path to restart experiment'
+        assert args.exp_path, 'Must set the --exp-path to restart experiment'
         logger = ExperimentLogger(args.exp_path)
         n_actions = logger.get_action_count()
         args = logger.args
     else:
-        if not args.exp_name:
-            assert 'Must set the --exp-name to start a new experiments'
-        if not args.data_collection_mode:
-            assert 'Must set the --data-collection-mode when starting a new experiment'
+        assert args.exp_name, 'Must set the --exp-name to start a new experiments'
+        assert args.data_collection_mode, 'Must set the --data-collection-mode when starting a new experiment'
         logger = ExperimentLogger.setup_experiment_directory(args, 'experiments')
         n_actions = 0
 

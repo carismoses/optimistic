@@ -13,7 +13,7 @@ from pddlstream.language.constants import Certificate, Action
 
 from tamp.utils import execute_plan, get_simple_state, task_from_problem,   \
                         get_fd_action, postprocess_plan
-from learning.utils import model_forward, add_trajectory_to_dataset
+from learning.utils import model_forward, add_trajectory_to_dataset, add_goal_to_dataset
 from domains.tools.primitives import get_traj
 from domains.utils import init_world
 
@@ -65,19 +65,23 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_lo
     if args.data_collection_mode == 'random-actions':
         pddl_plan, problem, init_expanded = random_plan(world, 'optimistic')
     elif args.data_collection_mode == 'random-goals-opt':
-        pddl_plan, problem, init_expanded = goals(world, 'optimistic', 'random')
+        goal, add_to_state = world.generate_goal()
+        pddl_plan, problem, init_expanded = goals(world, 'optimistic', goal, add_to_state)
     elif args.data_collection_mode in ['random-goals-learned', 'curriculum']:
-        pddl_plan, problem, init_expanded = goals(world, 'learned', 'random')
+        goal, add_to_state = world.generate_goal()
+        pddl_plan, problem, init_expanded = goals(world, 'learned', goal, add_to_state)
     elif args.data_collection_mode == 'sequential-plans':
         pddl_plan, problem, init_expanded = sequential(world, 'plans', args.n_seq_plans)
     elif args.data_collection_mode == 'sequential-goals':
         pddl_plan, problem, init_expanded =  sequential(world, 'goals', args.n_seq_plans)
+    elif args.data_collection_mode == 'sequential-goal-space':
+        pddl_plan, problem, init_expanded, goal_vec =  sequential_goal_space(world, args.n_seq_plans)
     else:
         raise NotImplementedError('Strategy %s is not implemented' % args.data_collection_mode)
 
     trajectory = []
     # is sequential method, have to solve for trajectories
-    if 'sequential' in args.data_collection_mode:
+    if args.data_collection_mode in ['sequential-goals', 'sequential-plans']:
         print('Abstract Plan: ', pddl_plan)
         # if plan is to achieve a given goal then only return a low-level plan if it
         # reaches the goal. otherwise can return the plan found until planning failed
@@ -115,6 +119,10 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_lo
 
     # add to dataset and save
     add_trajectory_to_dataset(args.domain, dataset_logger, trajectory, world)
+
+    # save to goal dataset
+    if args.data_collection_mode == 'sequential-goal-space':
+        add_goal_to_dataset(dataset_logger, trajectory, goal_vec)
 
     # disconnect from world
     world.disconnect()
@@ -164,8 +172,7 @@ def random_plan(world, pddl_model_type, ret_states=False):
 
 
 # plans to achieve a random goal under the given (optimistic or learned) model
-def goals(world, pddl_model_type, goal_type, ret_states=False):
-    goal, add_to_state = world.generate_goal(goal_type)
+def goals(world, pddl_model_type, goal, add_to_state, ret_states=False):
     print('Goal: ', goal)
     print('Planning with %s model'%pddl_model_type)
     if world.use_panda:
@@ -203,7 +210,7 @@ def goals(world, pddl_model_type, goal_type, ret_states=False):
 
 
 def sequential(world, mode, n_seq_plans):
-    model = world.logger.load_trans_model()
+    model = world.logger.load_model('trans')
     best_plan_info = None
     best_bald_score = float('-inf')
     n_plans_searched = 0
@@ -214,7 +221,8 @@ def sequential(world, mode, n_seq_plans):
         if mode == 'plans':
             plan_with_states, problem, init_expanded = random_plan(world, 'opt_no_traj', ret_states=True)
         elif mode == 'goals':
-            plan_with_states, problem, init_expanded = goals(world, 'opt_no_traj', 'random', ret_states=True)
+            goal, add_to_state = world.generate_goal()
+            plan_with_states, problem, init_expanded = goals(world, 'opt_no_traj', goal, add_to_state, ret_states=True)
         if plan_with_states:
             n_plans_searched += 1
             bald_score, state = sequential_bald(plan_with_states, model, world, ret_states=True)
@@ -227,6 +235,27 @@ def sequential(world, mode, n_seq_plans):
             i += 1
     #world.visualize_bald(bald_scores, states, model, best_i, world.logger)
     return [pa for ps, pa in best_plan_info[0]], best_plan_info[1], best_plan_info[2]
+
+
+def sequential_goal_space(world, n_seq):
+    # find BALD maximizing goal
+    goal_space_model = world.logger.load_model('goal')
+    best_info = None
+    best_bald_score = float('-inf')
+    for _ in range(n_seq):
+        goal, add_to_state = world.generate_goal()
+        goal_vec = world.goal_to_vec(goal)
+        predictions = model_forward(goal_space_model, [goal_vec], single_batch=True)
+        bald_score = bald(predictions)
+        if bald_score > best_bald_score:
+            best_info = goal, add_to_state, goal_vec
+            best_goal_vec = goal_vec
+            best_bald_score = bald_score
+
+    # plan to achieve goal
+    goal, add_to_state, goal_vec = best_info
+    pddl_plan, problem, init_expanded = goals(world, 'optimistic', goal, add_to_state)
+    return pddl_plan, problem, init_expanded, goal_vec
 
 
 def sequential_bald(plan, model, world, ret_states=False):

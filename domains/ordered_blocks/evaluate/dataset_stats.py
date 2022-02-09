@@ -2,7 +2,7 @@ import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 
-from learning.utils import ExperimentLogger
+from experiments.utils import ExperimentLogger
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -44,7 +44,7 @@ for th in range(1,num_blocks+1): heights[th] = []
 # store values for each dataset
 for dataset_exp_path in dataset_exp_paths:
     dataset_logger = ExperimentLogger(dataset_exp_path)
-    dataset = dataset_logger.load_trans_dataset()
+    dataset = dataset_logger.load_dataset('trans')
 
     ds_pos_actions, ds_neg_actions, ds_labels, ds_heights = [], [], [], []
     for x,y in dataset:

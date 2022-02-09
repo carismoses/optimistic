@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from domains.ordered_blocks.world import OrderedBlocksWorld
-from learning.utils import ExperimentLogger
+from experiments.utils import ExperimentLogger
 from learning.utils import model_forward
 from evaluate.utils import recc_dict, plot_results
 
@@ -125,7 +125,7 @@ if __name__ == '__main__':
             for model_path in method_model_paths:
                 model_logger = ExperimentLogger(model_path)
                 model_args = model_logger.load_args()
-                trans_model = model_logger.load_trans_model()
+                trans_model = model_logger.load_model('trans')
                 trans_accuracy = calc_trans_accuracy('learned',
                                                 test_dataset,
                                                 test_num_blocks,

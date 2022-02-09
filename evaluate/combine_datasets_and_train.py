@@ -3,11 +3,10 @@ from torch.utils.data import DataLoader
 from argparse import Namespace
 
 from learning.datasets import TransDataset
-from learning.utils import ExperimentLogger
+from experiments.utils import ExperimentLogger
 from learning.models.gnn import TransitionGNN
 from learning.train import train
 from domains.tools.world import ToolsWorld
-from learning.utils import ExperimentLogger
 
 
 batch_size = 16
@@ -31,7 +30,7 @@ if __name__ == '__main__':
     full_dataset = TransDataset()
     for path in dataset_paths:
         test_dataset_logger = ExperimentLogger(path)
-        test_dataset = test_dataset_logger.load_trans_dataset(i=dataset_index)
+        test_dataset = test_dataset_logger.load_dataset('trans', i=dataset_index)
         for si in range(len(test_dataset)):
             sample = test_dataset.__getitem__(si, full_info=True)
             full_dataset.add_to_dataset(*sample)
@@ -51,8 +50,8 @@ if __name__ == '__main__':
     print('Training model.')
     trans_dataloader = DataLoader(full_dataset, batch_size=batch_size, shuffle=True)
     train(trans_dataloader, trans_model, n_epochs=n_epochs, loss_fn=F.binary_cross_entropy)
-    logger.save_trans_dataset(full_dataset, i=this_i)
-    logger.save_trans_model(trans_model, i=this_i)
+    logger.save_dataset(full_dataset, 'trans', i=this_i)
+    logger.save_model(trans_model, 'trans', i=this_i)
 
     # plot accuracy
     world, opt_pddl_info, pddl_info = ToolsWorld.init([],

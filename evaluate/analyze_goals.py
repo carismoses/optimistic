@@ -1,4 +1,4 @@
-from learning.utils import ExperimentLogger
+from experiments.utils import ExperimentLogger
 import matplotlib.pyplot as plt
 import numpy as np
 
