@@ -21,14 +21,15 @@ def model_forward(model, inputs, single_batch=False):
 
 
 def add_goal_to_dataset(dataset_logger, trajectory, goal_vec):
-    if len(trajectory) > 0: print('Adding goal to dataset.')
-    goal_dataset, n_actions = dataset_logger.load_dataset('goal', ret_i=True)
-    last_i = len(trajectory)-1
-    for i in range(len(trajectory)):
-        if i == last_i:
-            goal_dataset.add_to_dataset(goal_vec, float(trajectory[-1][-1]))
-        n_actions += 1
-        dataset_logger.save_dataset(goal_dataset, 'goal', i=n_actions)
+    goal_dataset, n_actions, n_goals = dataset_logger.load_dataset('goal', ret_i=True)
+    if len(trajectory) ==0:
+        label = float(False)
+    else:
+        label = float(trajectory[-1][-1])
+    goal_dataset.add_to_dataset(goal_vec, label)
+    n_actions += len(trajectory)
+    n_goals += 1
+    dataset_logger.save_dataset(goal_dataset, 'goal', i=n_actions, gi=n_goals)
 
 
 def add_trajectory_to_dataset(domain, dataset_logger, trajectory, world):

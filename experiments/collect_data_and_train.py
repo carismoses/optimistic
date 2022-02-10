@@ -37,7 +37,7 @@ def train_class(args, logger, n_actions):
         logger.save_model(ensemble, 'trans', i=0)
         if args.data_collection_mode == 'sequential-goal-space':
             goal_dataset = GoalDataset()
-            logger.save_dataset(goal_dataset, 'goal', i=0)
+            logger.save_dataset(goal_dataset, 'goal', i=0, gi=0)
             goal_ensemble = Ensemble(MLP,
                                     goal_args,
                                     args.n_models)
@@ -65,18 +65,29 @@ def train_class(args, logger, n_actions):
             else:
                 print('Infeasible action attempted.')
 
-        # train at training freq
+        # train goals at goal training frequency
+        if args.data_collection_mode == 'sequential-goal-space':
+            goal_dataset, _, n_goals = logger.load_dataset('goal', ret_i=True)
+            if not n_goals % args.goal_train_freq:
+                goal_ensemble = Ensemble(MLP,
+                                        goal_args,
+                                        args.n_models)
+                goal_dataloader = DataLoader(goal_dataset, batch_size=args.batch_size, shuffle=True)
+
+                for model in goal_ensemble.models:
+                    train(goal_dataloader, model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
+
+                logger.save_model(goal_ensemble, 'goal', i=n_goals)
+                print('Saved goal model to %s' % logger.exp_path)
+
+        # train action models at training freq
         for action_i in range(n_actions+1, n_actions+len(trajectory)+1):
             if not action_i % args.train_freq:
                 trans_dataset = logger.load_dataset('trans', i=action_i)
                 ensemble = Ensemble(TransitionGNN,
                                         trans_args,
                                         args.n_models)
-                if args.data_collection_mode == 'sequential-goal-space':
-                    goal_dataset = logger.load_dataset('goal', i=action_i)
-                    goal_ensemble = Ensemble(MLP,
-                                            goal_args,
-                                            args.n_models)
+
                 if len(trans_dataset) > 0:
                     # initialize and train new model
                     print('Training ensemble.')
@@ -84,15 +95,8 @@ def train_class(args, logger, n_actions):
                     for model in ensemble.models:
                         train(trans_dataloader, model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
 
-                    if args.data_collection_mode == 'sequential-goal-space':
-                        goal_dataloader = DataLoader(goal_dataset, batch_size=args.batch_size, shuffle=True)
-                        for model in goal_ensemble.models:
-                            train(goal_dataloader, model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
-
                 # save model and accuracy plots
                 logger.save_model(ensemble, 'trans', i=action_i)
-                if args.data_collection_mode == 'sequential-goal-space':
-                    logger.save_model(goal_ensemble, 'goal', i=action_i)
                 print('Saved model to %s' % logger.exp_path)
         n_actions += len(trajectory)
 
@@ -136,6 +140,10 @@ if __name__ == '__main__':
                         type=int,
                         default=10,
                         help='number of actions between model training')
+    parser.add_argument('--goal-train-freq',
+                        type=int,
+                        default=1,
+                        help='number of goals between model training')
     parser.add_argument('--vis',
                         action='store_true',
                         help='use to visualize robot executions.')

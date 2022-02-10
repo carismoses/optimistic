@@ -68,9 +68,12 @@ class ExperimentLogger:
 
     ## Dataset Functions ##
     # type in ['trans', 'goal', 'balanced']
-    def save_dataset(self, dataset, type, i=None):
+    def save_dataset(self, dataset, type, i=None, gi=None):
         if i is not None:
-            fname = '%s_dataset_%i.pkl' % (type, i)
+            if type == 'goal':
+                fname = '%s_dataset_%i_%i.pkl' % (type, i, gi)
+            else:
+                fname = '%s_dataset_%i.pkl' % (type, i)
         else:
             fname = '%s_dataset.pkl' % type
 
@@ -83,26 +86,49 @@ class ExperimentLogger:
 
     # type in ['trans', 'goal', 'balanced']
     def load_dataset(self, type, i=None, ret_i=False):
-        # NOTE: returns the highest numbered model if i is not given
+        # NOTE: returns the highest numbered model (BY ACTION NUMBER) if i is not given
         dir = dataset_type_dir_map[type]
         if i is not None:
-            fname = '%s_dataset_%i.pkl' % (type, i)
+            if type == 'goal':
+                # first number is number of actions, second number is how many goal attempts
+                fname = '%s_dataset_%i_%i.pkl' % (type, i)
+            else:
+                fname = '%s_dataset_%i.pkl' % (type, i)
         else:
+            if type == 'goal':
+                match_str =r'%s_dataset_(.*)_(.*).pkl'
+            else:
+                match_str =r'%s_dataset_(.*).pkl'
             data_files = os.listdir(os.path.join(self.exp_path, dir))
             if len(data_files) == 0:
                 raise Exception('No datasets found on path %s/%s: ' % (args.exp_path, dir))
-            txs = []
+            txs, match_files = [], []
             for file in data_files:
-                matches = re.match(r'%s_dataset_(.*).pkl' % type, file)
+                matches = re.match(match_str % type, file)
                 if matches: # sometimes system files are saved here, don't parse these
                     txs += [int(matches.group(1))]
+                    match_files.append(file)
             i = max(txs)
-            fname = '%s_dataset_%i.pkl' % (type, i)
+
+            # have to find highest goal number out of matches
+            if type == 'goal':
+                gxs = []
+                for file in match_files:
+                    matches = re.match(r'goal_dataset_%i_(.*).pkl' % i, file)
+                    if matches: # sometimes system files are saved here, don't parse these
+                        gxs += [int(matches.group(1))]
+                gi = max(gxs)
+                fname = '%s_dataset_%i_%i.pkl' % (type, i, gi)
+            else:
+                fname = '%s_dataset_%i.pkl' % (type, i)
 
         with open(os.path.join(self.exp_path, dir, fname), 'rb') as handle:
             dataset = pickle.load(handle)
         if ret_i:
-            return dataset, i
+            if type == 'goal':
+                return dataset, i, gi
+            else:
+                return dataset, i
         return dataset
 
     # type in ['trans', 'goal', 'balanced']

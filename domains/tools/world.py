@@ -614,7 +614,7 @@ class ToolsWorld:
     # NOTE: This was written when the contact sampling space was just a single contact
     # (for debugging). If using with full contact space search you will get
     # incorrect plots
-    def visualize_bald(self, bald_scores, states, model, best_i, logger):
+    def visualize_bald(self, bald_scores, states, model, best_i, logger, goal_from_state=True):
         def make_array(minv, maxv, step):
             if minv > maxv:
                 ar = np.flip(np.arange(maxv, minv+step, step))
@@ -632,35 +632,43 @@ class ToolsWorld:
         mean_preds = np.zeros((len(ys), len(xs)))
         std_preds = np.zeros((len(ys), len(xs)))
 
-        init_state = self.get_init_state()
-        init_pose = self.get_obj_pose_from_state(self.objects['yellow_block'], init_state)
-        init_x, init_y = init_pose[0][:2]
-
         contacts_fn = get_contact_gen(self.panda.planning_robot)
         contacts = contacts_fn(self.objects['tool'], self.objects['yellow_block'])
         cont = contacts[0][0]   # NOTE: this was when I was debugging and there was only 1 possible contact
-        for xi, xv in enumerate(xs):
-            for yi, yv in enumerate(ys):
-                pose = ((xv, yv, init_pose[0][2]), init_pose[1])
-                goal_pose = pb_robot.vobj.BodyPose(self.objects['yellow_block'], pose)
 
-                # NOTE this will generate approach configurations that might
-                # not actually be able to follow a push path (due to kinematic constraints)
-                tool_approach = contact_approach_fn(self.objects['tool'],
-                                                        self.objects['yellow_block'],
-                                                        self.obj_init_poses['yellow_block'],
-                                                        goal_pose,
-                                                        cont)
-                vof, vef, va = self.get_model_inputs(tool_approach, goal_pose)
+        if goal_from_state:
+            init_state = self.get_init_state()
+            init_pose = self.get_obj_pose_from_state(self.objects['yellow_block'], init_state)
+            init_x, init_y = init_pose[0][:2]
 
-                # calc mean pred
-                mean_pred = model_forward(model, [vof, vef, va], single_batch=True).mean().squeeze()
+            for xi, xv in enumerate(xs):
+                for yi, yv in enumerate(ys):
+                    pose = ((xv, yv, init_pose[0][2]), init_pose[1])
+                    goal_pose = pb_robot.vobj.BodyPose(self.objects['yellow_block'], pose)
 
-                # calc std pred
-                std_pred =  model_forward(model, [vof, vef, va], single_batch=True).std().squeeze()
+                    # NOTE this will generate approach configurations that might
+                    # not actually be able to follow a push path (due to kinematic constraints)
+                    tool_approach = contact_approach_fn(self.objects['tool'],
+                                                            self.objects['yellow_block'],
+                                                            self.obj_init_poses['yellow_block'],
+                                                            goal_pose,
+                                                            cont)
+                    vof, vef, va = self.get_model_inputs(tool_approach, goal_pose)
 
-                mean_preds[yi][xi] = mean_pred
-                std_preds[yi][xi] = std_pred
+                    # calc mean pred
+                    mean_pred = model_forward(model, [vof, vef, va], single_batch=True).mean().squeeze()
+
+                    # calc std pred
+                    std_pred =  model_forward(model, [vof, vef, va], single_batch=True).std().squeeze()
+
+                    mean_preds[yi][xi] = mean_pred
+                    std_preds[yi][xi] = std_pred
+        else:
+            for xi, xv in enumerate(xs):
+                for yi, yv in enumerate(ys):
+                    predictions = model_forward(model, [np.array([xv, yv, 0.0])], single_batch=True)
+                    mean_preds[yi][xi] = predictions.mean().squeeze()
+                    std_preds[yi][xi] = predictions.std().squeeze()
 
         # plot predictions w/ colorbars
         fig, axes = plt.subplots(3, figsize=(8,15))
@@ -682,7 +690,10 @@ class ToolsWorld:
 
         # plot initial and goal (from BALD) poses as well as BALD's sampled poses
         best_state = states[best_i]
-        vof, vef, va = best_state
+        if goal_from_state:
+            vof, vef, va = best_state
+        else:
+            va = best_state
         max_score = max(bald_scores)
         normalized_scores = [score/max_score for score in bald_scores]
         for ax in axes[:2]:# show a block at initial pos
@@ -693,15 +704,25 @@ class ToolsWorld:
 
             # visualize all BALD scores
             for n_score, state in zip(normalized_scores, states):
-                vof, vef, va = state
-                ax.plot(*va[:2], 'cx')#, color=str(n_score))
-                print(va[:2], n_score)
+                if goal_from_state:
+                    vof, vef, va = state
+                    plot_vec = va[:2]
+                else:
+                    plot_vec = state[:2]
+                ax.plot(*plot_vec[:2], 'cx')#, color=str(n_score))
+                print(plot_vec[:2], n_score)
 
         # plot all previously executed goal poses colored by action success
-        dataset = logger.load_dataset('trans')
+        if goal_from_state:
+            dataset = logger.load_dataset('trans')
+        else:
+            dataset = logger.load_dataset('goal')
         for x, y in dataset:
-            of, ef, af = x
-            goal_pos_xy = af[:2]
+            if goal_from_state:
+                of, ef, af = x
+                goal_pos_xy = af[:2]
+            else:
+                goal_pos_xy = x[:2]
             color = 'r' if y == 0 else 'g'
             self.plot_block(axes[0], goal_pos_xy, color)
             self.plot_block(axes[1], goal_pos_xy, color)

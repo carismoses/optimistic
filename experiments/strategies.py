@@ -242,19 +242,27 @@ def sequential_goal_space(world, n_seq):
     goal_space_model = world.logger.load_model('goal')
     best_info = None
     best_bald_score = float('-inf')
-    for _ in range(n_seq):
+    best_i = None
+    bald_scores = []
+    goal_vecs = []
+    for i in range(n_seq):
         goal, add_to_state = world.generate_goal()
         goal_vec = world.goal_to_vec(goal)
         predictions = model_forward(goal_space_model, [goal_vec], single_batch=True)
         bald_score = bald(predictions)
+        bald_scores.append(bald_score)
+        goal_vecs.append(goal_vec)
         if bald_score > best_bald_score:
             best_info = goal, add_to_state, goal_vec
             best_goal_vec = goal_vec
             best_bald_score = bald_score
+            best_i = i
 
     # plan to achieve goal
     goal, add_to_state, goal_vec = best_info
     pddl_plan, problem, init_expanded = goals(world, 'optimistic', goal, add_to_state)
+
+    world.visualize_bald(bald_scores, goal_vecs, goal_space_model, best_i, world.logger, goal_from_state=False)
     return pddl_plan, problem, init_expanded, goal_vec
 
 
