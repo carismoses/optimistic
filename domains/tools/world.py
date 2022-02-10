@@ -614,7 +614,7 @@ class ToolsWorld:
     # NOTE: This was written when the contact sampling space was just a single contact
     # (for debugging). If using with full contact space search you will get
     # incorrect plots
-    def visualize_bald(self, bald_scores, states, model, best_i, logger, goal_from_state=True):
+    def visualize_bald(self, bald_scores, states, model, best_i, logger, goal_from_state=True, plot_bald_scores=True, dataset_i=None):
         def make_array(minv, maxv, step):
             if minv > maxv:
                 ar = np.flip(np.arange(maxv, minv+step, step))
@@ -633,113 +633,131 @@ class ToolsWorld:
         std_preds = np.zeros((len(ys), len(xs)))
 
         contacts_fn = get_contact_gen(self.panda.planning_robot)
-        contacts = contacts_fn(self.objects['tool'], self.objects['yellow_block'])
-        cont = contacts[0][0]   # NOTE: this was when I was debugging and there was only 1 possible contact
+        contacts = contacts_fn(self.objects['tool'], self.objects['yellow_block'], shuffle=False)
+        #cont = contacts[0][0]   # NOTE: this was when I was debugging and there was only 1 possible contact
 
-        if goal_from_state:
-            init_state = self.get_init_state()
-            init_pose = self.get_obj_pose_from_state(self.objects['yellow_block'], init_state)
-            init_x, init_y = init_pose[0][:2]
+        for ci, contact in enumerate(contacts):
+            fig, ax = plt.subplots(3, figsize=(8,15))
+            ts = time.strftime('%Y%m%d-%H%M%S')
+            cont = contact[0]
+            if goal_from_state:
+                init_state = self.get_init_state()
+                init_pose = self.get_obj_pose_from_state(self.objects['yellow_block'], init_state)
+                init_x, init_y = init_pose[0][:2]
 
-            for xi, xv in enumerate(xs):
-                for yi, yv in enumerate(ys):
-                    pose = ((xv, yv, init_pose[0][2]), init_pose[1])
-                    goal_pose = pb_robot.vobj.BodyPose(self.objects['yellow_block'], pose)
+                for xi, xv in enumerate(xs):
+                    for yi, yv in enumerate(ys):
+                        pose = ((xv, yv, init_pose[0][2]), init_pose[1])
+                        goal_pose = pb_robot.vobj.BodyPose(self.objects['yellow_block'], pose)
 
-                    # NOTE this will generate approach configurations that might
-                    # not actually be able to follow a push path (due to kinematic constraints)
-                    tool_approach = contact_approach_fn(self.objects['tool'],
+                        # NOTE this will generate approach configurations that might
+                        # not actually be able to follow a push path (due to kinematic constraints)
+                        tool_approach = contact_approach_fn(self.objects['tool'],
+                                                                self.objects['yellow_block'],
+                                                                self.obj_init_poses['yellow_block'],
+                                                                goal_pose,
+                                                                cont)
+                        vof, vef, va = self.get_model_inputs(tool_approach, goal_pose)
+
+                        # calc mean pred
+                        mean_pred = model_forward(model, [vof, vef, va], single_batch=True).mean().squeeze()
+
+                        # calc std pred
+                        std_pred =  model_forward(model, [vof, vef, va], single_batch=True).std().squeeze()
+
+                        mean_preds[yi][xi] = mean_pred
+                        std_preds[yi][xi] = std_pred
+            else:
+                for xi, xv in enumerate(xs):
+                    for yi, yv in enumerate(ys):
+                        predictions = model_forward(model, [np.array([xv, yv, 0.0])], single_batch=True)
+                        mean_preds[yi][xi] = predictions.mean().squeeze()
+                        std_preds[yi][xi] = predictions.std().squeeze()
+
+            # plot predictions w/ colorbars
+            extent = (*x_extent, *y_extent)
+
+            im0 = ax[0].imshow(mean_preds, origin='lower', cmap='binary', extent=extent, vmin=0, vmax=1, aspect='equal')
+            divider0 = make_axes_locatable(ax[0])
+            cax0 = divider0.append_axes("right", size="10%", pad=0.5)
+            cbar0 = plt.colorbar(im0, cax=cax0, format="%.2f")
+            #print(std_preds)
+            im1 = ax[1].imshow(std_preds, origin='lower', cmap='binary', extent=extent, aspect='equal')#), vmin=0, vmax=1)
+            divider1 = make_axes_locatable(ax[1])
+            cax1 = divider1.append_axes("right", size="10%", pad=0.5)
+            cbar1 = plt.colorbar(im1, cax=cax1, format="%.4f")
+
+            ax[0].set_title('Mean Ensemble Predictions')
+            ax[1].set_title('Std Ensemble Predictions')
+
+            if plot_bald_scores:
+                # plot initial and goal (from BALD) poses as well as BALD's sampled poses
+                best_state = states[best_i]
+                if goal_from_state:
+                    vof, vef, va = best_state
+                else:
+                    va = best_state
+
+                max_score = max(bald_scores)
+                normalized_scores = [score/max_score for score in bald_scores]
+                for ax_k in ax[:2]:# show a block at initial pos
+                    self.plot_block(ax_k, self.init_pos_yellow, color='m', linestyle='-')
+
+                    # visualize goal that was selected by BALD
+                    self.plot_block(ax_k, va[:2], color='m', linestyle='--')
+
+                    # visualize all BALD scores
+                    for n_score, state in zip(normalized_scores, states):
+                        if goal_from_state:
+                            vof, vef, va = state
+                            plot_vec = va[:2]
+                        else:
+                            plot_vec = state[:2]
+                        ax_k.plot(*plot_vec[:2], 'cx')#, color=str(n_score))
+                        print(plot_vec[:2], n_score)
+
+            # plot all previously executed goal poses colored by action success
+            if goal_from_state:
+                dataset = logger.load_dataset('trans', i=dataset_i)
+            else:
+                dataset = logger.load_dataset('goal')
+            for x, y in dataset:
+                if goal_from_state:
+                    of, ef, af = x
+                    goal_pos_xy = af[:2]
+                    # see if this contact was used when executing the sample
+                    pose_j = ((*goal_pos_xy, init_pose[0][2]), init_pose[1])
+                    goal_pose_j = pb_robot.vobj.BodyPose(self.objects['yellow_block'], pose_j)
+                    tool_approach_j = contact_approach_fn(self.objects['tool'],
                                                             self.objects['yellow_block'],
                                                             self.obj_init_poses['yellow_block'],
-                                                            goal_pose,
+                                                            goal_pose_j,
                                                             cont)
-                    vof, vef, va = self.get_model_inputs(tool_approach, goal_pose)
-
-                    # calc mean pred
-                    mean_pred = model_forward(model, [vof, vef, va], single_batch=True).mean().squeeze()
-
-                    # calc std pred
-                    std_pred =  model_forward(model, [vof, vef, va], single_batch=True).std().squeeze()
-
-                    mean_preds[yi][xi] = mean_pred
-                    std_preds[yi][xi] = std_pred
-        else:
-            for xi, xv in enumerate(xs):
-                for yi, yv in enumerate(ys):
-                    predictions = model_forward(model, [np.array([xv, yv, 0.0])], single_batch=True)
-                    mean_preds[yi][xi] = predictions.mean().squeeze()
-                    std_preds[yi][xi] = predictions.std().squeeze()
-
-        # plot predictions w/ colorbars
-        fig, axes = plt.subplots(3, figsize=(8,15))
-
-        extent = (*x_extent, *y_extent)
-
-        im0 = axes[0].imshow(mean_preds, origin='lower', cmap='binary', extent=extent, vmin=0, vmax=1, aspect='equal')
-        divider0 = make_axes_locatable(axes[0])
-        cax0 = divider0.append_axes("right", size="10%", pad=0.5)
-        cbar0 = plt.colorbar(im0, cax=cax0, format="%.2f")
-        print(std_preds)
-        im1 = axes[1].imshow(std_preds, origin='lower', cmap='binary', extent=extent, aspect='equal')#), vmin=0, vmax=1)
-        divider1 = make_axes_locatable(axes[1])
-        cax1 = divider1.append_axes("right", size="10%", pad=0.5)
-        cbar1 = plt.colorbar(im1, cax=cax1, format="%.4f")
-
-        axes[0].set_title('Mean Ensemble Predictions')
-        axes[1].set_title('Std Ensemble Predictions')
-
-        # plot initial and goal (from BALD) poses as well as BALD's sampled poses
-        best_state = states[best_i]
-        if goal_from_state:
-            vof, vef, va = best_state
-        else:
-            va = best_state
-        max_score = max(bald_scores)
-        normalized_scores = [score/max_score for score in bald_scores]
-        for ax in axes[:2]:# show a block at initial pos
-            self.plot_block(ax, self.init_pos_yellow, color='m', linestyle='-')
-
-            # visualize goal that was selected by BALD
-            self.plot_block(ax, va[:2], color='m', linestyle='--')
-
-            # visualize all BALD scores
-            for n_score, state in zip(normalized_scores, states):
-                if goal_from_state:
-                    vof, vef, va = state
-                    plot_vec = va[:2]
+                    vof_j, vef_j, va_j = self.get_model_inputs(tool_approach_j, goal_pose_j)
+                    dist = np.linalg.norm(np.subtract(vef_j,ef))
+                    if dist < 0.01:
+                        #print(dist)
+                        color = 'r' if y == 0 else 'g'
+                        self.plot_block(ax[0], goal_pos_xy, color)
+                        self.plot_block(ax[1], goal_pos_xy, color)
                 else:
-                    plot_vec = state[:2]
-                ax.plot(*plot_vec[:2], 'cx')#, color=str(n_score))
-                print(plot_vec[:2], n_score)
+                    goal_pos_xy = x[:2]
+                    color = 'r' if y == 0 else 'g'
+                    self.plot_block(ax[0], goal_pos_xy, color)
+                    self.plot_block(ax[1], goal_pos_xy, color)
 
-        # plot all previously executed goal poses colored by action success
-        if goal_from_state:
-            dataset = logger.load_dataset('trans')
-        else:
-            dataset = logger.load_dataset('goal')
-        for x, y in dataset:
-            if goal_from_state:
-                of, ef, af = x
-                goal_pos_xy = af[:2]
-            else:
-                goal_pos_xy = x[:2]
-            color = 'r' if y == 0 else 'g'
-            self.plot_block(axes[0], goal_pos_xy, color)
-            self.plot_block(axes[1], goal_pos_xy, color)
+            # show tool pose relative to block in final axis
+            tool_base_pos, tool_base_orn = cont.rel_pose
+            angle = pb_robot.geometry.quat_angle_between(tool_base_orn, [0., 0., 0., 1.])
+            tool_2d_pose = (*np.add(self.init_pos_yellow, tool_base_pos[:2]), angle)
+            self.plot_block(ax[2], self.init_pos_yellow, color='k')
+            self.plot_tool(ax[2], tool_2d_pose, 'k')
+            ax[2].set_aspect('equal')
+            ax[2].set_xlim([self.min_x, self.max_x])
+            ax[2].set_ylim([self.min_y, self.max_y])
 
-        # show tool pose relative to block in final axis
-        tool_base_pos, tool_base_orn = cont.rel_pose
-        angle = pb_robot.geometry.quat_angle_between(tool_base_orn, [0., 0., 0., 1.])
-        tool_2d_pose = (*np.add(self.init_pos_yellow, tool_base_pos[:2]), angle)
-        self.plot_block(axes[2], self.init_pos_yellow, color='k')
-        self.plot_tool(axes[2], tool_2d_pose, 'k')
-        axes[2].set_aspect('equal')
-        axes[2].set_xlim([self.min_x, self.max_x])
-        axes[2].set_ylim([self.min_y, self.max_y])
-
-        ts = time.strftime('%Y%m%d-%H%M%S')
-        logger.save_figure('bald_scores_%s.svg' % ts, dir='bald_scores')
-        plt.close()
+            logger.save_figure('bald_scores_%s_%i.svg' % (ts, ci), dir='bald_scores')
+            plt.close()
 
 
     def plot_block(self, ax, pos, color, linestyle='-'):

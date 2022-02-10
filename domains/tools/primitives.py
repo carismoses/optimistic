@@ -14,7 +14,7 @@ DEBUG_FAILURE = False
 
 
 def get_contact_gen(robot):
-    def gen(obj1, obj2):
+    def gen(obj1, obj2, shuffle=True):
         # for now this only handles the case where obj1 is a tool and obj2 is a block
         block_dim = obj2.get_dimensions()[0] # block is a cuboid
         half_b = block_dim/2
@@ -35,7 +35,8 @@ def get_contact_gen(robot):
             rel_pose = ((*rel_point_xy, rel_z), (0., 0., 0., 1.))
             contact = Contact(obj1, obj2, rel_pose)
             contacts.append((contact,))
-        random.shuffle(contacts)
+        if shuffle:
+            random.shuffle(contacts)
         return contacts
     return gen
 
