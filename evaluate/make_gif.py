@@ -1,54 +1,36 @@
+import re
 import imageio
 import os
+from svglib.svglib import svg2rlg
+from reportlab.graphics import renderPM
 
-def make_gif(dir, files_path):
-    images = []
-    i = 0
-    while True:
-        filename = 'logs/experiments/%s/figures/goals/successes_%i.png' % (files_path, i)
-        try:
-            image = imageio.imread(filename)
-        except:
-            break
-        images.append(image)
-        i += 1
-    gif_path = 'gifs/%s' % dir
+def make_gif(fig_dir, files_path, file_match_str, svg=True):
+    #import pdb; pdb.set_trace()
+    images = {0: [], 1: [], 2: [], 3:[]}
+    images_path = os.path.join(files_path, 'figures', fig_dir)
+    image_file_names = os.listdir(images_path)
+
+    # iterate through adding to appropriate list
+    for image_file_name in sorted(image_file_names):
+        png_file_name = image_file_name[:-3] + '.jpg'
+        matches = re.match(match_str, image_file_name)
+        if matches:
+            contact_i = int(matches.group(3))
+            if svg:
+                drawing = svg2rlg(os.path.join(images_path, image_file_name))
+                renderPM.drawToFile(drawing, os.path.join(images_path, png_file_name), fmt="PNG")
+                image = imageio.imread(os.path.join(images_path, png_file_name))
+            else:
+                image = imageio.imread(os.path.join(images_path, image_file_name))
+            images[contact_i].append(image)
+
+    gif_path = os.path.join(files_path, 'figures', 'gifs')
     os.makedirs(gif_path, exist_ok=True)
-    imageio.mimsave('%s/%s.gif' % (gif_path, files_path), images, duration=1)
-    print(files_path)
+    for cont_i, images in images.items():
+        imageio.mimsave(os.path.join(gif_path, 'cont_%i.gif'%cont_i), images, duration=1)
 
-dataset_paths = {#'random-actions':
-                 #   ['random_actions-20220104-201317',
-                 #   'random_actions-20220104-202422',
-                 #   'random_actions-20220104-202440',
-                 #   'random_actions-20220104-202447',
-                 #   'random_actions-20220104-202453'],
-                'random-goals-opt':
-                    ['random_goals_opt-20220104-204547',
-                    'random_goals_opt-20220104-203849',
-                    'random_goals_opt-20220104-204627',
-                    'random_goals_opt-20220104-204532',
-                    'random_goals_opt-20220104-204536'],
-                'sequential-goals':
-                    ['sequential_goals-20220105-143004',
-		    #'sequential_goals-20220105-143605',
-		    'sequential_goals-20220105-143711',
-	            'sequential_goals-20220105-145239',
-                    'sequential_goals-20220105-145344'],
-		'engineered-goals-dist':
-		    ['engineered_goals_dist-20220112-162941',
-		    'engineered_goals_dist-20220112-162947',
-		    'engineered_goals_dist-20220112-162956',
-		    'engineered_goals_dist-20220112-163004',
-		    'engineered_goals_dist-20220112-163058'],
-		'engineered-goals-size':
-		    ['engineered_goals_size-20220112-172108',
-		    'engineered_goals_size-20220112-172115',
-		    'engineered_goals_size-20220112-172119',
-		    'engineered_goals_size-20220112-172125',
- 		    'engineered_goals_size-20220112-172129']
-		}
-
-for method, method_paths in dataset_paths.items():
-    for path in method_paths:
-        make_gif(method, path)
+exp_path = 'logs/experiments/sequential-goals-20220208-025351'
+            #'logs/experiments/sequential-goals-20220208-025356'
+fig_dir = 'bald_score'
+match_str = r'bald_scores_(.*)-(.*)_(.*).svg'
+make_gif(fig_dir, exp_path, match_str)
