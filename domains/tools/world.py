@@ -777,7 +777,9 @@ class ToolsWorld:
                 dataset = logger.load_dataset('trans', i=dataset_i)
             else:
                 dataset = logger.load_dataset('goal')
-            for x, y in dataset:
+
+            ld = len(dataset)
+            for di, (x, y) in enumerate(dataset):
                 if goal_from_state:
                     of, ef, af = x
                     goal_pos_xy = af[:2]
@@ -794,6 +796,8 @@ class ToolsWorld:
                     if dist < 0.01:
                         #print(dist)
                         color = 'r' if y == 0 else 'g'
+                        if di == ld-1:
+                            color = 'c'
                         self.plot_block(ax[0], goal_pos_xy, color)
                         self.plot_block(ax[1], goal_pos_xy, color)
                 else:

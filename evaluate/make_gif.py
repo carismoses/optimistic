@@ -27,10 +27,10 @@ def make_gif(fig_dir, files_path, file_match_str, svg=True):
     gif_path = os.path.join(files_path, 'figures', 'gifs')
     os.makedirs(gif_path, exist_ok=True)
     for cont_i, images in images.items():
-        imageio.mimsave(os.path.join(gif_path, 'cont_%i.gif'%cont_i), images, duration=1)
+        imageio.mimsave(os.path.join(gif_path, 'cont_%i.gif'%cont_i), images, duration=.3)
 
 exp_path = 'logs/experiments/sequential-goals-20220208-025351'
             #'logs/experiments/sequential-goals-20220208-025356'
-fig_dir = 'bald_score'
-match_str = r'bald_scores_(.*)-(.*)_(.*).svg'
+fig_dir = 'accuracy'
+match_str = r'acc_(.*)-(.*)_(.*).svg'
 make_gif(fig_dir, exp_path, match_str)
