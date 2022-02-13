@@ -1,4 +1,6 @@
+import time
 import argparse
+import matplotlib.pyplot as plt
 
 from experiments.utils import ExperimentLogger
 from domains.utils import init_world
@@ -24,13 +26,13 @@ if __name__ == '__main__':
                         None)
 
     logger = ExperimentLogger(args.exp_path)
+    dir = 'accuracy'
     for model, mi in logger.get_model_iterator('trans'):
         print(mi)
-        world.visualize_bald(None,
-                            None,
-                            model,
-                            None,
-                            logger,
-                            goal_from_state=True,
-                            plot_bald_scores=False,
-                            dataset_i=mi)
+        ts = time.strftime('%Y%m%d-%H%M%S')
+        axes = world.vis_model_accuracy(model, goal_from_state=True)
+        world.vis_dataset(logger, axes=axes, dataset_i=mi, goal_from_state=True)
+        for ci in axes:
+            fname = 'acc_%s_%i.svg' % (ts, ci)
+            logger.save_figure(fname, dir=dir)
+            plt.close()

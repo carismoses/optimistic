@@ -5,6 +5,7 @@ import numpy as np
 import dill as pickle
 import argparse
 import subprocess
+import matplotlib.pyplot as plt
 
 from pddlstream.utils import INF
 from pddlstream.algorithms.focused import solve_focused
@@ -230,7 +231,11 @@ def sequential(world, mode, n_seq_plans):
                 best_plan_info = plan_with_states, problem, init_expanded
                 best_bald_score = bald_score
             i += 1
-    #world.visualize_bald(bald_scores, states, model, best_i, world.logger)
+    #axes = world.vis_model_accuracy(model, goal_from_state=True)
+    #world.vis_bald(bald_scores, states, best_i, axes, goal_from_state=True)
+    #world.vis_dataset(world.logger, axes, goal_from_state=True)
+    #world.logger.save_figure('test.svg', 'bald_scores')
+    #plt.close()
     return [pa for ps, pa in best_plan_info[0]], best_plan_info[1], best_plan_info[2]
 
 
