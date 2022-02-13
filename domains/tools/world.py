@@ -244,7 +244,7 @@ class ToolsWorld:
                 self.goal_radius = new_goal_radius
 
 
-    def generate_goal(self, goal_type='random', feasible=False, ret_goal_feas=False, show_goal=False):
+    def generate_goal(self, feasible=False, ret_goal_feas=False, show_goal=False):
         init_state = self.get_init_state()
 
         # select a random block
@@ -535,6 +535,11 @@ class ToolsWorld:
                     if pred[0] == 'atconf':
                         ee_pose = self.panda.planning_robot.arm.ComputeFK(pred[1].configuration)
                         return pb_robot.geometry.pose_from_tform(ee_pose@np.linalg.inv(grasp_objF))
+
+
+    def goal_to_vec(self, goal):
+        goal_orn = pb_robot.geometry.quat_angle_between(goal[2].pose[1], [0., 0., 0., 1.])
+        return np.array([*goal[2].pose[0][:2], goal_orn])
 
 
     def state_to_vec(self, state):

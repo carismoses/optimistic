@@ -1,4 +1,4 @@
-from learning.utils import ExperimentLogger
+from experiments.utils import ExperimentLogger
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -33,8 +33,8 @@ for pi, (progress, dataset_paths) in enumerate(all_dataset_paths.items()):
                 n_actions.append(dii)
         all_succ.append(succ)
 
-    if not len(set([len(s_list) for s_list in all_succ])) == 1:
-        assert 'all datasets for progress %s do not contain the same amount of actions/models' % progress
+    condition = len(set([len(s_list) for s_list in all_succ])) == 1
+    assert condition, 'all datasets for progress %s do not contain the same amount of actions/models' % progress
     all_succ = np.array(all_succ)
     avg_s = np.mean(all_succ, axis=0)
     std_s = np.std(all_succ, axis=0)

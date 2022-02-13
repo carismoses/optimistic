@@ -1,17 +1,6 @@
 import torch
 from torch import nn
-
-
-def make_layers(n_input, n_output, n_hidden, n_layers):
-    if n_layers == 1:
-        modules = [nn.Linear(n_input, n_output)]
-    else:
-        modules = [nn.Linear(n_input, n_hidden)]
-        n_units = (n_layers-1)*[n_hidden] + [n_output]
-        for n_in, n_out in zip(n_units[:-1], n_units[1:]):
-            modules.append(nn.ReLU())
-            modules.append(nn.Linear(n_in, n_out))
-    return nn.Sequential(*modules)
+from learning.utils import make_layers
 
 
 class GNN(nn.Module):

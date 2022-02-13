@@ -3,7 +3,7 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader
 
 from learning.datasets import TransDataset
-from learning.utils import ExperimentLogger
+from experiments.utils import ExperimentLogger
 from learning.models.gnn import TransitionGNN
 from learning.models.ensemble import Ensemble
 from learning.train import train
@@ -105,8 +105,7 @@ if __name__ == '__main__':
     parser.add_argument('--data-collection-mode',
                         type=str,
                         choices=['random-actions', 'random-goals-opt', 'random-goals-learned', \
-                                'sequential-plans', 'sequential-goals', 'engineered-goals-dist', \
-                                'engineered-goals-size'],
+                                'sequential-plans', 'sequential-goals'],
                         help='method of data collection')
     parser.add_argument('--train-freq',
                         type=int,
@@ -146,16 +145,13 @@ if __name__ == '__main__':
         import pdb; pdb.set_trace()
 
     if args.restart:
-        if not args.exp_path:
-            assert 'Must set the --exp-path to restart experiment'
+        assert args.exp_path, 'Must set the --exp-path to restart experiment'
         logger = ExperimentLogger(args.exp_path)
         n_actions = logger.get_action_count()
         args = logger.args
     else:
-        if not args.exp_name:
-            assert 'Must set the --exp-name to start a new experiments'
-        if not args.data_collection_mode:
-            assert 'Must set the --data-collection-mode when starting a new experiment'
+        assert args.exp_name, 'Must set the --exp-name to start a new experiments'
+        assert args.data_collection_mode, 'Must set the --data-collection-mode when starting a new experiment'
         logger = ExperimentLogger.setup_experiment_directory(args, 'experiments')
         n_actions = 0
 

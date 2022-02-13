@@ -1,7 +1,7 @@
 import argparse
 
 from learning.datasets import TransDataset
-from learning.utils import ExperimentLogger, add_trajectory_to_dataset
+from experiments.utils import ExperimentLogger, add_trajectory_to_dataset
 from tamp.utils import execute_plan
 from domains.utils import init_world
 from experiments.strategies import collect_trajectory_wrapper
@@ -142,8 +142,7 @@ if __name__ == '__main__':
         import pdb; pdb.set_trace()
 
     if args.restart:
-        if not args.exp_path:
-            assert 'Must set the --exp-path to restart experiment'
+        assert args.exp_path, 'Must set the --exp-path to restart experiment'
         dataset_logger = ExperimentLogger(args.exp_path)
         n_actions = dataset_logger.get_action_count()
         dataset_args = dataset_logger.args

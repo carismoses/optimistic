@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 
-from learning.utils import ExperimentLogger
+from experiments.utils import ExperimentLogger
 from experiments.strategies import bald
 from learning.utils import model_forward
 from domains.utils import init_world

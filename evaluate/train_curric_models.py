@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import argparse
 
-from learning.utils import ExperimentLogger
+from experiments.utils import ExperimentLogger
 
 
 dataset_paths = ['logs/experiments/test_dataset_progress0p0-20220127-194636',

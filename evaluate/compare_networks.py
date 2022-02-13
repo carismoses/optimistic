@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 
 from learning.train import train
 from learning.models.gnn import TransitionGNN
-from learning.utils import ExperimentLogger
+from experiments.utils import ExperimentLogger
 from learning.datasets import model_forward
 from domains.tools.world import ToolsWorld
 

@@ -3,11 +3,10 @@ from torch.utils.data import DataLoader
 from argparse import Namespace
 
 from learning.datasets import TransDataset
-from learning.utils import ExperimentLogger
+from experiments.utils import ExperimentLogger
 from learning.models.gnn import TransitionGNN
 from learning.train import train
 from domains.tools.world import ToolsWorld
-from learning.utils import ExperimentLogger
 
 
 batch_size = 16

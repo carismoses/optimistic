@@ -8,7 +8,7 @@ from pprint import pformat
 import matplotlib.pyplot as plt
 
 from learning.datasets import TransDataset
-from learning.utils import ExperimentLogger, add_trajectory_to_dataset
+from experiments.utils import ExperimentLogger, add_trajectory_to_dataset
 from learning.models.gnn import TransitionGNN
 from learning.models.ensemble import Ensemble, OptimisticEnsemble
 from learning.train import train

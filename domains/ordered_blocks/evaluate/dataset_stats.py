@@ -2,7 +2,7 @@ import argparse
 import matplotlib.pyplot as plt
 import numpy as np
 
-from learning.utils import ExperimentLogger
+from experiments.utils import ExperimentLogger
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

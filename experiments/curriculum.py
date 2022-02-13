@@ -11,7 +11,7 @@ import pickle
 import subprocess
 
 from learning.datasets import TransDataset
-from learning.utils import ExperimentLogger, add_trajectory_to_dataset
+from experiments.utils import ExperimentLogger, add_trajectory_to_dataset
 from learning.models.gnn import TransitionGNN
 from learning.models.ensemble import Ensemble, OptimisticEnsemble
 from learning.train import train
@@ -169,20 +169,17 @@ if __name__ == '__main__':
         import pdb; pdb.set_trace()
 
     if args.restart:
-        if not args.exp_path:
-            assert 'Must set the --exp-path to restart experiment'
+        assert args.exp_path, 'Must set the --exp-path to restart experiment'
         logger = ExperimentLogger(args.exp_path)
         n_actions = logger.get_action_count()
         args = logger.args
     else:
-        if not args.exp_name:
-            assert 'Must set the --exp-name to start a new experiment'
-        if not args.data_collection_mode:
-            assert 'Must set the --data-collection-mode when starting a new experiment'
-        if args.train_freq <= args.actions_per_curric:
-            assert 'Train frequency must be <= actions per curriculum'
-        if not args.actions_per_curric % args.train_freq:
-            assert 'train freq must be a divisor of actions per curric'
+        assert args.exp_name, 'Must set the --exp-name to start a new experiment'
+        assert args.data_collection_mode, 'Must set the --data-collection-mode when starting a new experiment'
+        condition = args.train_freq > args.actions_per_curric
+        assert condition, 'Train frequency must be <= actions per curriculum'
+        condition = args.actions_per_curric % args.train_freq
+        assert condition, 'train freq must be a divisor of actions per curric'
         logger = ExperimentLogger.setup_experiment_directory(args, 'experiments')
         n_actions = 0
 

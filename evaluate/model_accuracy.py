@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from learning.utils import model_forward
-from learning.utils import ExperimentLogger
+from experiments.utils import ExperimentLogger
 from domains.tools.world import ToolsWorld
 from domains.utils import init_world
 
@@ -68,8 +68,8 @@ if __name__ == '__main__':
                 n_actions.append(mii)
             all_accuracies.append(accuracies)
 
-        if not len(set([len(acc_list) for acc_list in all_accuracies])) == 1:
-            assert 'all models for method %s do not contain the same amount of actions/models' % method
+        condition = len(set([len(acc_list) for acc_list in all_accuracies])) == 1
+        assert condition, 'all models for method %s do not contain the same amount of actions/models' % method
         all_accuracies = np.array(all_accuracies)
         avg_accs = np.mean(all_accuracies, axis=0)
         std_accs = np.std(all_accuracies, axis=0)

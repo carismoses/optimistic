@@ -1,4 +1,4 @@
-from learning.utils import ExperimentLogger
+from experiments.utils import ExperimentLogger
 from domains.utils import init_world
 
 exp_paths = ['logs/experiments/sequential_goals-20220120-030537',

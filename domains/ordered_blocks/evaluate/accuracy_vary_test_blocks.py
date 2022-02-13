@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from domains.ordered_blocks.world import OrderedBlocksWorld
-from learning.utils import ExperimentLogger
+from experiments.utils import ExperimentLogger
 from learning.utils import model_forward
 from evaluate.utils import recc_dict, plot_results
 
