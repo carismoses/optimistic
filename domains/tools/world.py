@@ -642,19 +642,18 @@ class ToolsWorld:
 
         for xi, xv in enumerate(xs):
             for yi, yv in enumerate(ys):
-                print(xi, yi)
                 values[yi][xi] = value_fn(self, cont, xv, yv)
 
-            # show a block at initial pos
-            self.plot_block(ax, self.init_pos_yellow, color='m', linestyle='-')
+        # show a block at initial pos
+        self.plot_block(ax, self.init_pos_yellow, color='m', linestyle='-')
 
-            # plot predictions w/ colorbars
-            extent = (*x_extent, *y_extent)
+        # plot predictions w/ colorbars
+        extent = (*x_extent, *y_extent)
 
-            im0 = ax.imshow(values, origin='lower', cmap='binary', extent=extent, vmin=vmin, vmax=vmax, aspect='equal')
-            divider0 = make_axes_locatable(ax)
-            cax0 = divider0.append_axes("right", size="10%", pad=0.5)
-            cbar0 = plt.colorbar(im0, cax=cax0, format="%.2f")
+        im0 = ax.imshow(values, origin='lower', cmap='binary', extent=extent, vmin=vmin, vmax=vmax, aspect='equal')
+        divider0 = make_axes_locatable(ax)
+        cax0 = divider0.append_axes("right", size="10%", pad=0.5)
+        cbar0 = plt.colorbar(im0, cax=cax0, format="%.2f")
 
 
     # for now can only run this after vis_model_accuracy since it sets up the axes
@@ -696,36 +695,28 @@ class ToolsWorld:
 
     # for now can only run this after vis_model_accuracy since it sets up the axes
     # each axis in axes is a 3 part subplot for a single contact
-    def vis_dataset(self, logger, axes, dataset_i=None):
-        contacts_fn = get_contact_gen(self.panda.planning_robot)
-        contacts = contacts_fn(self.objects['tool'], self.objects['yellow_block'], shuffle=False)
-
+    def vis_dataset(self, cont, logger, ax, dataset_i=None):
         init_state = self.get_init_state()
         init_pose = self.get_obj_pose_from_state(self.objects['yellow_block'], init_state)
+        dataset = logger.load_trans_dataset(i=dataset_i)
 
-        for ci, contact in enumerate(contacts):
-            ax = axes[ci]
-            cont = contact[0]
-
-            # plot all previously executed goal poses colored by action success
-            dataset = logger.load_trans_dataset(i=dataset_i)
-            for x, y in dataset:
-                of, ef, af = x
-                goal_pos_xy = af[:2]
-                # see if this contact was used when executing the sample
-                pose_j = ((*goal_pos_xy, init_pose[0][2]), init_pose[1])
-                goal_pose_j = pb_robot.vobj.BodyPose(self.objects['yellow_block'], pose_j)
-                tool_approach_j = contact_approach_fn(self.objects['tool'],
-                                                        self.objects['yellow_block'],
-                                                        self.obj_init_poses['yellow_block'],
-                                                        goal_pose_j,
-                                                        cont)
-                vof_j, vef_j, va_j = self.get_model_inputs(tool_approach_j, goal_pose_j)
-                dist = np.linalg.norm(np.subtract(vef_j,ef))
-                if dist < 0.01:
-                    color = 'r' if y == 0 else 'g'
-                    self.plot_block(ax[0], goal_pos_xy, color)
-                    self.plot_block(ax[1], goal_pos_xy, color)
+        # plot all previously executed goal poses colored by action success
+        for x, y in dataset:
+            of, ef, af = x
+            goal_pos_xy = af[:2]
+            # see if this contact was used when executing the sample
+            pose_j = ((*goal_pos_xy, init_pose[0][2]), init_pose[1])
+            goal_pose_j = pb_robot.vobj.BodyPose(self.objects['yellow_block'], pose_j)
+            tool_approach_j = contact_approach_fn(self.objects['tool'],
+                                                    self.objects['yellow_block'],
+                                                    self.obj_init_poses['yellow_block'],
+                                                    goal_pose_j,
+                                                    cont)
+            vof_j, vef_j, va_j = self.get_model_inputs(tool_approach_j, goal_pose_j)
+            dist = np.linalg.norm(np.subtract(vef_j, ef))
+            if dist < 0.01:
+                color = 'r' if y == 0 else 'g'
+                self.plot_block(ax, goal_pos_xy, color)
 
 
     def plot_block(self, ax, pos, color, linestyle='-'):
