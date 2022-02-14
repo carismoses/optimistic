@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 
 from experiments.utils import ExperimentLogger
 from domains.utils import init_world
+from evaluate.plot_value_fns import get_model_accuracy_fn
+from domains.tools.primitives import get_contact_gen
 
 
 if __name__ == '__main__':
@@ -27,11 +29,35 @@ if __name__ == '__main__':
 
     logger = ExperimentLogger(args.exp_path)
     dir = 'accuracy'
-    for model, mi in logger.get_model_iterator('trans'):
+
+    # plot functions
+    for model, mi in logger.get_model_iterator():
         print(mi)
         ts = time.strftime('%Y%m%d-%H%M%S')
-        axes = world.vis_model_accuracy(model, goal_from_state=True)
-        world.vis_dataset(logger, axes=axes, dataset_i=mi, goal_from_state=True)
+
+        # make a plot for each contact type (subplot for mean, std, and tool vis)
+        contacts_fn = get_contact_gen(world.panda.planning_robot)
+        contacts = contacts_fn(world.objects['tool'], world.objects['yellow_block'], shuffle=False)
+
+        mean_fn = get_model_accuracy_fn(model, 'mean')
+        std_fn = get_model_accuracy_fn(model, 'std')
+
+        all_axes = {}
+        for ci, contact in enumerate(contacts):
+            cont = contact[0]
+            fig, axes = plt.subplots(3, figsize=(8,15))
+            world.vis_dense_plot(cont, axes[0], [world.min_x, world.max_x], \
+                            [world.min_y, world.max_y], 0, 1, value_fn=mean_fn)
+            world.vis_dense_plot(cont, axes[1], [world.min_x, world.max_x], \
+                            [world.min_y, world.max_y], 0, 1, value_fn=std_fn)
+            world.vis_tool_ax(cont, axes[2])
+
+            axes[0].set_title('Mean Ensemble Predictions')
+            axes[1].set_title('Std Ensemble Predictions')
+
+            all_axes[ci] = axes
+
+        world.vis_dataset(logger, axes, dataset_i=mi)
         for ci in axes:
             fname = 'acc_%s_%i.svg' % (ts, ci)
             logger.save_figure(fname, dir=dir)

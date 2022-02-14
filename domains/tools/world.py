@@ -611,96 +611,50 @@ class ToolsWorld:
     '''
     PLOTTING FUNCTIONS
     '''
-    def vis_model_accuracy(self, model, axes=None):
-        def make_array(minv, maxv, step):
-            if minv > maxv:
-                ar = np.flip(np.arange(maxv, minv+step, step))
-                extent = minv+step/2, maxv-step/2
-                return ar, extent
-            else:
-                ar = np.arange(minv, maxv+step, step)
-                extent = minv-step/2, maxv+step/2
-                return ar, extent
+    def make_array(self, minv, maxv, step):
+        if minv > maxv:
+            ar = np.flip(np.arange(maxv, minv+step, step))
+            extent = minv+step/2, maxv-step/2
+            return ar, extent
+        else:
+            ar = np.arange(minv, maxv+step, step)
+            extent = minv-step/2, maxv+step/2
+            return ar, extent
 
+
+    def vis_tool_ax(self, cont, ax):
+        # show tool pose relative to block in final axis
+        tool_base_pos, tool_base_orn = cont.rel_pose
+        angle = pb_robot.geometry.quat_angle_between(tool_base_orn, [0., 0., 0., 1.])
+        tool_2d_pose = (*np.add(self.init_pos_yellow, tool_base_pos[:2]), angle)
+        self.plot_block(ax, self.init_pos_yellow, color='k')
+        self.plot_tool(ax, tool_2d_pose, 'k')
+        ax.set_aspect('equal')
+        ax.set_xlim([self.min_x, self.max_x])
+        ax.set_ylim([self.min_y, self.max_y])
+
+
+    def vis_dense_plot(self, cont, ax, x_range, y_range, vmin, vmax, value_fn=None, cell_width=0.05):
         # make 2d arrays of mean and std ensemble predictions
-        cell_width = 0.05
-        xs, x_extent = make_array(self.min_x, self.max_x, cell_width)
-        ys, y_extent = make_array(self.min_y, self.max_y, cell_width)
-        mean_preds = np.zeros((len(ys), len(xs)))
-        std_preds = np.zeros((len(ys), len(xs)))
+        xs, x_extent = self.make_array(*x_range, cell_width)
+        ys, y_extent = self.make_array(*y_range, cell_width)
+        values = np.zeros((len(ys), len(xs)))
 
-        contacts_fn = get_contact_gen(self.panda.planning_robot)
-        contacts = contacts_fn(self.objects['tool'], self.objects['yellow_block'], shuffle=False)
-        #cont = contacts[0][0]   # NOTE: this was when I was debugging and there was only 1 possible contact
+        for xi, xv in enumerate(xs):
+            for yi, yv in enumerate(ys):
+                print(xi, yi)
+                values[yi][xi] = value_fn(self, cont, xv, yv)
 
-        if not axes:
-            axes = {}
-
-        for ci, contact in enumerate(contacts):
-            if ci in axes:
-                ax = axes[ci]
-            else:
-                fig, ax = plt.subplots(3, figsize=(8,15))
-                axes[ci] = ax
-
-            cont = contact[0]
-            init_state = self.get_init_state()
-            init_pose = self.get_obj_pose_from_state(self.objects['yellow_block'], init_state)
-
-            for xi, xv in enumerate(xs):
-                for yi, yv in enumerate(ys):
-                    pose = ((xv, yv, init_pose[0][2]), init_pose[1])
-                    goal_pose = pb_robot.vobj.BodyPose(self.objects['yellow_block'], pose)
-
-                    # NOTE this will generate approach configurations that might
-                    # not actually be able to follow a push path (due to kinematic constraints)
-                    tool_approach = contact_approach_fn(self.objects['tool'],
-                                                            self.objects['yellow_block'],
-                                                            self.obj_init_poses['yellow_block'],
-                                                            goal_pose,
-                                                            cont)
-                    vof, vef, va = self.get_model_inputs(tool_approach, goal_pose)
-
-                    # calc mean pred
-                    mean_pred = model_forward(model, [vof, vef, va], single_batch=True).mean().squeeze()
-
-                    # calc std pred
-                    std_pred =  model_forward(model, [vof, vef, va], single_batch=True).std().squeeze()
-
-                    mean_preds[yi][xi] = mean_pred
-                    std_preds[yi][xi] = std_pred
+            # show a block at initial pos
+            self.plot_block(ax, self.init_pos_yellow, color='m', linestyle='-')
 
             # plot predictions w/ colorbars
             extent = (*x_extent, *y_extent)
 
-            im0 = ax[0].imshow(mean_preds, origin='lower', cmap='binary', extent=extent, vmin=0, vmax=1, aspect='equal')
-            divider0 = make_axes_locatable(ax[0])
+            im0 = ax.imshow(values, origin='lower', cmap='binary', extent=extent, vmin=vmin, vmax=vmax, aspect='equal')
+            divider0 = make_axes_locatable(ax)
             cax0 = divider0.append_axes("right", size="10%", pad=0.5)
             cbar0 = plt.colorbar(im0, cax=cax0, format="%.2f")
-            #print(std_preds)
-            im1 = ax[1].imshow(std_preds, origin='lower', cmap='binary', extent=extent, aspect='equal')#), vmin=0, vmax=1)
-            divider1 = make_axes_locatable(ax[1])
-            cax1 = divider1.append_axes("right", size="10%", pad=0.5)
-            cbar1 = plt.colorbar(im1, cax=cax1, format="%.4f")
-
-            ax[0].set_title('Mean Ensemble Predictions')
-            ax[1].set_title('Std Ensemble Predictions')
-
-            # show a block at initial pos
-            for ax_k in ax[:2]:
-                self.plot_block(ax_k, self.init_pos_yellow, color='m', linestyle='-')
-
-            # show tool pose relative to block in final axis
-            tool_base_pos, tool_base_orn = cont.rel_pose
-            angle = pb_robot.geometry.quat_angle_between(tool_base_orn, [0., 0., 0., 1.])
-            tool_2d_pose = (*np.add(self.init_pos_yellow, tool_base_pos[:2]), angle)
-            self.plot_block(ax[2], self.init_pos_yellow, color='k')
-            self.plot_tool(ax[2], tool_2d_pose, 'k')
-            ax[2].set_aspect('equal')
-            ax[2].set_xlim([self.min_x, self.max_x])
-            ax[2].set_ylim([self.min_y, self.max_y])
-
-        return axes
 
 
     # for now can only run this after vis_model_accuracy since it sets up the axes
@@ -741,23 +695,16 @@ class ToolsWorld:
 
 
     # for now can only run this after vis_model_accuracy since it sets up the axes
-    def vis_dataset(self, logger, axes=None, dataset_i=None):
+    # each axis in axes is a 3 part subplot for a single contact
+    def vis_dataset(self, logger, axes, dataset_i=None):
         contacts_fn = get_contact_gen(self.panda.planning_robot)
         contacts = contacts_fn(self.objects['tool'], self.objects['yellow_block'], shuffle=False)
-        #cont = contacts[0][0]   # NOTE: this was when I was debugging and there was only 1 possible contact
 
         init_state = self.get_init_state()
         init_pose = self.get_obj_pose_from_state(self.objects['yellow_block'], init_state)
 
-        if not axes:
-            axes = {}
-
         for ci, contact in enumerate(contacts):
-            if ci in axes:
-                ax = axes[ci]
-            else:
-                fig, ax = plt.subplots(3, figsize=(8,15))
-                axes[ci] = ax
+            ax = axes[ci]
             cont = contact[0]
 
             # plot all previously executed goal poses colored by action success
@@ -776,12 +723,9 @@ class ToolsWorld:
                 vof_j, vef_j, va_j = self.get_model_inputs(tool_approach_j, goal_pose_j)
                 dist = np.linalg.norm(np.subtract(vef_j,ef))
                 if dist < 0.01:
-                    #print(dist)
                     color = 'r' if y == 0 else 'g'
                     self.plot_block(ax[0], goal_pos_xy, color)
                     self.plot_block(ax[1], goal_pos_xy, color)
-
-        return axes
 
 
     def plot_block(self, ax, pos, color, linestyle='-'):
