@@ -6,6 +6,7 @@ import dill as pickle
 import argparse
 import subprocess
 import matplotlib.pyplot as plt
+from sklearn.neighbors import NearestNeighbors
 
 from pddlstream.utils import INF
 from pddlstream.algorithms.focused import solve_focused
@@ -74,6 +75,8 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_lo
         pddl_plan, problem, init_expanded = sequential(world, 'plans', args.n_seq_plans)
     elif args.data_collection_mode == 'sequential-goals':
         pddl_plan, problem, init_expanded =  sequential(world, 'goals', args.n_seq_plans)
+    elif args.data_collection_mode == 'sequential-goals-dist':
+        pddl_plan, problem, init_expanded = sequential(world, 'goals', args.n_seq_plans, dist=True)
     else:
         raise NotImplementedError('Strategy %s is not implemented' % args.data_collection_mode)
 
@@ -208,7 +211,7 @@ def goals(world, pddl_model_type, goal_type, goal=None, ret_states=False):
     return pddl_plan, problem, init_expanded
 
 
-def sequential(world, mode, n_seq_plans):
+def sequential(world, mode, n_seq_plans, dist=False):
     model = world.logger.load_trans_model()
     best_plan_info = None
     best_bald_score = float('-inf')
@@ -223,7 +226,7 @@ def sequential(world, mode, n_seq_plans):
             plan_with_states, problem, init_expanded = goals(world, 'opt_no_traj', 'random', ret_states=True)
         if plan_with_states:
             n_plans_searched += 1
-            bald_score, state = sequential_bald(plan_with_states, model, world, ret_states=True)
+            bald_score, state = sequential_bald(plan_with_states, model, world, ret_states=True, dist=dist)
             bald_scores.append(bald_score)
             states.append(state)
             if bald_score >= best_bald_score:
@@ -234,7 +237,7 @@ def sequential(world, mode, n_seq_plans):
     return [pa for ps, pa in best_plan_info[0]], best_plan_info[1], best_plan_info[2]
 
 
-def sequential_bald(plan, model, world, ret_states=False):
+def sequential_bald(plan, model, world, ret_states=False, dist=False):
     score = 0
     of, ef, af = None, None, None
     for pddl_state, pddl_action in plan:
@@ -244,10 +247,36 @@ def sequential_bald(plan, model, world, ret_states=False):
             predictions = model_forward(model, [of, ef, af], single_batch=True)
             mean_prediction = predictions.mean()
             score += mean_prediction*bald(predictions)
+            # add a term to weigh the distance from other data
+            # TODO: can speed up computation by doing this once for all sampled plans
+            if dist:
+                score += dist_score([of, ef, af], world)
     if ret_states:
         return score, [of, ef, af]
     else:
         return score
+
+
+def dist_score(model_inputs, world):
+    ## dist parameters ##
+    max_n_n = 5 # max number of nearest neighors to use in calculation
+    Ce = 1.0    # constant used to weigh edge features dist
+    Ca = 1.0    # constant use to weight action feature dist
+    dataset = world.logger.load_trans_dataset()
+    score = 0
+    n_points = len(dataset)
+    if n_points == 0:
+        return score
+    edge_features = dataset[:][0][1][:,0,1,:]   # pose of block relative to tool
+    action_features = dataset[:][0][2]          # 7D goal pose of block
+    edge_inputs = np.expand_dims(model_inputs[1][0,1,:], axis=0)
+    action_inputs = np.expand_dims(model_inputs[2], axis=0)
+    n_n = min(n_points, max_n_n)
+    for C, features, inputs in zip([Ce, Ca], [edge_features, action_features], [edge_inputs, action_inputs]):
+        nbrs = NearestNeighbors(n_neighbors=n_n, algorithm='ball_tree').fit(features)
+        distances, indices = nbrs.kneighbors(inputs)
+        score += C*distances.squeeze().mean()
+    return score
 
 
 def bald(predictions):

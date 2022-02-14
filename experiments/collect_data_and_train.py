@@ -105,7 +105,7 @@ if __name__ == '__main__':
     parser.add_argument('--data-collection-mode',
                         type=str,
                         choices=['random-actions', 'random-goals-opt', 'random-goals-learned', \
-                                'sequential-plans', 'sequential-goals'],
+                                'sequential-plans', 'sequential-goals', 'sequential-goals-dist'],
                         help='method of data collection')
     parser.add_argument('--train-freq',
                         type=int,
