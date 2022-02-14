@@ -42,7 +42,7 @@ def train_class(args, logger, n_actions):
                                                 pddl_model_type,
                                                 logger,
                                                 progress,
-                                                separate_process=True)
+                                                separate_process= not args.single_process)
 
         if not trajectory:
             print('Trajectory collection failed.')
@@ -118,6 +118,9 @@ if __name__ == '__main__':
                         type=int,
                         default=100,
                         help='number of plans used to generate search space for sequential methods')
+    parser.add_argument('--single-process',
+                        action='store_true',
+                        help='set if want to run trajectory collection in the same process')
     # Training args
     parser.add_argument('--batch-size',
                         type=int,
