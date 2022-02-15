@@ -1,7 +1,8 @@
 import argparse
 
 from learning.datasets import TransDataset
-from experiments.utils import ExperimentLogger, add_trajectory_to_dataset
+from experiments.utils import ExperimentLogger
+from learning.utils import add_trajectory_to_dataset
 from tamp.utils import execute_plan
 from domains.utils import init_world
 from experiments.strategies import collect_trajectory_wrapper
@@ -12,41 +13,38 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
         dataset = TransDataset()
         dataset_logger.save_trans_dataset(dataset, i=n_actions)
 
-    while n_actions < args.max_actions:
-        print('|dataset| = %i' % n_actions)
+    while len(dataset) < args.max_dataset_size:
+        print('|dataset| = %i' % len(dataset))
         if model_logger is None:
             pddl_model_type = 'optimistic'
         else:
             pddl_model_type = 'learned'
         trajectory = collect_trajectory_wrapper(args,
-                                                    pddl_model_type,
-                                                    dataset_logger,
-                                                    args.goal_progress,
-                                                    separate_process=True,
-                                                    model_logger=model_logger)
+                                                pddl_model_type,
+                                                dataset_logger,
+                                                args.goal_progress,
+                                                separate_process=not args.single_process,
+                                                model_logger=model_logger,
+                                                save_to_dataset=True)
         n_actions += len(trajectory)
         # if trajectory returned, visualize and add to dataset
         #if trajectory:
         # visualize goal and success
         #world.plot_datapoint(i=n_actions-1, show=args.vis_performance)
 
-        # NOTE: This doesn't work when actions are executed actions as opposed
-        # to actions in the dataset. Commenting out for now until need to
-        # generate new test datasets
-        '''
         if args.balanced:
             # balance dataset by removing added element if makes it unbalanced
-            num_per_class = args.max_actions // 2
-
-            dataset = dataset_logger.load_trans_dataset()
-            n_datapoints = len(dataset)
+            num_per_class = args.max_dataset_size // 2
             num_pos_datapoints = sum([y for x,y in dataset])
-            num_neg_datapoints = n_datapoints - num_pos_datapoints
+            num_neg_datapoints = len(dataset) - num_pos_datapoints
             if num_pos_datapoints > num_per_class or num_neg_datapoints > num_per_class:
-                print('Removing last added dataset.')
-                dataset_logger.remove_dataset(i=n_actions)
-                n_actions -= 1
-        '''
+                print('Removing last trajectory added to dataset.')
+                for _ in range(len(trajectory)):
+                    dataset_logger.remove_dataset(i=n_actions)
+                    n_actions -= 1
+
+        dataset = dataset_logger.load_trans_dataset()
+
         # optionally replay with pyBullet
         '''
         if args.vis_performance:
@@ -86,7 +84,7 @@ if __name__ == '__main__':
     parser.add_argument('--debug',
                         action='store_true',
                         help='use to run in debug mode')
-    parser.add_argument('--max-actions',
+    parser.add_argument('--max-dataset-size',
                         type=int,
                         default=400,
                         help='max number of actions for the robot to attempt')
@@ -130,6 +128,8 @@ if __name__ == '__main__':
                         type=int,
                         default=1,
                         help='number of datasets to generate')
+    parser.add_argument('--single-process',
+                        action='store_true')
     # for now this assumes that you always want to use the most trained model on the path for planning
     # (as opposed to a different i)
     parser.add_argument('--model-paths',
@@ -146,17 +146,19 @@ if __name__ == '__main__':
         dataset_logger = ExperimentLogger(args.exp_path)
         n_actions = dataset_logger.get_action_count()
         dataset_args = dataset_logger.args
-        if args.max_actions > dataset_args.max_actions:
-            print('Adding %i to previous max actions' % (args.max_actions - dataset_args.max_actions))
-            dataset_args.max_actions = args.max_actions
+        if args.max_dataset_size > dataset_args.max_dataset_size:
+            print('Adding %i to previous max dataset size' % (args.max_dataset_size - dataset_args.max_dataset_size))
+            dataset_args.max_dataset_size = args.max_dataset_size
 
         model_logger = ExperimentLogger(dataset_args.data_model_path) \
                             if 'data_model_path' in vars(dataset_args) else None
         gen_dataset(dataset_args, n_actions, dataset_logger, model_logger)
         print('Finished dataset path: %s' % args.exp_path)
     else:
+        assert args.exp_name, 'Must set the --exp-name arg to start new run'
         n_actions = 0
         args.balanced = args.balanced == 'True'
+        args.max_actions = float("inf") # used when adding traj to dataset in strategies
         if args.model_paths:
             if len(args.model_paths) > 1:
                 assert len(args.model_paths) == args.n_datasets, 'If using multiple models to generate datasets \

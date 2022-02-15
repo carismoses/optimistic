@@ -24,8 +24,7 @@ EPS = 1e-5
 
 
 def collect_trajectory_wrapper(args, pddl_model_type, dataset_logger, progress, \
-                            separate_process=False, model_logger=None, save_to_dataset=True, \
-                            goal=None):
+                            separate_process=False, model_logger=None, save_to_dataset=True):
     if separate_process:
         # write solver args to file (remove if one is there)
         tmp_dir = 'temp'
@@ -35,7 +34,7 @@ def collect_trajectory_wrapper(args, pddl_model_type, dataset_logger, progress, 
         if os.path.exists(in_pkl):
             os.remove(in_pkl)
         with open(in_pkl, 'wb') as handle:
-            pickle.dump([args, pddl_model_type, dataset_logger, progress, model_logger, save_to_dataset, goal], handle)
+            pickle.dump([args, pddl_model_type, dataset_logger, progress, model_logger, save_to_dataset], handle)
 
         # call planner with pickle file
         print('Collecting trajectory.')
@@ -49,11 +48,11 @@ def collect_trajectory_wrapper(args, pddl_model_type, dataset_logger, progress, 
     else:
         # call planner
         trajectory = collect_trajectory(args, pddl_model_type, \
-                                    dataset_logger, progress, model_logger, save_to_dataset, goal)
+                                    dataset_logger, progress, model_logger, save_to_dataset)
     return trajectory
 
 
-def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_logger, save_to_dataset, goal):
+def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_logger, save_to_dataset):
     # in sequential method data collection and training happen simultaneously
     if 'sequential' in args.data_collection_mode:
         model_logger = dataset_logger

@@ -42,8 +42,7 @@ if __name__ == '__main__':
                                                         None,
                                                         separate_process=True,
                                                         model_logger=logger,
-                                                        save_to_dataset=False,
-                                                        goal=goal)
+                                                        save_to_dataset=False)
                 trajectories.append(trajectory)
 
             # save trajectory data
