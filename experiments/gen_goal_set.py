@@ -28,8 +28,12 @@ if __name__ == '__main__':
                         False,
                         None)
     goals = []
+    planability = []
     for _ in range(args.n_goals):
         goal = world.generate_goal()
         goals.append(goal)
 
-    logger.save_goals(goals)
+
+    # For calculating plan success do we care about planability?
+    # For now don't save any planability data
+    logger.save_goals(goals, planability)

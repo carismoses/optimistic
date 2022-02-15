@@ -244,7 +244,7 @@ class ToolsWorld:
                 self.goal_radius = new_goal_radius
 
 
-    def generate_goal(self, feasible=False, ret_goal_feas=False, show_goal=False):
+    def generate_goal(self, show_goal=False):
         init_state = self.get_init_state()
 
         # select a random block
@@ -654,6 +654,17 @@ class ToolsWorld:
         divider0 = make_axes_locatable(ax)
         cax0 = divider0.append_axes("right", size="10%", pad=0.5)
         cbar0 = plt.colorbar(im0, cax=cax0, format="%.2f")
+
+
+    def vis_goals(self, ax, goals, planabilities):
+        for goal, planable in zip(goals, planabilities):
+            goal_pos = goal[2].pose[0][:2]
+            color = 'g' if planable else 'r'
+            self.plot_block(ax, goal_pos, color=color)
+
+        ax.set_aspect('equal')
+        ax.set_xlim([self.min_x, self.max_x])
+        ax.set_ylim([self.min_y, self.max_y])
 
 
     # for now can only run this after vis_model_accuracy since it sets up the axes

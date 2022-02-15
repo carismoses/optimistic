@@ -67,9 +67,11 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_lo
     if args.data_collection_mode == 'random-actions':
         pddl_plan, problem, init_expanded = random_plan(world, 'optimistic')
     elif args.data_collection_mode == 'random-goals-opt':
-        pddl_plan, problem, init_expanded = goals(world, 'optimistic', 'random', goal)
+        goal, add_to_state = world.generate_goal()
+        pddl_plan, problem, init_expanded = goals(world, 'optimistic', goal, add_to_state)
     elif args.data_collection_mode in ['random-goals-learned', 'curriculum']:
-        pddl_plan, problem, init_expanded = goals(world, 'learned', 'random')
+        goal, add_to_state = world.generate_goal()
+        pddl_plan, problem, init_expanded = goals(world, 'learned', goal, add_to_state)
     elif args.data_collection_mode == 'sequential-plans':
         pddl_plan, problem, init_expanded = sequential(world, 'plans', args.n_seq_plans)
     elif args.data_collection_mode == 'sequential-goals':
@@ -119,6 +121,15 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_lo
         # add to dataset and save
         add_trajectory_to_dataset(args.domain, dataset_logger, trajectory, world, args.max_actions)
 
+        if 'goals' in args.data_collection_mode:
+            planability = bool(pddl_plan)
+            dataset_logger.add_to_goals(goal, planability)
+            # visualize goals so far
+            #fig, ax = plt.subplots()
+            #all_goals, all_planabilities = dataset_logger.load_goals()
+            #world.vis_goals(ax, all_goals, all_planabilities)
+            #plt.show()
+
     # disconnect from world
     world.disconnect()
     return trajectory
@@ -167,11 +178,7 @@ def random_plan(world, pddl_model_type, ret_states=False):
 
 
 # plans to achieve a random goal under the given (optimistic or learned) model
-def goals(world, pddl_model_type, goal_type, goal=None, ret_states=False):
-    if goal is None:
-        goal, add_to_state = world.generate_goal(goal_type)
-    else:
-        goal, add_to_state = goal
+def goals(world, pddl_model_type, goal, add_to_state, ret_states=False):
     print('Goal: ', goal)
     print('Planning with %s model'%pddl_model_type)
     if world.use_panda:
@@ -220,7 +227,8 @@ def sequential(world, mode, n_seq_plans):
         if mode == 'plans':
             plan_with_states, problem, init_expanded = random_plan(world, 'opt_no_traj', ret_states=True)
         elif mode == 'goals':
-            plan_with_states, problem, init_expanded = goals(world, 'opt_no_traj', 'random', ret_states=True)
+            goal, add_to_state = world.generate_goal()
+            plan_with_states, problem, init_expanded = goals(world, 'opt_no_traj', goal, add_to_state, ret_states=True)
         if plan_with_states:
             n_plans_searched += 1
             bald_score, state = sequential_bald(plan_with_states, model, world, ret_states=True)

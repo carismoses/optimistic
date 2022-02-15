@@ -214,22 +214,29 @@ class ExperimentLogger:
             trajectories = pickle.load(handle)
         return trajectories
 
-    def save_goals(self, goals):
+
+    # goal info (for goal datasets and planability info)
+    def add_to_goals(self, goal, planability):
+        goals, planabilities = self.load_goals()
+        goals.append(goal)
+        planabilities.append(planability)
+        self.save_goals(goals, planabilities)
+
+    def save_goals(self, goals, planabilities):
         path = os.path.join(self.exp_path, 'goals')
         file_name = 'goals.pkl'
-        if not os.path.exists(path):
-            os.makedirs(path)
         with open(os.path.join(path, file_name), 'wb') as handle:
-            pickle.dump(goals, handle)
+            pickle.dump([goals, planabilities], handle)
 
     def load_goals(self):
         path = os.path.join(self.exp_path, 'goals')
         file_name = 'goals.pkl'
-        if not os.path.exists(path):
-            os.makedirs(path)
-        with open(os.path.join(path, file_name), 'rb') as handle:
-            goals = pickle.load(handle)
-        return goals
+        if os.path.exists(os.path.join(path, file_name)):
+            with open(os.path.join(path, file_name), 'rb') as handle:
+                goals, planabilities = pickle.load(handle)
+            return goals, planabilities
+        else:
+            return [], []
 
     # Planning info
     def save_planning_data(self, tree, goal, plan, i=None):

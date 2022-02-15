@@ -26,7 +26,7 @@ if __name__ == '__main__':
     assert not args.actions_step % logger.args.train_freq, 'actions-step arg must be divisible by train_freq'
 
     goals_logger = ExperimentLogger(args.test_goals_path)
-    test_goals = goals_logger.load_goals()
+    test_goals, _ = goals_logger.load_goals()
 
     planner_args = argparse.Namespace(domain='tools',
                                         domain_args=[],
