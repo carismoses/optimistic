@@ -68,7 +68,7 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_lo
     elif args.data_collection_mode == 'random-goals-opt':
         goal, add_to_state = world.generate_goal()
         pddl_plan, problem, init_expanded = goals(world, 'optimistic', goal, add_to_state)
-    elif args.data_collection_mode in ['random-goals-learned', 'curriculum']:
+    elif args.data_collection_mode == 'random-goals-learned':
         goal, add_to_state = world.generate_goal()
         pddl_plan, problem, init_expanded = goals(world, 'learned', goal, add_to_state)
     elif args.data_collection_mode == 'sequential-plans':

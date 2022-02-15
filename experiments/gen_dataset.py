@@ -117,12 +117,13 @@ if __name__ == '__main__':
     parser.add_argument('--domain-args',
                         nargs='+',
                         help='arguments to pass into desired domain')
+    # random-actions: sample random rollouts
+    # random-goals-opt: plan to achieve random goals with the optimistic model
+    # random-goals-learned: plan to achieve random goals from a learned model
     parser.add_argument('--data-collection-mode',
                         type=str,
                         default='random-goals-opt',
-                        choices=['random-actions', 'random-goals-opt', 'random-goals-learned', \
-                                'sequential-plans', 'sequential-goals', 'engineered-goals-dist', \
-                                'engineered-goals-size'],
+                        choices=['random-actions', 'random-goals-opt', 'random-goals-learned'],
                         help='method of data collection')
     parser.add_argument('--n-datasets',
                         type=int,
@@ -131,7 +132,7 @@ if __name__ == '__main__':
     parser.add_argument('--single-process',
                         action='store_true')
     # for now this assumes that you always want to use the most trained model on the path for planning
-    # (as opposed to a different i)
+    # (as opposed to a different i) -- only needed for data-collection-mode == 'random-goals-learned'
     parser.add_argument('--model-paths',
                         type=str,
                         nargs='+',
