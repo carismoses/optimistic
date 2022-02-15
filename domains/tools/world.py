@@ -706,10 +706,9 @@ class ToolsWorld:
 
     # for now can only run this after vis_model_accuracy since it sets up the axes
     # each axis in axes is a 3 part subplot for a single contact
-    def vis_dataset(self, cont, logger, ax, dataset_i=None):
+    def vis_dataset(self, cont, ax, dataset):
         init_state = self.get_init_state()
         init_pose = self.get_obj_pose_from_state(self.objects['yellow_block'], init_state)
-        dataset = logger.load_trans_dataset(i=dataset_i)
 
         # plot all previously executed goal poses colored by action success
         for x, y in dataset:
