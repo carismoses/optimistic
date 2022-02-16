@@ -785,49 +785,6 @@ class ToolsWorld:
         action_vec[3:] = goal_pose.pose[1]
         return object_features, edge_features, action_vec
 
-
-    def plot_datapoint(self, i, logger, color=None, dir='goals', show=False):
-        '''
-        i: index into the dataset to plot
-        color: a color string for matplotlib to use. if None then color is red
-                for 0 (infeasible) label and green for feasible label
-        dir: which subfolder within exp_path/figures/ to save the plot
-        show: boolean indicating if want to show the resulting image (blocking)
-        '''
-        fig, ax = plt.subplots()
-
-        # plot block initial pose
-        block_pos_xy = np.array(self.obj_init_poses['yellow_block'].pose[0][:2])
-        self.plot_block(ax, block_pos_xy, 'k')
-
-        # plot all goal poses colored by success and show relative contact
-        dataset = logger.load_trans_dataset()
-        x, y = dataset[i]
-        of, ef, af = x
-        goal_pos_xy = af[:2]
-        if color is None:
-            color = 'r' if y == 0 else 'g'
-        self.plot_block(ax, goal_pos_xy, color)
-
-        # rel_pose from block to tool
-        tool_feature_index = np.where(of == self.objects['tool'].id)[0]
-        block_feature_index = np.where(of == self.objects['yellow_block'].id)[0]
-
-        pose_2d = np.array([*block_pos_xy, 0.0]) + ef[tool_feature_index, block_feature_index][0].numpy()
-        self.plot_tool(ax, pose_2d, color)
-
-        ax.set_xlim(0.05, 1.0)
-        ax.set_ylim(0.3, -0.6)
-        ax.set_aspect('equal')
-        fig.suptitle('Iteration %i' % i)
-        logger.save_figure('successes_%i.png'%i, dir=dir)
-
-        if show:
-            plt.show()
-        else:
-            plt.close()
-
-
 # just for testing
 if __name__ == '__main__':
     import pybullet as p

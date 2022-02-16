@@ -2,17 +2,13 @@ import argparse
 
 from learning.datasets import TransDataset
 from experiments.utils import ExperimentLogger
-from learning.utils import add_trajectory_to_dataset
 from tamp.utils import execute_plan
 from domains.utils import init_world
 from experiments.strategies import collect_trajectory_wrapper
 import matplotlib.pyplot as plt
 
 def gen_dataset(args, n_actions, dataset_logger, model_logger):
-    if n_actions == 0:
-        dataset = TransDataset()
-        dataset_logger.save_trans_dataset(dataset, i=n_actions)
-
+    dataset = dataset_logger.load_trans_dataset('')
     while len(dataset) < args.max_dataset_size:
         print('|dataset| = %i' % len(dataset))
         if model_logger is None:
@@ -27,11 +23,6 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
                                                 model_logger=model_logger,
                                                 save_to_dataset=True)
         n_actions += len(trajectory)
-        # if trajectory returned, visualize and add to dataset
-        #if trajectory:
-        # visualize goal and success
-        #world.plot_datapoint(i=n_actions-1, show=args.vis_performance)
-
         if args.balanced:
             # balance dataset by removing added element if makes it unbalanced
             num_per_class = args.max_dataset_size // 2
@@ -60,9 +51,6 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
                                     vis,
                                     dataset_logger)
                 trajectory = execute_plan(world, *plan_data)
-                success = all([t_seg[3] for t_seg in trajectory])
-                color = 'g' if success else 'r'
-                world.plot_datapoint(i=len(dataset)-1, color=color, show=True)
                 world.disconnect()
         '''
     return dataset_logger
@@ -159,7 +147,6 @@ if __name__ == '__main__':
         assert args.exp_name, 'Must set the --exp-name arg to start new run'
         n_actions = 0
         args.balanced = args.balanced == 'True'
-        args.max_actions = float("inf") # used when adding traj to dataset in strategies
         if args.model_paths:
             if len(args.model_paths) > 1:
                 assert len(args.model_paths) == args.n_datasets, 'If using multiple models to generate datasets \

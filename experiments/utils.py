@@ -10,7 +10,7 @@ import torch
 #from domains.tools.world import ToolsWorld
 from learning.models.gnn import TransitionGNN
 from learning.models.ensemble import Ensemble, OptimisticEnsemble
-
+from learning.datasets import TransDataset
 
 class ExperimentLogger:
 
@@ -44,6 +44,9 @@ class ExperimentLogger:
         os.mkdir(exp_path)
         if root_folder == 'experiments':
             os.mkdir(os.path.join(exp_path, 'datasets'))
+            os.mkdir(os.path.join(exp_path, 'datasets', 'train'))
+            os.mkdir(os.path.join(exp_path, 'datasets', 'val'))
+            os.mkdir(os.path.join(exp_path, 'datasets', 'curr'))
             os.mkdir(os.path.join(exp_path, 'models'))
             os.mkdir(os.path.join(exp_path, 'figures'))
             os.mkdir(os.path.join(exp_path, 'eval_trajs'))
@@ -67,50 +70,44 @@ class ExperimentLogger:
         with open(os.path.join(self.exp_path, 'datasets', fname), 'wb') as handle:
             pickle.dump(dataset, handle)
 
-    def save_trans_dataset(self, dataset, i=None):
-        if i is not None:
-            fname = 'trans_dataset_%i.pkl' % i
-        else:
-            fname = 'trans_dataset.pkl'
+    def save_trans_dataset(self, dataset, dir, i):
+        fname = '%s/trans_dataset_%i.pkl' % (dir, i)
         self.save_dataset(dataset, fname)
-
-    def save_balanced_dataset(self, dataset):
-        self.save_dataset(dataset, 'balanced_dataset.pkl')
 
     def load_dataset(self, fname):
         with open(os.path.join(self.exp_path, 'datasets', fname), 'rb') as handle:
             dataset = pickle.load(handle)
         return dataset
 
-    def remove_dataset(self, i):
-        os.remove(os.path.join(self.exp_path, 'datasets', 'trans_dataset_%i.pkl'%i))
+    def remove_dataset(self, dir, i):
+        os.remove(os.path.join(self.exp_path, 'datasets', dir, 'trans_dataset_%i.pkl' % i))
 
-    def load_trans_dataset(self, i=None, balanced=False, ret_i=False):
+    def load_trans_dataset(self, dir, i=None, ret_i=False):
         # NOTE: returns the highest numbered model if i is not given
         if i is not None:
-            fname = 'trans_dataset_%i.pkl' % i
+            fname = '%s/trans_dataset_%i.pkl' % (dir, i)
+            dataset = self.load_dataset(fname)
         else:
-            data_files = os.listdir(os.path.join(self.exp_path, 'datasets'))
-            if len(data_files) == 0:
-                raise Exception('No datasets found on args.exp_path.')
-            txs = []
-            for file in data_files:
-                matches = re.match(r'trans_dataset_(.*).pkl', file)
-                if matches: # sometimes system files are saved here, don't parse these
-                    txs += [int(matches.group(1))]
-            i = max(txs)
-            fname = 'trans_dataset_%i.pkl' % i
-        if balanced:
-            fname = 'balanced_dataset.pkl'
+            found_files, txs = self.get_dir_indices('datasets/%s' % dir)
+            if len(txs) > 0:
+                i = max(txs)
+                fname = '%s/trans_dataset_%i.pkl' % (dir, i)
+                dataset = self.load_dataset(fname)
+            else:
+                print('No NUMBERED datasets on path %s/datasets/%s. Returning new empty dataset.' % (self.exp_path, dir))
+                print('All datasets must be numbered')
+                dataset = TransDataset()
+                i = 0
         if ret_i:
-            return self.load_dataset(fname), i
-        return self.load_dataset(fname)
+            return dataset, i
+        return dataset
 
-    def get_dataset_iterator(self):
-        found_files, txs = self.get_dir_indices('datasets')
+
+    def get_dataset_iterator(self, dir):
+        found_files, txs = self.get_dir_indices('datasets/%s' % dir)
         sorted_indices = np.argsort(txs)
         sorted_file_names = [found_files[idx] for idx in sorted_indices]
-        sorted_datasets = [(self.load_dataset(fname),i) for fname,i in zip(sorted_file_names, np.sort(txs))]
+        sorted_datasets = [(self.load_dataset('%s/%s' % (dir, fname), i)) for fname,i in zip(sorted_file_names, np.sort(txs))]
         return iter(sorted_datasets)
 
     def get_model_iterator(self):
@@ -130,8 +127,8 @@ class ExperimentLogger:
     def get_dir_indices(self, dir):
         files = os.listdir(os.path.join(self.exp_path, dir))
         if len(files) == 0:
-            print('No files found on path args.exp_path/%s.' % dir)
-        if dir == 'datasets':
+            print('No files found on path %s/%s.' % (self.exp_path, dir))
+        if 'datasets' in dir:
             file_name = r'trans_dataset_(.*).pkl'
         elif dir == 'models':
             file_name = r'trans_model_(.*).pt'
@@ -188,12 +185,6 @@ class ExperimentLogger:
         loc = 'cuda:0' if torch.cuda.is_available() else 'cpu'
         model.load_state_dict(torch.load(os.path.join(self.exp_path, 'models', fname), map_location=loc))
         return model
-
-    # Get action count info from logger
-    def get_action_count(self):
-        _, txs = self.get_dir_indices('datasets')
-        n_actions = max(txs)
-        return n_actions
 
     # save trajectory data
     def save_trajectories(self, trajectories, i):

@@ -8,7 +8,6 @@ from pprint import pformat
 import matplotlib.pyplot as plt
 
 from learning.datasets import TransDataset
-from experiments.utils import ExperimentLogger, add_trajectory_to_dataset
 from learning.models.gnn import TransitionGNN
 from learning.models.ensemble import Ensemble, OptimisticEnsemble
 from learning.train import train
@@ -25,12 +24,12 @@ def train_from_data(args, logger, start_i):
                 'n_hidden': args.n_hidden,
                 'n_layers': args.n_layers}
 
-    largest_dataset, max_actions = logger.load_trans_dataset(ret_i=True)
+    largest_dataset, max_actions = logger.load_trans_dataset('', ret_i=True)
 
     for i in range(0, max_actions+1, args.train_freq):
         if i > start_i:
             ensemble = Ensemble(TransitionGNN, base_args, args.n_models)
-            dataset = logger.load_trans_dataset(i=i)
+            dataset = logger.load_trans_dataset('', i=i)
             if len(dataset) > 0:
                 print('Training model from |dataset| = %i' % len(dataset))
                 dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)

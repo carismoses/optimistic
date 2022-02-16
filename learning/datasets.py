@@ -60,6 +60,15 @@ class TransDataset(Dataset):
             self.delta_edge_features = torch.cat([self.delta_edge_features, delta_edge_features.unsqueeze(dim=0)])
             self.optimistic_accuracy = torch.cat([self.optimistic_accuracy, optimistic_accuracy.unsqueeze(dim=0)])
 
+    def merge_datasets(self, new_dataset, range):
+        self.object_features = torch.cat([self.object_features, new_dataset.object_features[range[0]:range[1]]])
+        self.edge_features = torch.cat([self.edge_features, new_dataset.edge_features[range[0]:range[1]]])
+        self.actions = torch.cat([self.actions, new_dataset.actions[range[0]:range[1]]])
+        self.next_edge_features = torch.cat([self.next_edge_features, new_dataset.next_edge_features[range[0]:range[1]]])
+        self.delta_edge_features = torch.cat([self.delta_edge_features, new_dataset.delta_edge_features[range[0]:range[1]]])
+        self.optimistic_accuracy = torch.cat([self.optimistic_accuracy, new_dataset.optimistic_accuracy[range[0]:range[1]]])
+
+
     # balance so equal labels and balanced actions within labels
     # NOTE: only filtering on actions since that's all that matters in simple block domain
     def balance(self):

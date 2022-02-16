@@ -54,7 +54,7 @@ if __name__ == '__main__':
         all_accuracies = []
         test_dataset_method = method if method in test_dataset_paths else '1p0'
         test_dataset_logger = ExperimentLogger(test_dataset_paths[test_dataset_method])
-        test_dataset = test_dataset_logger.load_trans_dataset()
+        test_dataset = test_dataset_logger.load_trans_dataset('')
         gts = [int(y) for _,y in test_dataset]
         for mi, model_path in enumerate(model_paths):
             print('Model path: %s' % model_path)
@@ -83,4 +83,3 @@ if __name__ == '__main__':
     ax.set_ylim([0.43,1])
     plt.savefig('model_accuracy.svg', format='svg')
     #plt.show()
-

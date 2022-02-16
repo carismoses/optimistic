@@ -118,8 +118,8 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_lo
 
     if save_to_dataset:
         # add to dataset and save
-        add_trajectory_to_dataset(args.domain, dataset_logger, trajectory, world, args.max_actions)
-
+        add_trajectory_to_dataset(args.domain, dataset_logger, trajectory, world)
+        '''
         if 'goals' in args.data_collection_mode:
             planability = bool(pddl_plan)
             dataset_logger.add_to_goals(goal, planability)
@@ -128,7 +128,7 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_lo
             #all_goals, all_planabilities = dataset_logger.load_goals()
             #world.vis_goals(ax, all_goals, all_planabilities)
             #plt.show()
-
+        '''
     # disconnect from world
     world.disconnect()
     return trajectory

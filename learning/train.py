@@ -4,9 +4,39 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import matplotlib
-
+from sklearn.metrics import f1_score
 from torch.nn import functional as F
 from torch.optim import Adam
+
+
+def evaluate(loader, model, loss_fn, val_metric='f1'):
+    acc = []
+    losses = []
+
+    preds = []
+    labels = []
+    for x, y in loader:
+        if torch.cuda.is_available():
+            x = x.cuda()
+            y = y.cuda()
+        pred = model.forward(x).squeeze()
+        if len(pred.shape) == 0: pred = pred.unsqueeze(-1)
+        loss = loss_fn(pred, y)
+
+        with torch.no_grad():
+            preds += (pred > 0.5).cpu().float().numpy().tolist()
+            labels += y.cpu().numpy().tolist()
+        accuracy = ((pred>0.5) == y).float().mean()
+        acc.append(accuracy.item())
+        losses.append(loss.item())
+    if val_metric == 'loss':
+        score = np.mean(losses)
+    else:
+        score = -f1_score(labels, preds)
+
+
+    return score
+
 
 def train(dataloader, model, val_dataloader=None, n_epochs=20, loss_fn=F.binary_cross_entropy):
     """
@@ -46,7 +76,7 @@ def train(dataloader, model, val_dataloader=None, n_epochs=20, loss_fn=F.binary_
             epoch_losses.append(loss.item())
             it += 1
         if val_dataloader is not None:
-            val_loss = evaluate(val_dataloader, model)
+            val_loss = evaluate(val_dataloader, model, loss_fn)
             if val_loss < best_loss:
                 best_loss = val_loss
                 best_weights = copy.deepcopy(model.state_dict())

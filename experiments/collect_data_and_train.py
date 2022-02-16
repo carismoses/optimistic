@@ -2,6 +2,7 @@ import argparse
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 
+from learning.utils import split_and_move_data
 from learning.datasets import TransDataset
 from experiments.utils import ExperimentLogger
 from learning.models.gnn import TransitionGNN
@@ -22,20 +23,30 @@ def train_class(args, logger, n_actions):
                 'n_hidden': args.n_hidden,
                 'n_layers': args.n_layers}
 
-    # save initial (empty) dataset
-    if n_actions == 0:
-        trans_dataset = TransDataset()
-        logger.save_trans_dataset(trans_dataset, i=0)
-        ensemble = Ensemble(TransitionGNN,
-                                base_args,
-                                args.n_models)
-        logger.save_trans_model(ensemble, i=0)
-    else:
-        trans_dataset = logger.load_trans_dataset(i=n_actions)
-
     while n_actions < args.max_actions:
-        trans_dataset = logger.load_trans_dataset()
-        print('# actions = %i, |dataset| = %i' % (n_actions, len(trans_dataset)))
+        print('# trained actions = %i, |current dataset| = %i' % (n_actions, len(logger.load_trans_dataset('curr'))))
+
+        # train at training freq
+        if len(logger.load_trans_dataset('curr')) >= args.train_freq:
+            # split current data into train and val and train
+            train_dataset, val_dataset = split_and_move_data(logger, args.val_ratio)
+            ensemble = Ensemble(TransitionGNN,
+                                    base_args,
+                                    args.n_models)
+            # initialize and train new model
+            ensemble = Ensemble(TransitionGNN,
+                                    base_args,
+                                    args.n_models)
+            print('Training ensemble.')
+            trans_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+            val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=True)
+            for model in ensemble.models:
+                train(trans_dataloader, model, val_dataloader=val_dataloader, \
+                        n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
+
+            # save model and accuracy plots
+            logger.save_trans_model(ensemble, i=n_actions)
+            print('Saved model to %s' % logger.exp_path)
 
         progress = None
         trajectory = collect_trajectory_wrapper(args,
@@ -43,6 +54,7 @@ def train_class(args, logger, n_actions):
                                                 logger,
                                                 progress,
                                                 separate_process= not args.single_process)
+        n_actions += len(trajectory)
 
         if not trajectory:
             print('Trajectory collection failed.')
@@ -52,24 +64,6 @@ def train_class(args, logger, n_actions):
                 print('All feasible actions.')
             else:
                 print('Infeasible action attempted.')
-
-        # train at training freq
-        for action_i in range(n_actions+1, n_actions+len(trajectory)+1):
-            if not action_i % args.train_freq and action_i < args.max_actions:
-                trans_dataset = logger.load_trans_dataset(i=action_i)
-                ensemble = Ensemble(TransitionGNN,
-                                        base_args,
-                                        args.n_models)
-                if len(trans_dataset) > 0:
-                    # initialize and train new model
-                    print('Training ensemble.')
-                    trans_dataloader = DataLoader(trans_dataset, batch_size=args.batch_size, shuffle=True)
-                    for model in ensemble.models:
-                        train(trans_dataloader, model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
-                # save model and accuracy plots
-                logger.save_trans_model(ensemble, i=action_i)
-                print('Saved model to %s' % logger.exp_path)
-        n_actions += len(trajectory)
 
 
 if __name__ == '__main__':
@@ -98,7 +92,7 @@ if __name__ == '__main__':
     parser.add_argument('--max-actions',
                         type=int,
                         default=400,
-                        help='max number of actions for the robot to attempt')
+                        help='max number of (ALL) actions for the robot to attempt')
     parser.add_argument('--exp-name',
                         type=str,
                         help='path to save datasets and models to (unless a restart, then use exp-path)')
@@ -110,7 +104,7 @@ if __name__ == '__main__':
     parser.add_argument('--train-freq',
                         type=int,
                         default=10,
-                        help='number of actions between model training')
+                        help='number of actions (IN DATASET) between model training')
     parser.add_argument('--vis',
                         action='store_true',
                         help='use to visualize robot executions.')
@@ -142,6 +136,10 @@ if __name__ == '__main__':
                         type=int,
                         default=5,
                         help='number of models in ensemble')
+    parser.add_argument('--val-ratio',
+                        type=float,
+                        default=.2,
+                        help='ratio of aquired data to save to validation dataset')
     args = parser.parse_args()
 
     if args.debug:
@@ -150,7 +148,9 @@ if __name__ == '__main__':
     if args.restart:
         assert args.exp_path, 'Must set the --exp-path to restart experiment'
         logger = ExperimentLogger(args.exp_path)
-        n_actions = logger.get_action_count()
+        _, n_trained_actions = logger.load_trans_dataset('train', ret_i=True)
+        _, n_curr_actions = logger.load_trans_dataset('curr', ret_i=True)
+        n_actions = n_trained_actions + n_curr_actions
         args = logger.args
     else:
         assert args.exp_name, 'Must set the --exp-name to start a new experiments'
