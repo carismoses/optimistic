@@ -17,7 +17,7 @@ def evaluate(loader, model, loss_fn, val_metric='f1'):
     labels = []
     for x, y in loader:
         if torch.cuda.is_available():
-            x = x.cuda()
+            x = [xi.cuda() for xi in x]
             y = y.cuda()
         pred = model.forward(x).squeeze()
         if len(pred.shape) == 0: pred = pred.unsqueeze(-1)
