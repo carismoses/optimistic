@@ -90,14 +90,14 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_lo
                                                     ret_full_plan=ret_full_plan)
         failed_pddl_plan = None
         if not traj_pddl_plan:
+            add_to_init = []
             failed_pddl_plan = pddl_plan
             print('Planning trajectories failed.')
             if world.use_panda:
                 world.panda.add_text('Planning trajectories failed.',
                                     position=(0, -1, 1),
                                     size=1.5)
-        else:
-            init_expanded = Certificate(add_to_init+init_expanded.all_facts, [])
+        init_expanded = Certificate(add_to_init+init_expanded.all_facts, [])
         pddl_plan = traj_pddl_plan
     else:
         # preimage_facts in init_expanded was causing a pickling error, so just use all_facts
