@@ -75,6 +75,8 @@ class ExperimentLogger:
         self.save_dataset(dataset, fname)
 
     def load_dataset(self, fname):
+        if fname[0] == '/':
+            fname = fname[1:]
         with open(os.path.join(self.exp_path, 'datasets', fname), 'rb') as handle:
             dataset = pickle.load(handle)
         return dataset
@@ -107,7 +109,7 @@ class ExperimentLogger:
         found_files, txs = self.get_dir_indices('datasets/%s' % dir)
         sorted_indices = np.argsort(txs)
         sorted_file_names = [found_files[idx] for idx in sorted_indices]
-        sorted_datasets = [(self.load_dataset('%s/%s' % (dir, fname), i)) for fname,i in zip(sorted_file_names, np.sort(txs))]
+        sorted_datasets = [(self.load_dataset('%s/%s' % (dir, fname)), i) for fname,i in zip(sorted_file_names, np.sort(txs))]
         return iter(sorted_datasets)
 
     def get_model_iterator(self):
