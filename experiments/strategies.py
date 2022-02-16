@@ -129,17 +129,8 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_lo
 
     if 'sequential' in args.data_collection_mode and failed_pddl_plan:
         last_datapoint = dataset_logger.load_trans_dataset('curr')[-1]
-        dataset_logger.add_to_goals(last_datapoint, False)
-        '''
-        if 'goals' in args.data_collection_mode:
-            planability = bool(pddl_plan)
-            dataset_logger.add_to_goals(goal, planability)
-            # visualize goals so far
-            #fig, ax = plt.subplots()
-            #all_goals, all_planabilities = dataset_logger.load_goals()
-            #world.vis_goals(ax, all_goals, all_planabilities)
-            #plt.show()
-        '''
+        dataset_logger.add_to_failed_plans(last_datapoint)
+
     # disconnect from world
     world.disconnect()
     return trajectory

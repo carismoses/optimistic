@@ -206,28 +206,51 @@ class ExperimentLogger:
         return trajectories
 
 
-    # goal info (for goal datasets and planability info)
-    def add_to_goals(self, goal, planability):
-        goals, planabilities = self.load_goals()
-        goals.append(goal)
-        planabilities.append(planability)
-        self.save_goals(goals, planabilities)
+    # info on abstract plans that fail to plan trajectories
+    def add_to_failed_plans(self, datapoint):
+        datapoints = self.load_failed_plans()
+        datapoints.append(datapoint)
+        self.save_failed_plans(datapoints)
 
-    def save_goals(self, goals, planabilities):
+    def load_failed_plans(self):
+        # TODO: change dir and filename so doesn't conflict with goals fns
+        dir = 'goals'
+        fname = 'goals.pkl'
+        ##
+        path = os.path.join(self.exp_path, dir)
+        if os.path.exists(os.path.join(path, fname)):
+            with open(os.path.join(path, fname), 'rb') as handle:
+                datapoints = pickle.load(handle)
+            return datapoints
+        else:
+            print('No datapoints found on path %s. Returning empty list' % path)
+            return []
+
+    def save_failed_plans(self, datapoints):
+        # TODO: change dir and filename so doesn't conflict with goals fns
+        dir = 'goals'
+        fname = 'goals.pkl'
+        ##
+        path = os.path.join(self.exp_path, dir)
+        with open(os.path.join(path, fname), 'wb') as handle:
+            pickle.dump(datapoints, handle)
+
+    # goal info (for goal datasets to calculate plan success rate)
+    def save_goals(self, goals):
         path = os.path.join(self.exp_path, 'goals')
         file_name = 'goals.pkl'
         with open(os.path.join(path, file_name), 'wb') as handle:
-            pickle.dump([goals, planabilities], handle)
+            pickle.dump(goals, handle)
 
     def load_goals(self):
         path = os.path.join(self.exp_path, 'goals')
         file_name = 'goals.pkl'
         if os.path.exists(os.path.join(path, file_name)):
             with open(os.path.join(path, file_name), 'rb') as handle:
-                goals, planabilities = pickle.load(handle)
-            return goals, planabilities
+                goals = pickle.load(handle)
+            return goals
         else:
-            return [], []
+            print('No goals found on path %s' % path)
 
     # Planning info
     def save_planning_data(self, tree, goal, plan, i=None):
