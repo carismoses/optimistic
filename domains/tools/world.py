@@ -244,7 +244,7 @@ class ToolsWorld:
                 self.goal_radius = new_goal_radius
 
 
-    def generate_goal(self, show_goal=False):
+    def generate_goal(self, show_goal=False, goal_xy=None):
         init_state = self.get_init_state()
 
         # select a random block
@@ -255,8 +255,9 @@ class ToolsWorld:
         init_x, init_y = init_pose[0][:2]
 
         # select random point on table (not near tunnel)
-        goal_xy = np.array([np.random.uniform(self.min_x, self.max_x),
-                            np.random.uniform(self.min_y, self.max_y)])
+        if not goal_xy:
+            goal_xy = np.array([np.random.uniform(self.min_x, self.max_x),
+                                np.random.uniform(self.min_y, self.max_y)])
 
         # add desired pose to state
         goal_pose = ((goal_xy[0], goal_xy[1], init_pose[0][2]), init_pose[1])

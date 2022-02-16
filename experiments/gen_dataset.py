@@ -1,49 +1,115 @@
 import argparse
 import os
+import time
 
 from torch.utils.data import ConcatDataset
+import matplotlib.pyplot as plt
 
 from learning.datasets import TransDataset
 from experiments.utils import ExperimentLogger
 from tamp.utils import execute_plan
 from domains.utils import init_world
 from experiments.strategies import collect_trajectory_wrapper
-import matplotlib.pyplot as plt
+from domains.tools.primitives import get_contact_gen
 
+def plot_dataset(world, dataset, di, logger):
+    contacts_fn = get_contact_gen(world.panda.planning_robot)
+    contacts = contacts_fn(world.objects['tool'], world.objects['yellow_block'], shuffle=False)
+    ts = time.strftime('%Y%m%d-%H%M%S')
+    all_axes = {}
+    for ci, contact in enumerate(contacts):
+        cont = contact[0]
+        fig, axes = plt.subplots(2, figsize=(8,15))
+        world.vis_tool_ax(cont, axes[1])
+        world.vis_dataset(cont, axes[0], dataset)
+        axes[0].set_aspect('equal')
+        axes[0].set_xlim([world.min_x, world.max_x])
+        axes[0].set_ylim([world.min_y, world.max_y])
+        all_axes[ci] = axes
+
+        fname = 'dataset_%s_%i_%i.svg' % (ts, ci, di)
+        dir = 'dataset'
+        logger.save_figure(fname, dir=dir)
+        plt.close()
+
+'''
+expert_feasible_goals = [(.6, -.29),     # cont 0
+                        (.7, -.31),
+                        (.5, -.3),
+                        (.5, 0.),       # cont 1
+                        (.7, .1),
+                        (.42, -.1),
+                        (.3, -.3),      # cont 2
+                        (.35, -.28),
+                        (.4, -.1),     # cont 3
+                        (.41, -.2)
+                        ]
+'''
+expert_feasible_goals = []
+
+# first try to get through expert goals (should be feasible)
 def gen_dataset(args, n_actions, dataset_logger, model_logger):
     dataset = dataset_logger.load_trans_dataset('')
+    world = init_world('tools',
+                        None,
+                        'optimistic',
+                        False,
+                        None)
+    feasible_goal_i = 0
     while len(dataset) < args.max_dataset_size:
         print('# actions = %i, |dataset| = %i' % (n_actions, len(dataset)))
         if model_logger is None:
             pddl_model_type = 'optimistic'
         else:
             pddl_model_type = 'learned'
+
+        if feasible_goal_i < len(expert_feasible_goals):
+            goal_xy = expert_feasible_goals[feasible_goal_i]
+        else:
+            goal_xy = None
         trajectory = collect_trajectory_wrapper(args,
                                                 pddl_model_type,
                                                 dataset_logger,
                                                 args.goal_progress,
                                                 separate_process=not args.single_process,
                                                 model_logger=model_logger,
-                                                save_to_dataset=True)
+                                                save_to_dataset=True,
+                                                goal_xy=goal_xy)
         if len(trajectory) > 0:
             n_actions += len(trajectory)
 
-            # move curr dataset to /datasets
-            curr_dataset, curr_i = dataset_logger.load_trans_dataset('curr', ret_i=True)
-            dataset = ConcatDataset([dataset, curr_dataset])
-            dataset_logger.save_trans_dataset(dataset, '', i=n_actions)
-            dataset_logger.remove_dataset('curr', curr_i)
+            # if feasible and in feasible goals, add to dataset and move to next goal
+            # if done with feasibe goals, add to dataset
+            if (feasible_goal_i < len(expert_feasible_goals) and \
+                                        trajectory[-1][-1]) or \
+                            (feasible_goal_i >= len(expert_feasible_goals)):
+                feasible_goal_i += 1
 
-            if args.balanced:
-                # balance dataset by removing added element if makes it unbalanced
-                num_per_class = args.max_dataset_size // 2
-                num_pos_datapoints = sum([y for x,y in dataset])
-                num_neg_datapoints = len(dataset) - num_pos_datapoints
-                if num_pos_datapoints > num_per_class or num_neg_datapoints > num_per_class:
-                    print('Removing last trajectory added to dataset.')
-                    dataset_logger.remove_dataset('', i=n_actions)
-                    n_actions -= len(trajectory)
-                dataset = dataset_logger.load_trans_dataset('')
+                # move curr dataset to /datasets
+                curr_dataset, curr_i = dataset_logger.load_trans_dataset('curr', ret_i=True)
+                dataset = ConcatDataset([dataset, curr_dataset])
+                dataset_logger.save_trans_dataset(dataset, '', i=n_actions)
+                dataset_logger.remove_dataset('curr', curr_i)
+
+                if args.balanced:
+                    # balance dataset by removing added element if makes it unbalanced
+                    #plot_dataset(world, dataset, n_actions, dataset_logger)
+                    num_per_class = args.max_dataset_size // 2
+                    num_pos_datapoints = sum([y for x,y in dataset])
+                    num_neg_datapoints = len(dataset) - num_pos_datapoints
+                    if num_pos_datapoints > num_per_class or num_neg_datapoints > num_per_class:
+                        print('Removing last trajectory added to dataset.')
+                        dataset_logger.remove_dataset('', i=n_actions)
+                        n_actions -= len(trajectory)
+                    dataset = dataset_logger.load_trans_dataset('')
+            else:
+                # remove from current dataset
+                print('Failed to find feasible plan for expert feasible goal')
+                print('Removing current dataset.')
+                _, curr_i = dataset_logger.load_trans_dataset('curr', ret_i=True)
+                dataset_logger.remove_dataset('curr', curr_i)
+                n_actions -= len(trajectory)
+
 
         # optionally replay with pyBullet
         '''
