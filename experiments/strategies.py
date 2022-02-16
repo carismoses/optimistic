@@ -13,7 +13,7 @@ from pddlstream.algorithms.downward import fact_from_fd, apply_action
 from pddlstream.language.constants import Certificate, Action
 
 from tamp.utils import execute_plan, get_simple_state, task_from_problem,   \
-                        get_fd_action, postprocess_plan
+                        get_fd_action, postprocess_plan, failed_abstract_plan_to_traj
 from learning.utils import model_forward, add_trajectory_to_dataset
 from domains.tools.primitives import get_traj
 from domains.utils import init_world
@@ -88,7 +88,9 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_lo
         traj_pddl_plan, add_to_init = solve_trajectories(world,
                                                     pddl_plan,
                                                     ret_full_plan=ret_full_plan)
+        failed_pddl_plan = None
         if not traj_pddl_plan:
+            failed_pddl_plan = pddl_plan
             print('Planning trajectories failed.')
             if world.use_panda:
                 world.panda.add_text('Planning trajectories failed.',
@@ -116,9 +118,14 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_lo
                                 size=1.5)
             time.sleep(.5)
 
+    # if planning low level trajectories failed, also save to dataset
+    if 'sequential' in args.data_collection_mode and failed_pddl_plan:
+        trajectory = failed_abstract_plan_to_traj(world, problem, failed_pddl_plan, init_expanded)
+
     if save_to_dataset:
         # add to dataset and save
         add_trajectory_to_dataset(args.domain, dataset_logger, trajectory, world)
+
         '''
         if 'goals' in args.data_collection_mode:
             planability = bool(pddl_plan)

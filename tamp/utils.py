@@ -98,6 +98,20 @@ def execute_plan(world, problem, pddl_plan, init_expanded):
     return trajectory
 
 
+def failed_abstract_plan_to_traj(world, problem, pddl_plan, init_expanded):
+    task, fd_plan = postprocess_plan(problem, pddl_plan, init_expanded)
+    fd_state = set(task.init)
+    trajectory = []
+    for fd_action, pddl_action in zip(fd_plan, pddl_plan):
+        assert is_applicable(fd_state, fd_action), 'Something wrong with planner. An invalid action is in the plan.'
+        pddl_state = [fact_from_fd(sfd) for sfd in fd_state]
+        new_fd_state = copy(fd_state)
+        apply_action(new_fd_state, fd_action) # apply action (optimistically) in PDDL action model
+        new_pddl_state = [fact_from_fd(sfd) for sfd in new_fd_state]
+        trajectory.append((pddl_state, pddl_action, new_pddl_state, False))
+        fd_state = new_fd_state
+    return trajectory
+
 # The only requirements for these files are that action: is before pre: for each pair
 # and there is not space between the 2 lines (there can be spaces between the pairs)
 # and that there is a single space after the :

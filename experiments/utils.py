@@ -161,8 +161,8 @@ class ExperimentLogger:
         else:
             found_files, txs = self.get_dir_indices('models')
             if len(txs) == 0:
-                #print('Returning trans_model.pt. No numbered models found on path: %s' % self.exp_path)
-                fname = 'trans_model.pt'
+                fname = None
+                print('Returning randomly initialized model.')
             else:
                 i = max(txs)
                 fname = 'trans_model_%i.pt' % i
@@ -183,7 +183,8 @@ class ExperimentLogger:
                             base_args,
                             self.args.n_models)
         loc = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-        model.load_state_dict(torch.load(os.path.join(self.exp_path, 'models', fname), map_location=loc))
+        if fname is not None:
+            model.load_state_dict(torch.load(os.path.join(self.exp_path, 'models', fname), map_location=loc))
         return model
 
     # save trajectory data
