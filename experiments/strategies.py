@@ -126,6 +126,9 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_lo
         # add to dataset and save
         add_trajectory_to_dataset(args.domain, dataset_logger, trajectory, world)
 
+    if 'sequential' in args.data_collection_mode and failed_pddl_plan:
+        last_datapoint = dataset_logger.load_trans_dataset('curr')[-1]
+        dataset_logger.add_to_goals(last_datapoint, False)
         '''
         if 'goals' in args.data_collection_mode:
             planability = bool(pddl_plan)
