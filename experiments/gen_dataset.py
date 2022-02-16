@@ -1,4 +1,7 @@
 import argparse
+import os
+
+from torch.utils.data import ConcatDataset
 
 from learning.datasets import TransDataset
 from experiments.utils import ExperimentLogger
@@ -10,7 +13,7 @@ import matplotlib.pyplot as plt
 def gen_dataset(args, n_actions, dataset_logger, model_logger):
     dataset = dataset_logger.load_trans_dataset('')
     while len(dataset) < args.max_dataset_size:
-        print('|dataset| = %i' % len(dataset))
+        print('# actions = %i, |dataset| = %i' % (n_actions, len(dataset)))
         if model_logger is None:
             pddl_model_type = 'optimistic'
         else:
@@ -22,19 +25,25 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
                                                 separate_process=not args.single_process,
                                                 model_logger=model_logger,
                                                 save_to_dataset=True)
-        n_actions += len(trajectory)
-        if args.balanced:
-            # balance dataset by removing added element if makes it unbalanced
-            num_per_class = args.max_dataset_size // 2
-            num_pos_datapoints = sum([y for x,y in dataset])
-            num_neg_datapoints = len(dataset) - num_pos_datapoints
-            if num_pos_datapoints > num_per_class or num_neg_datapoints > num_per_class:
-                print('Removing last trajectory added to dataset.')
-                for _ in range(len(trajectory)):
-                    dataset_logger.remove_dataset(i=n_actions)
-                    n_actions -= 1
+        if len(trajectory) > 0:
+            n_actions += len(trajectory)
 
-        dataset = dataset_logger.load_trans_dataset()
+            # move curr dataset to /datasets
+            curr_dataset, curr_i = dataset_logger.load_trans_dataset('curr', ret_i=True)
+            dataset = ConcatDataset([dataset, curr_dataset])
+            dataset_logger.save_trans_dataset(dataset, '', i=n_actions)
+            dataset_logger.remove_dataset('curr', curr_i)
+
+            if args.balanced:
+                # balance dataset by removing added element if makes it unbalanced
+                num_per_class = args.max_dataset_size // 2
+                num_pos_datapoints = sum([y for x,y in dataset])
+                num_neg_datapoints = len(dataset) - num_pos_datapoints
+                if num_pos_datapoints > num_per_class or num_neg_datapoints > num_per_class:
+                    print('Removing last trajectory added to dataset.')
+                    dataset_logger.remove_dataset('', i=n_actions)
+                    n_actions -= len(trajectory)
+                dataset = dataset_logger.load_trans_dataset('')
 
         # optionally replay with pyBullet
         '''
@@ -93,10 +102,6 @@ if __name__ == '__main__':
     parser.add_argument('--vis',
                         action='store_true',
                         help='use to visualize robot executions.')
-    parser.add_argument('--n-seq-plans',
-                        type=int,
-                        default=100,
-                        help='number of plans used to generate search space for sequential methods')
     parser.add_argument('--domain',
                         type=str,
                         choices=['ordered_blocks', 'tools'],

@@ -71,12 +71,10 @@ class ExperimentLogger:
             pickle.dump(dataset, handle)
 
     def save_trans_dataset(self, dataset, dir, i):
-        fname = '%s/trans_dataset_%i.pkl' % (dir, i)
+        fname = os.path.join(dir, 'trans_dataset_%i.pkl' % i)
         self.save_dataset(dataset, fname)
 
     def load_dataset(self, fname):
-        if fname[0] == '/':
-            fname = fname[1:]
         with open(os.path.join(self.exp_path, 'datasets', fname), 'rb') as handle:
             dataset = pickle.load(handle)
         return dataset
@@ -87,13 +85,13 @@ class ExperimentLogger:
     def load_trans_dataset(self, dir, i=None, ret_i=False):
         # NOTE: returns the highest numbered model if i is not given
         if i is not None:
-            fname = '%s/trans_dataset_%i.pkl' % (dir, i)
+            fname = os.path.join(dir, 'trans_dataset_%i.pkl' % i)
             dataset = self.load_dataset(fname)
         else:
             found_files, txs = self.get_dir_indices('datasets/%s' % dir)
             if len(txs) > 0:
                 i = max(txs)
-                fname = '%s/trans_dataset_%i.pkl' % (dir, i)
+                fname = os.path.join(dir, 'trans_dataset_%i.pkl' % i)
                 dataset = self.load_dataset(fname)
             else:
                 print('No NUMBERED datasets on path %s/datasets/%s. Returning new empty dataset.' % (self.exp_path, dir))
@@ -104,12 +102,11 @@ class ExperimentLogger:
             return dataset, i
         return dataset
 
-
     def get_dataset_iterator(self, dir):
-        found_files, txs = self.get_dir_indices('datasets/%s' % dir)
+        found_files, txs = self.get_dir_indices(os.path.join('datasets', dir))
         sorted_indices = np.argsort(txs)
         sorted_file_names = [found_files[idx] for idx in sorted_indices]
-        sorted_datasets = [(self.load_dataset('%s/%s' % (dir, fname)), i) for fname,i in zip(sorted_file_names, np.sort(txs))]
+        sorted_datasets = [(self.load_dataset(os.path.join(dir, fname)), i) for fname,i in zip(sorted_file_names, np.sort(txs))]
         return iter(sorted_datasets)
 
     def get_model_iterator(self):
@@ -129,7 +126,7 @@ class ExperimentLogger:
     def get_dir_indices(self, dir):
         files = os.listdir(os.path.join(self.exp_path, dir))
         if len(files) == 0:
-            print('No files found on path %s/%s.' % (self.exp_path, dir))
+            print('No files found on path %s.' % os.path.join(self.exp_path, dir))
         if 'datasets' in dir:
             file_name = r'trans_dataset_(.*).pkl'
         elif dir == 'models':

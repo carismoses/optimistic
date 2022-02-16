@@ -1,5 +1,6 @@
 from torch import nn
 import torch
+from torch.utils.data import random_split, ConcatDataset
 
 import pb_robot
 
@@ -59,11 +60,13 @@ def split_and_move_data(logger, val_ratio):
     val_dataset = logger.load_trans_dataset('val')
     new_dataset, n_new_actions = logger.load_trans_dataset('curr', ret_i=True)
     val_len = round(len(new_dataset)*val_ratio)
+    train_len = len(new_dataset) - val_len
     assert val_len >= 1, \
             'Not enough data in current dataset to split into val and train datasets. ' \
-            'Try making train freq larger.'
-    train_dataset.merge_datasets(new_dataset, [0, val_len])
-    val_dataset.merge_datasets(new_dataset, [val_len, len(new_dataset)])
+            'Try making --train-freq or --val-ratio larger.'
+    add_to_train_dataset, add_to_val_dataset = random_split(new_dataset, [train_len, val_len])
+    train_dataset = ConcatDataset([train_dataset, add_to_train_dataset])
+    val_dataset = ConcatDataset([val_dataset, add_to_val_dataset])
     logger.save_trans_dataset(train_dataset, 'train', i=n_actions+n_new_actions)
     logger.save_trans_dataset(val_dataset, 'val', i=n_actions+n_new_actions)
     logger.remove_dataset('curr', i=n_new_actions)

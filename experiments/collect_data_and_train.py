@@ -24,7 +24,7 @@ def train_class(args, logger, n_actions):
                 'n_layers': args.n_layers}
 
     while n_actions < args.max_actions:
-        print('# trained actions = %i, |current dataset| = %i' % (n_actions, len(logger.load_trans_dataset('curr'))))
+        print('# actions = %i, |current dataset| = %i' % (n_actions, len(logger.load_trans_dataset('curr'))))
 
         # train at training freq
         if len(logger.load_trans_dataset('curr')) >= args.train_freq:
@@ -115,6 +115,10 @@ if __name__ == '__main__':
     parser.add_argument('--single-process',
                         action='store_true',
                         help='set if want to run trajectory collection in the same process')
+    parser.add_argument('--initial-dataset-path',
+                        type=str,
+                        help='path to initial dataset to start with')
+
     # Training args
     parser.add_argument('--batch-size',
                         type=int,
@@ -157,6 +161,10 @@ if __name__ == '__main__':
         assert args.data_collection_mode, 'Must set the --data-collection-mode when starting a new experiment'
         logger = ExperimentLogger.setup_experiment_directory(args, 'experiments')
         n_actions = 0
+        if args.initial_dataset_path:
+            init_logger = ExperimentLogger(args.initial_dataset_path)
+            dataset, n_actions = init_logger.load_trans_dataset('', ret_i=True)
+            logger.save_trans_dataset(dataset, 'curr', i=n_actions)
 
     train_class(args, logger, n_actions)
     print('Run saved to %s' % logger.exp_path)
