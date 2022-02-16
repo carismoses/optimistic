@@ -61,9 +61,13 @@ def split_and_move_data(logger, val_ratio):
     new_dataset, n_new_actions = logger.load_trans_dataset('curr', ret_i=True)
     val_len = round(len(new_dataset)*val_ratio)
     train_len = len(new_dataset) - val_len
-    assert val_len >= 1, \
-            'Not enough data in current dataset to split into val and train datasets. ' \
-            'Try making --train-freq or --val-ratio larger.'
+    if val_len >= 1:
+        print('Not enough data in current dataset to split into val and train datasets. ' \
+            'Not using validation set during training')
+        train_dataset = ConcatDataset([train_dataset, new_dataset])
+        logger.save_trans_dataset(train_dataset, 'train', i=n_actions+n_new_actions)
+        logger.remove_dataset('curr', i=n_new_actions)
+        return train_dataset, None
     add_to_train_dataset, add_to_val_dataset = random_split(new_dataset, [train_len, val_len])
     train_dataset = ConcatDataset([train_dataset, add_to_train_dataset])
     val_dataset = ConcatDataset([val_dataset, add_to_val_dataset])

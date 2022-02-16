@@ -30,16 +30,17 @@ def train_class(args, logger, n_actions):
         if len(logger.load_trans_dataset('curr')) >= args.train_freq:
             # split current data into train and val and train
             train_dataset, val_dataset = split_and_move_data(logger, args.val_ratio)
-            ensemble = Ensemble(TransitionGNN,
-                                    base_args,
-                                    args.n_models)
+
             # initialize and train new model
             ensemble = Ensemble(TransitionGNN,
                                     base_args,
                                     args.n_models)
             print('Training ensemble.')
             trans_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
-            val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=True)
+            if val_dataset:
+                val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=True)
+            else:
+                val_dataloader = None
             for model in ensemble.models:
                 train(trans_dataloader, model, val_dataloader=val_dataloader, \
                         n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
