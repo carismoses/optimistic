@@ -646,7 +646,7 @@ class ToolsWorld:
                 values[yi][xi] = value_fn(self, cont, xv, yv)
 
         # show a block at initial pos
-        self.plot_block(ax, self.init_pos_yellow, color='m', linestyle='-')
+        self.plot_block(ax, self.init_pos_yellow, color='c', linestyle='-')
 
         # plot predictions w/ colorbars
         extent = (*x_extent, *y_extent)
@@ -793,7 +793,7 @@ class ToolsWorld:
         init_pose = self.get_obj_pose_from_state(self.objects['yellow_block'], init_state)
 
         datapoints = logger.load_failed_plans()
-        datapoints = datapoints[0]
+        #datapoints = datapoints[0]
         for x, y in datapoints:
             of, ef, af = x
             goal_pos_xy = af[:2]

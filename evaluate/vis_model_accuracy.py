@@ -35,10 +35,10 @@ def gen_plots(di):
         world.vis_dense_plot(cont, axes[2], [world.min_x, world.max_x], \
                         [world.min_y, world.max_y], None, None, value_fn=seq_fn)
         for ai in range(3):
-            world.vis_failed_trajes(cont, axes[ai], logger)
             world.vis_dataset(cont, axes[ai], dataset, linestyle='-')
             world.vis_dataset(cont, axes[ai], val_dataset, linestyle='--')
             world.vis_dataset(cont, axes[ai], curr_dataset, linestyle=':')
+            world.vis_failed_trajes(cont, axes[ai], logger)
 
         world.vis_tool_ax(cont, axes[3])
 
@@ -47,7 +47,7 @@ def gen_plots(di):
         axes[2].set_title('Sequential Score')
         all_axes[ci] = axes
 
-        fname = 'acc_%s_%i_%i.svg' % (ts, ci, di)
+        fname = 'acc_%s_%i_%i.png' % (ts, ci, di)
         logger.save_figure(fname, dir=dir)
         plt.close()
 
