@@ -25,8 +25,6 @@
     (HandEmpty)
     (AtGrasp ?o ?g)
     (AtPose ?o ?p)
-    (AtContact ?o1 ?o2 ?c)
-    (InContact ?o1 ?o2)
     (FreeObj ?o)
     (Held ?o)
     (NotHeavy ?o)
