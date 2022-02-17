@@ -178,6 +178,7 @@ if __name__ == '__main__':
     # random-actions: sample random rollouts
     # random-goals-opt: plan to achieve random goals with the optimistic model
     # random-goals-learned: plan to achieve random goals from a learned model
+    # (DIFFERENT from the model being learned. set model_path with --model-paths)
     parser.add_argument('--data-collection-mode',
                         type=str,
                         default='random-goals-opt',
@@ -215,6 +216,8 @@ if __name__ == '__main__':
         print('Finished dataset path: %s' % args.exp_path)
     else:
         assert args.exp_name, 'Must set the --exp-name arg to start new run'
+        if args.data_collection_mode == 'random-goals-learned':
+            assert args.model_paths, 'Must pass in models to learn from in random-goals-learned mode'
         n_actions = 0
         args.balanced = args.balanced == 'True'
         if args.model_paths:

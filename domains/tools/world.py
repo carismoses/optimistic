@@ -25,9 +25,8 @@ from domains.tools.primitives import get_free_motion_gen, \
 from domains.tools.add_to_primitives import get_trust_model
 from learning.utils import model_forward
 
-N_OF_IN = 1
-N_EF_IN = 3
-N_AF_IN = 7
+N_MC_IN = 8 # input dimensionality for move contact action
+
 
 # TODO: make parent world template class
 class ToolsWorld:
@@ -38,7 +37,7 @@ class ToolsWorld:
 
     @staticmethod
     def get_model_params():
-        return N_OF_IN, N_EF_IN, N_AF_IN
+        return N_MC_IN
 
     def __init__(self, vis, pddl_model_type, logger, planning_model_i):
         # initial block poses
@@ -56,11 +55,6 @@ class ToolsWorld:
 
         # TODO: test without gravity?? maybe will stop robot from jumping around so much
         p.setGravity(0, 0, -9.81, physicsClientId=self.panda._execution_client_id)
-
-        # GNN model params
-        self.n_of_in = N_OF_IN
-        self.n_ef_in = N_EF_IN
-        self.n_af_in = N_AF_IN
 
         # get pddl domain description
         self.logger = logger
@@ -547,7 +541,7 @@ class ToolsWorld:
         #state = get_simple_state(state)
 
         if pddl_action.name == 'move_contact':
-            x = np.zeros(8)
+            x = np.zeros(N_MC_IN)
             # object ids
             x[0] = pddl_action.args[0].id
             x[1] = pddl_action.args[2].id

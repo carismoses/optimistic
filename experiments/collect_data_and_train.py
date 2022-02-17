@@ -4,7 +4,6 @@ from torch.utils.data import DataLoader
 
 from learning.utils import split_and_move_data
 from experiments.utils import ExperimentLogger
-from learning.models.gnn import TransitionGNN
 from learning.models.ensemble import Ensemble
 from learning.train import train
 from experiments.strategies import collect_trajectory_wrapper
@@ -15,10 +14,8 @@ def train_class(args, logger, n_actions):
     pddl_model_type = 'learned' if 'learned' in args.data_collection_mode else 'optimistic'
 
     # get model params
-    n_of_in, n_ef_in, n_af_in = ToolsWorld.get_model_params()
-    base_args = {'n_of_in': n_of_in,
-                'n_ef_in': n_ef_in,
-                'n_af_in': n_af_in,
+    n_mc_in = ToolsWorld.get_model_params()
+    base_args = {'n_in': n_mc_in,
                 'n_hidden': args.n_hidden,
                 'n_layers': args.n_layers}
 
@@ -31,9 +28,9 @@ def train_class(args, logger, n_actions):
             train_dataset, val_dataset = split_and_move_data(logger, args.val_ratio)
 
             # initialize and train new model
-            ensemble = Ensemble(TransitionGNN,
-                                    base_args,
-                                    args.n_models)
+            ensemble = Ensemble(MLP,
+                                base_args,
+                                args.n_models)
             print('Training ensemble.')
             trans_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
             if val_dataset:
@@ -53,7 +50,7 @@ def train_class(args, logger, n_actions):
                                                 pddl_model_type,
                                                 logger,
                                                 progress,
-                                                separate_process= not args.single_process)
+                                                separate_process = not args.single_process)
         n_actions += len(trajectory)
 
         if not trajectory:

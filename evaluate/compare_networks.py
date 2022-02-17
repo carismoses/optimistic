@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 
 from learning.train import train
 from learning.models.gnn import TransitionGNN
+from learning.models.mlp import MLP
 from experiments.utils import ExperimentLogger
 from learning.datasets import model_forward
 from domains.tools.world import ToolsWorld
@@ -36,7 +37,7 @@ for nn_depth in nn_depths:
             all_param_losses = []
             for mi in range(n_models):
                 test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
-                model = TransitionGNN(n_of_in=world.n_of_in,
+                model = MLP(n_of_in=world.n_of_in,
                                         n_ef_in=world.n_ef_in,
                                         n_af_in=world.n_af_in,
                                         n_hidden=n_hidden,

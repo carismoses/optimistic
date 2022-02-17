@@ -7,11 +7,11 @@ import pb_robot
 def model_forward(model, inputs, single_batch=False):
     if single_batch:
         single_inputs = inputs
-        inputs = [torch.tensor(input[None, :], dtype=torch.float64) \
-                                            for input in single_inputs]
+        inputs = torch.tensor(inputs, dtype=torch.float64).unsqueeze(0)
+
     if torch.cuda.is_available():
         model.cuda()
-        inputs = [inpi.cuda() for inpi in inputs]
+        inputs = inputs.cuda()
 
     output = model.forward(inputs)
     if torch.cuda.is_available():

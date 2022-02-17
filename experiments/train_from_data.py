@@ -7,7 +7,7 @@ import time
 from pprint import pformat
 import matplotlib.pyplot as plt
 
-from learning.models.gnn import TransitionGNN
+from learning.models.mlp import MLP
 from learning.models.ensemble import Ensemble, OptimisticEnsemble
 from learning.train import train
 from domains.utils import init_world
@@ -16,10 +16,8 @@ from domains.tools.world import ToolsWorld
 
 def train_from_data(args, logger, start_i):
     # get model params
-    n_of_in, n_ef_in, n_af_in = ToolsWorld.get_model_params()
-    base_args = {'n_of_in': n_of_in,
-                'n_ef_in': n_ef_in,
-                'n_af_in': n_af_in,
+    n_mc_in = ToolsWorld.get_model_params()
+    base_args = {'n_in': n_mc_in,
                 'n_hidden': args.n_hidden,
                 'n_layers': args.n_layers}
 
@@ -27,7 +25,7 @@ def train_from_data(args, logger, start_i):
 
     for i in range(0, max_actions+1, args.train_freq):
         if i > start_i:
-            ensemble = Ensemble(TransitionGNN, base_args, args.n_models)
+            ensemble = Ensemble(MLP, base_args, args.n_models)
             dataset = logger.load_trans_dataset('', i=i)
             if len(dataset) > 0:
                 print('Training model from |dataset| = %i' % len(dataset))

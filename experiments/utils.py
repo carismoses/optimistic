@@ -7,9 +7,9 @@ import numpy as np
 from argparse import Namespace
 import torch
 
-#from domains.tools.world import ToolsWorld
-from learning.models.gnn import TransitionGNN
-from learning.models.ensemble import Ensemble, OptimisticEnsemble
+from domains.tools.world import ToolsWorld
+from learning.models.mlp import MLP
+from learning.models.ensemble import Ensemble
 from learning.datasets import MoveContactDataset
 
 class ExperimentLogger:
@@ -167,20 +167,13 @@ class ExperimentLogger:
                 fname = 'trans_model_%i.pt' % i
                 #print('Loading model %s.' % fname)
 
-        #n_of_in, n_ef_in, n_af_in = ToolsWorld.get_model_params()
-        base_args = {'n_of_in': 1,#n_of_in,
-                    'n_ef_in': 3,#n_ef_in,
-                    'n_af_in': 7,#n_af_in,
+        n_mc_in = ToolsWorld.get_model_params()
+        base_args = {'n_in': n_mc_in,
                     'n_hidden': self.args.n_hidden,
                     'n_layers': self.args.n_layers}
-        #if self.args.data_collection_mode == 'curriculum' and i == 0:
-        #    model = OptimisticEnsemble(TransitionGNN,
-        #                    base_args,
-        #                    self.args.n_models)
-        #else:
-        model = Ensemble(TransitionGNN,
-                            base_args,
-                            self.args.n_models)
+        model = Ensemble(MLP,
+                        base_args,
+                        self.args.n_models)
         loc = 'cuda:0' if torch.cuda.is_available() else 'cpu'
         if fname is not None:
             model.load_state_dict(torch.load(os.path.join(self.exp_path, 'models', fname), map_location=loc))
