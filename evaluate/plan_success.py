@@ -1,7 +1,8 @@
+import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from learning.utils import model_forward
-from learning.utils import ExperimentLogger
+from experiments.utils import ExperimentLogger
 from domains.tools.world import ToolsWorld
 from domains.utils import init_world
 
@@ -75,12 +76,12 @@ if __name__ == '__main__':
                 std_success = np.std(all_successes, axis=0)
                 ax.plot(n_actions, avg_success, color=cs[pi % len(cs)], label=method)
                 ax.fill_between(n_actions, avg_success-std_success, avg_success+std_success, color=cs[pi % len(cs)], alpha=0.1)
-        if args.single_action_step:
-            trajectories = model_logger.load_trajectories(args.single_action_step)
-            p_success = calc_p_success(trajectories)
-            print(model_path, p_success)
+            if args.single_action_step:
+                trajectories = model_logger.load_trajectories(args.single_action_step)
+                p_success = calc_p_success(trajectories)
+                print(model_path, p_success)
 
-    if args.acions_step:
+    if args.actions_step:
         ax.set_xlabel('Number of Executed Actions')
         ax.set_ylabel('% Plan Execution Success')
         ax.set_title('Plan Execution Success over Training Time')
