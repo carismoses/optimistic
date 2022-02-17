@@ -35,9 +35,13 @@ if __name__ == '__main__':
     dir = 'accuracy'
 
     # plot functions
-    for model, mi in logger.get_model_iterator():
-        if not mi % args.plot_freq:
-            print('Generating figures for action step %i' % mi)
+    for dataset, di in logger.get_dataset_iterator('train'):
+        if not di % args.plot_freq:
+            dataset = logger.load_trans_dataset('train', i=di)
+            val_dataset = logger.load_trans_dataset('val', i=di)
+            curr_dataset = logger.load_trans_dataset('curr')
+            model = logger.load_trans_model(i=di)
+            print('Generating figures for action step %i' % di)
             ts = time.strftime('%Y%m%d-%H%M%S')
 
             # make a plot for each contact type (subplot for mean, std, and tool vis)
@@ -58,14 +62,19 @@ if __name__ == '__main__':
                                 [world.min_y, world.max_y], None, None, value_fn=std_fn)
                 world.vis_dense_plot(cont, axes[2], [world.min_x, world.max_x], \
                                 [world.min_y, world.max_y], None, None, value_fn=seq_fn)
+                for ai in range(3):
+                    world.vis_failed_trajes(cont, axes[ai], logger)
+                    world.vis_dataset(cont, axes[ai], dataset, linestyle='-')
+                    world.vis_dataset(cont, axes[ai], val_dataset, linestyle='--')
+                    world.vis_dataset(cont, axes[ai], curr_dataset, linestyle=':')
+
                 world.vis_tool_ax(cont, axes[3])
 
                 axes[0].set_title('Mean Ensemble Predictions')
                 axes[1].set_title('Std Ensemble Predictions')
                 axes[2].set_title('Sequential Score')
-                world.vis_dataset(cont, logger, axes[2], dataset_i=mi)
                 all_axes[ci] = axes
 
-                fname = 'acc_%s_%i.svg' % (ts, ci)
+                fname = 'acc_%s_%i_%i.svg' % (ts, ci, di)
                 logger.save_figure(fname, dir=dir)
                 plt.close()
