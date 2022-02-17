@@ -1,18 +1,19 @@
 import argparse
 
 from experiments.strategies import collect_trajectory_wrapper
-from learning.utils import ExperimentLogger
-args, pddl_model_type, dataset_logger, progress, \
-                            goal_xy=None, separate_process=False, model_logger=None, \
-                            save_to_dataset=True
+from experiments.utils import ExperimentLogger
+
 
 def solve_trajectory(model, logger, mi, planner_args, test_goals):
     trajectories = []
-    for goal in test_goals:
+    for gi, (goal, add_to_state) in enumerate(test_goals):
+        print('Planning for goal %i' % gi)
+        goal_xy = goal[2].pose[0][:2]
         trajectory = collect_trajectory_wrapper(planner_args,
                                                 'learned',
                                                 None,
                                                 None,
+                                                goal_xy=goal_xy,
                                                 separate_process=True,
                                                 model_logger=logger,
                                                 save_to_dataset=False)

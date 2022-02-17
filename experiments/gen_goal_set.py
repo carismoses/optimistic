@@ -1,7 +1,7 @@
 import argparse
 
 from domains.utils import init_world
-from learning.utils import ExperimentLogger
+from experiments.utils import ExperimentLogger
 
 
 if __name__ == '__main__':
@@ -35,3 +35,4 @@ if __name__ == '__main__':
 
     # For calculating plan success
     logger.save_goals(goals)
+    print('Saved %i goals to %s' % (args.n_goals, logger.exp_path))
