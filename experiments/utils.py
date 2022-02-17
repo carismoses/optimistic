@@ -10,7 +10,7 @@ import torch
 #from domains.tools.world import ToolsWorld
 from learning.models.gnn import TransitionGNN
 from learning.models.ensemble import Ensemble, OptimisticEnsemble
-from learning.datasets import TransDataset
+from learning.datasets import MoveContactDataset
 
 class ExperimentLogger:
 
@@ -96,7 +96,7 @@ class ExperimentLogger:
             else:
                 print('No NUMBERED datasets on path %s/datasets/%s. Returning new empty dataset.' % (self.exp_path, dir))
                 print('All datasets must be numbered')
-                dataset = TransDataset()
+                dataset = MoveContactDataset()
                 i = 0
         if ret_i:
             return dataset, i

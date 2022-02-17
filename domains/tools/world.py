@@ -543,39 +543,29 @@ class ToolsWorld:
         return np.array([*goal[2].pose[0][:2], goal_orn])
 
 
-    def state_to_vec(self, state):
-        state = get_simple_state(state)
+    def action_to_vec(self, pddl_action):
+        #state = get_simple_state(state)
 
-        num_objects = len(self.objects)
-        object_features = np.zeros((num_objects, self.n_of_in))
-        for oi, object in enumerate(self.objects.values()):
-            object_features[oi] = object.id
-
-        edge_features = np.zeros((num_objects, num_objects, self.n_ef_in))
-        for oi, object_i in enumerate(self.objects.values()):
-            for oj, object_j in enumerate(self.objects.values()):
-                if oi == oj:
-                    edge_features[oi,oj,:] = np.zeros(self.n_ef_in)
-                else:
-                    obj_i_pos, obj_i_orn = self.get_obj_pose_from_state(object_i, state)
-                    obj_j_pos, obj_j_orn = self.get_obj_pose_from_state(object_j, state)
-                    rel_pos = np.array(obj_i_pos) - np.array(obj_j_pos)
-                    rel_angle = pb_robot.geometry.quat_angle_between(obj_i_orn, obj_j_orn)
-                    edge_features[oi,oj,:2] = rel_pos[:2]
-                    edge_features[oi,oj,2] = rel_angle
-
-        return object_features, edge_features
+        if pddl_action.name == 'move_contact':
+            x = np.zeros(8)
+            # object ids
+            x[0] = pddl_action.args[0].id
+            x[1] = pddl_action.args[2].id
+            # relative pose (2D)
+            rel_pose = pddl_action.args[5].rel_pose
+            zero_quat = (0., 0., 0., 1.)
+            rel_angle = pb_robot.geometry.quat_angle_between(zero_quat, rel_pose[1])
+            x[2:5] = [*rel_pose[0][:2], rel_angle]
+            # goal pose (2D)
+            goal_pose = pddl_action.args[4].pose
+            rel_angle = pb_robot.geometry.quat_angle_between(zero_quat, goal_pose[1])
+            x[5:8] = [*goal_pose[0][:2], rel_angle]
+            return x
+        else:
+            raise NotImplementedError('No vectorization method for action %s' % pddl_action.name)
 
 
-    def action_to_vec(self, action):
-        action_vec = np.zeros(self.n_af_in)
-        final_push_pos, final_push_quat = action.args[4].pose
-        action_vec[:3] = final_push_pos
-        action_vec[3:] = final_push_quat
-        return action_vec
-
-
-    def pred_args_to_action_vec(self, obj1, obj2, pose1, pose2, cont):
+    def pred_args_to_vec(self, obj1, obj2, pose1, pose2, cont):
         action = Action(name='move_contact', args=(obj1,
                                                     None,
                                                     obj2,

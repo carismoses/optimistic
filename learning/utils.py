@@ -29,17 +29,8 @@ def add_trajectory_to_dataset(domain, dataset_logger, trajectory, world):
         for (state, pddl_action, next_state, opt_accuracy) in trajectory:
             if (pddl_action.name == 'move_contact' and domain == 'tools') or \
                 (pddl_action.name in ['place', 'pickplace'] and domain == 'ordered_blocks'):
-                object_features, edge_features = world.state_to_vec(state)
-                action_features = world.action_to_vec(pddl_action)
-                # assume object features don't change for now
-                _, next_edge_features = world.state_to_vec(next_state)
-                delta_edge_features = next_edge_features-edge_features
-                dataset.add_to_dataset(object_features,
-                                        edge_features,
-                                        action_features,
-                                        next_edge_features,
-                                        delta_edge_features,
-                                        opt_accuracy)
+                x = world.action_to_vec(pddl_action)
+                dataset.add_to_dataset(x, opt_accuracy)
                 dataset_logger.save_trans_dataset(dataset, 'curr', n_curr_actions)
 
 

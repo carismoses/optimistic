@@ -5,7 +5,6 @@ import time
 from torch.utils.data import ConcatDataset
 import matplotlib.pyplot as plt
 
-from learning.datasets import TransDataset
 from experiments.utils import ExperimentLogger
 from tamp.utils import execute_plan
 from domains.utils import init_world

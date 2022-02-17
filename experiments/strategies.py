@@ -245,16 +245,15 @@ def sequential(world, mode, n_seq_plans):
 
 def sequential_bald(plan, model, world, ret_states=False):
     score = 0
-    of, ef, af = None, None, None
+    x = None
     for pddl_state, pddl_action in plan:
         if pddl_action.name == 'move_contact':
-            of, ef = world.state_to_vec(pddl_state)
-            af = world.action_to_vec(pddl_action)
-            predictions = model_forward(model, [of, ef, af], single_batch=True)
+            x = world.action_to_vec(pddl_action)
+            predictions = model_forward(model, x, single_batch=True)
             mean_prediction = predictions.mean()
             score += mean_prediction*bald(predictions)
     if ret_states:
-        return score, [of, ef, af]
+        return score, x
     else:
         return score
 

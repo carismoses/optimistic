@@ -7,7 +7,6 @@ import time
 from pprint import pformat
 import matplotlib.pyplot as plt
 
-from learning.datasets import TransDataset
 from learning.models.gnn import TransitionGNN
 from learning.models.ensemble import Ensemble, OptimisticEnsemble
 from learning.train import train

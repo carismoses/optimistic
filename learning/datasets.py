@@ -4,6 +4,39 @@ import torch
 from torch.utils.data import Dataset
 from learning.models.gnn import TransitionGNN
 
+
+class MoveContactDataset(Dataset):
+    # inputs to the MoveContactDataset are:
+    #   object_ids (2-d)
+    #   rel_pose (3-d)
+    #   goal_pose (3-d)
+    # output is feasibility: 1-d
+    def __init__(self):
+        self.xs = torch.tensor([], dtype=torch.float64)
+        self.ys = torch.tensor([], dtype=torch.float64)
+
+
+    def __getitem__(self, ix):
+        return [self.xs[ix],
+                self.ys[ix]]
+
+
+    def __len__(self):
+        """
+        The total number of datapoints in the entire dataset.
+        """
+        return len(self.xs)
+
+
+    def add_to_dataset(self, x, y):
+        if not isinstance(x, torch.Tensor):
+            self.xs = torch.cat([self.xs, torch.tensor([x])])
+            self.ys = torch.cat([self.ys, torch.tensor([y])])
+        else:
+            self.xs = torch.cat([self.xs, x.unsqueeze(dim=0)])
+            self.ys = torch.cat([self.ys, y.unsqueeze(dim=0)])
+
+
 class TransDataset(Dataset):
     def __init__(self):
         self.object_features = torch.tensor([], dtype=torch.float64)

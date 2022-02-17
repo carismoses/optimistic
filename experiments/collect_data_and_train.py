@@ -3,7 +3,6 @@ from torch.nn import functional as F
 from torch.utils.data import DataLoader
 
 from learning.utils import split_and_move_data
-from learning.datasets import TransDataset
 from experiments.utils import ExperimentLogger
 from learning.models.gnn import TransitionGNN
 from learning.models.ensemble import Ensemble
