@@ -25,15 +25,15 @@ def get_contact_gen(robot):
 
         rel_z = 0
         # for now defining 4 contact points (pose from obj2 to obj1)
-        rel_points_xy = [(-(half_length+half_b), 0),
-                        ((half_length-tool_thickness-half_b), -(half_tool+half_b)),
-                        ((half_length+half_b), -(half_width)),
-                        ((half_length-half_tool), -(tool_width-half_tool+half_b))]
+        rel_points_xy = [((-(half_length+half_b), 0), 'poke'),      # long end
+                        (((half_length-tool_thickness-half_b), -(half_tool+half_b)), 'hook'),
+                        (((half_length+half_b), -(half_width)), 'push-pull'), # outside short end
+                        (((half_length-half_tool), -(tool_width-half_tool+half_b)), 'poke')] # short end
 
         contacts = []
-        for rel_point_xy in rel_points_xy:
+        for rel_point_xy, type in rel_points_xy:
             rel_pose = ((*rel_point_xy, rel_z), (0., 0., 0., 1.))
-            contact = Contact(obj1, obj2, rel_pose)
+            contact = Contact(obj1, obj2, rel_pose, type)
             contacts.append((contact,))
         if shuffle:
             random.shuffle(contacts)
