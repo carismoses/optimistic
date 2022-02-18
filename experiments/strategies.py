@@ -128,7 +128,7 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_lo
         add_trajectory_to_dataset(args.domain, dataset_logger, trajectory, world)
 
     if 'sequential' in args.data_collection_mode and failed_pddl_plan:
-        last_datapoint = dataset_logger.load_trans_dataset('curr')[-1]
+        last_datapoint = dataset_logger.load_trans_dataset('')[-1]
         dataset_logger.add_to_failed_plans(last_datapoint)
 
     # disconnect from world
@@ -249,7 +249,8 @@ def sequential_bald(plan, model, world, ret_states=False):
     for pddl_state, pddl_action in plan:
         if pddl_action.name == 'move_contact':
             x = world.action_to_vec(pddl_action)
-            predictions = model_forward(model, x, single_batch=True)
+            contact_type = pddl_action.args[5].type
+            predictions = model_forward(contact_type, model, x, single_batch=True)
             mean_prediction = predictions.mean()
             score += mean_prediction*bald(predictions)
     if ret_states:

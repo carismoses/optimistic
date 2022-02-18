@@ -8,8 +8,8 @@ from pprint import pformat
 import matplotlib.pyplot as plt
 
 from learning.models.mlp import MLP
-from learning.models.ensemble import Ensemble, OptimisticEnsemble
-from learning.train import train
+from learning.models.ensemble import Ensembles
+from learning.utils import train_move_contact
 from domains.utils import init_world
 from domains.tools.world import ToolsWorld
 
@@ -25,16 +25,18 @@ def train_from_data(args, logger, start_i):
 
     for i in range(0, max_actions+1, args.train_freq):
         if i > start_i:
-            ensemble = Ensemble(MLP, base_args, args.n_models)
             dataset = logger.load_trans_dataset('', i=i)
             if len(dataset) > 0:
+                ensembles = Ensembles(MLP, base_args, n_models, contact_types)
+                for type in contact_types:
+                    print('Training %s ensemble.' % type)
+                    dataloader = DataLoader(dataset[type], batch_size=batch_size, shuffle=True)
+                    for model in ensembles.ensembles[type].models:
+                        train(dataloader, model, n_epochs=n_epochs, loss_fn=F.binary_cross_entropy)
                 print('Training model from |dataset| = %i' % len(dataset))
-                dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
-                for model in ensemble.models:
-                    train(dataloader, model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
 
             # save model and accuracy plots
-            logger.save_trans_model(ensemble, i=i)
+            logger.save_trans_model(models, i=i)
 
 
 if __name__ == '__main__':

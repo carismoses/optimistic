@@ -7,9 +7,9 @@ import numpy as np
 from argparse import Namespace
 import torch
 
-from domains.tools.world import ToolsWorld
+from domains.tools.world import N_MC_IN, CONTACT_TYPES
 from learning.models.mlp import MLP
-from learning.models.ensemble import Ensemble
+from learning.models.ensemble import Ensembles
 from learning.datasets import MoveContactDataset
 
 class ExperimentLogger:
@@ -96,7 +96,7 @@ class ExperimentLogger:
             else:
                 print('No NUMBERED datasets on path %s/datasets/%s. Returning new empty dataset.' % (self.exp_path, dir))
                 print('All datasets must be numbered')
-                dataset = MoveContactDataset()
+                dataset = MoveContactDataset(CONTACT_TYPES)
                 i = 0
         if ret_i:
             return dataset, i
@@ -167,17 +167,18 @@ class ExperimentLogger:
                 fname = 'trans_model_%i.pt' % i
                 #print('Loading model %s.' % fname)
 
-        n_mc_in = ToolsWorld.get_model_params()
-        base_args = {'n_in': n_mc_in,
+        base_args = {'n_in': N_MC_IN,
                     'n_hidden': self.args.n_hidden,
                     'n_layers': self.args.n_layers}
-        model = Ensemble(MLP,
-                        base_args,
-                        self.args.n_models)
+        ensembles = Ensembles(MLP,
+                            base_args,
+                            self.args.n_models,
+                            CONTACT_TYPES)
+        assert fname, 'No models found on path' % os.path.join(self.exp_path, 'models')
+
         loc = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-        if fname is not None:
-            model.load_state_dict(torch.load(os.path.join(self.exp_path, 'models', fname), map_location=loc))
-        return model
+        ensembles.load_state_dict(torch.load(os.path.join(self.exp_path, 'models', fname), map_location=loc))
+        return ensembles
 
     # save trajectory data
     def save_trajectories(self, trajectories, i):

@@ -2,6 +2,28 @@ import torch
 import torch.nn as nn
 
 
+class Ensembles(nn.Module):
+    def __init__(self, base_model, base_args, n_models, classes):
+        super(Ensembles, self).__init__()
+        self.base_model = base_model
+        self.base_args = base_args
+        self.n_models = n_models
+        self.classes = classes
+        self.reset()
+
+    def reset(self):
+        self.ensembles = {}
+        for class_name in self.classes:
+            ensemble = Ensemble(self.base_model,
+                                self.base_args,
+                                self.n_models)
+            ensemble.reset()
+            self.ensembles[class_name] = ensemble
+
+    def forward(self, x, class_name):
+        self.ensembles[class_name].forward()
+
+
 class Ensemble(nn.Module):
     """ A helper class to represent a collection of models.
 

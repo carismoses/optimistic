@@ -23,9 +23,10 @@ from domains.tools.primitives import get_free_motion_gen, \
     get_holding_motion_gen, get_ik_fn, get_pose_gen_block, get_tool_grasp_gen, \
     get_block_grasp_gen, get_contact_motion_gen, get_contact_gen, contact_approach_fn, ee_ik
 from domains.tools.add_to_primitives import get_trust_model
-from learning.utils import model_forward
+
 
 N_MC_IN = 8 # input dimensionality for move contact action
+CONTACT_TYPES = ['poke', 'push_pull', 'hook']
 
 
 # TODO: make parent world template class

@@ -85,10 +85,10 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
                 feasible_goal_i += 1
 
                 # move curr dataset to /datasets
-                curr_dataset, curr_i = dataset_logger.load_trans_dataset('curr', ret_i=True)
-                dataset = ConcatDataset([dataset, curr_dataset])
-                dataset_logger.save_trans_dataset(dataset, '', i=n_actions)
-                dataset_logger.remove_dataset('curr', curr_i)
+                #dataset, _ = dataset_logger.load_trans_dataset('', ret_i=True)
+                #dataset = ConcatDataset([dataset, curr_dataset])
+                #dataset_logger.save_trans_dataset(dataset, '', i=n_actions)
+                #dataset_logger.remove_dataset('curr', curr_i)
 
                 if args.balanced:
                     # balance dataset by removing added element if makes it unbalanced
@@ -104,9 +104,9 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
             else:
                 # remove from current dataset
                 print('Failed to find feasible plan for expert feasible goal')
-                print('Removing current dataset.')
-                _, curr_i = dataset_logger.load_trans_dataset('curr', ret_i=True)
-                dataset_logger.remove_dataset('curr', curr_i)
+                print('Removing latest dataset.')
+                #_, curr_i = dataset_logger.load_trans_dataset('curr', ret_i=True)
+                dataset_logger.remove_dataset('', n_actions)
                 n_actions -= len(trajectory)
 
 

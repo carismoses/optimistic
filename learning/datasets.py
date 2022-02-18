@@ -4,12 +4,24 @@ import torch
 from torch.utils.data import Dataset
 
 
-class MoveContactDataset(Dataset):
-    # inputs to the MoveContactDataset are:
-    #   object_ids (2-d)
-    #   rel_pose (3-d)
-    #   goal_pose (3-d)
-    # output is feasibility: 1-d
+class MoveContactDataset:
+    def __init__(self, types):
+        self.datasets = {type: OptDataset() for type in types}
+
+
+    def __getitem__(self, contact_type):
+        return self.datasets[contact_type]
+
+
+    def __len__(self):
+        return sum([len(dataset) for dataset in self.datasets.values()])
+
+
+    def add_to_dataset(self, contact_type, x, y):
+        self.datasets[contact_type].add_to_dataset(x, y)
+
+
+class OptDataset(Dataset):
     def __init__(self):
         self.xs = torch.tensor([], dtype=torch.float64)
         self.ys = torch.tensor([], dtype=torch.float64)

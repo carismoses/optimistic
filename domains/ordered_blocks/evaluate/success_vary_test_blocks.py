@@ -8,7 +8,6 @@ from pddlstream.utils import INF
 from tamp.utils import execute_plan
 from domains.ordered_blocks.world import OrderedBlocksWorld
 from experiments.utils import ExperimentLogger
-from learning.utils import model_forward
 from evaluate.utils import plot_results, recc_dict
 
 if __name__ == '__main__':
