@@ -10,13 +10,15 @@ from tamp.utils import execute_plan
 from domains.utils import init_world
 from experiments.strategies import collect_trajectory_wrapper
 from domains.tools.primitives import get_contact_gen
+from domains.tools.world import CONTACT_TYPES
 
 def plot_dataset(world, dataset, di, logger):
-    contacts_fn = get_contact_gen(world.panda.planning_robot)
-    contacts = contacts_fn(world.objects['tool'], world.objects['yellow_block'], shuffle=False)
+    #contacts_fn = get_contact_gen(world.panda.planning_robot)
+    #contacts = contacts_fn(world.objects['tool'], world.objects['yellow_block'], shuffle=False)
     ts = time.strftime('%Y%m%d-%H%M%S')
     all_axes = {}
-    for ci, contact in enumerate(contacts):
+    #for ci, contact in enumerate(contacts):
+    for type in CONTACT_TYPES:
         cont = contact[0]
         fig, axes = plt.subplots(2, figsize=(8,15))
         world.vis_tool_ax(cont, axes[1])
@@ -55,52 +57,56 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
                         False,
                         None)
     feasible_goal_i = 0
-    while len(dataset) < args.max_dataset_size:
+    while len(dataset) < len(CONTACT_TYPES)*args.max_type_size:
         print('# actions = %i, |dataset| = %i' % (n_actions, len(dataset)))
         if model_logger is None:
             pddl_model_type = 'optimistic'
         else:
             pddl_model_type = 'learned'
 
-        if feasible_goal_i < len(expert_feasible_goals):
-            goal_xy = expert_feasible_goals[feasible_goal_i]
-        else:
-            goal_xy = None
+        #if feasible_goal_i < len(expert_feasible_goals):
+        #    goal_xy = expert_feasible_goals[feasible_goal_i]
+        #else:
+        #    goal_xy = None
         trajectory = collect_trajectory_wrapper(args,
                                                 pddl_model_type,
                                                 dataset_logger,
                                                 args.goal_progress,
                                                 separate_process=not args.single_process,
                                                 model_logger=model_logger,
-                                                save_to_dataset=True,
-                                                goal_xy=goal_xy)
+                                                save_to_dataset=True)#,
+                                                #goal_xy=goal_xy)
         if len(trajectory) > 0:
             n_actions += len(trajectory)
 
             # if feasible and in feasible goals, add to dataset and move to next goal
             # if done with feasibe goals, add to dataset
-            if (feasible_goal_i < len(expert_feasible_goals) and \
-                                        trajectory[-1][-1]) or \
-                            (feasible_goal_i >= len(expert_feasible_goals)):
-                feasible_goal_i += 1
+            #if (feasible_goal_i < len(expert_feasible_goals) and \
+            #                            trajectory[-1][-1]) or \
+            #                (feasible_goal_i >= len(expert_feasible_goals)):
+            #    feasible_goal_i += 1
 
                 # move curr dataset to /datasets
                 #dataset, _ = dataset_logger.load_trans_dataset('', ret_i=True)
                 #dataset = ConcatDataset([dataset, curr_dataset])
                 #dataset_logger.save_trans_dataset(dataset, '', i=n_actions)
                 #dataset_logger.remove_dataset('curr', curr_i)
-
-                if args.balanced:
-                    # balance dataset by removing added element if makes it unbalanced
-                    #plot_dataset(world, dataset, n_actions, dataset_logger)
-                    num_per_class = args.max_dataset_size // 2
-                    num_pos_datapoints = sum([y for x,y in dataset])
-                    num_neg_datapoints = len(dataset) - num_pos_datapoints
+            dataset = dataset_logger.load_trans_dataset('')
+            if args.balanced:
+                # balance dataset by removing added element if makes it unbalanced
+                #plot_dataset(world, dataset, n_actions, dataset_logger)
+                num_per_class = args.max_type_size // 2
+                for type in CONTACT_TYPES:
+                    num_pos_datapoints = sum([y for x,y in dataset[type]])
+                    num_neg_datapoints = len(dataset[type]) - num_pos_datapoints
+                    print('Positive %s: %i' % (type, num_pos_datapoints))
+                    print('Negative %s: %i' % (type, num_neg_datapoints))
                     if num_pos_datapoints > num_per_class or num_neg_datapoints > num_per_class:
                         print('Removing last trajectory added to dataset.')
                         dataset_logger.remove_dataset('', i=n_actions)
                         n_actions -= len(trajectory)
                     dataset = dataset_logger.load_trans_dataset('')
+            '''
             else:
                 # remove from current dataset
                 print('Failed to find feasible plan for expert feasible goal')
@@ -108,7 +114,7 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
                 #_, curr_i = dataset_logger.load_trans_dataset('curr', ret_i=True)
                 dataset_logger.remove_dataset('', n_actions)
                 n_actions -= len(trajectory)
-
+            '''
 
         # optionally replay with pyBullet
         '''
@@ -146,7 +152,7 @@ if __name__ == '__main__':
     parser.add_argument('--debug',
                         action='store_true',
                         help='use to run in debug mode')
-    parser.add_argument('--max-dataset-size',
+    parser.add_argument('--max-type-size',
                         type=int,
                         default=400,
                         help='max number of actions for the robot to attempt')
