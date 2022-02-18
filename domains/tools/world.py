@@ -25,7 +25,7 @@ from domains.tools.primitives import get_free_motion_gen, \
 from domains.tools.add_to_primitives import get_trust_model
 
 
-N_MC_IN = 8 # input dimensionality for move contact action
+N_MC_IN = 2 # input dimensionality for move contact action
 CONTACT_TYPES = ['poke', 'push_pull', 'hook']
 
 
@@ -544,17 +544,18 @@ class ToolsWorld:
         if pddl_action.name == 'move_contact':
             x = np.zeros(N_MC_IN)
             # object ids
-            x[0] = pddl_action.args[0].id
-            x[1] = pddl_action.args[2].id
+            #x[0] = pddl_action.args[0].id
+            #x[1] = pddl_action.args[2].id
             # relative pose (2D)
-            rel_pose = pddl_action.args[5].rel_pose
-            zero_quat = (0., 0., 0., 1.)
-            rel_angle = pb_robot.geometry.quat_angle_between(zero_quat, rel_pose[1])
-            x[2:5] = [*rel_pose[0][:2], rel_angle]
+            #rel_pose = pddl_action.args[5].rel_pose
+            #zero_quat = (0., 0., 0., 1.)
+            #rel_angle = pb_robot.geometry.quat_angle_between(zero_quat, rel_pose[1])
+            #x[2:5] = [*rel_pose[0][:2], rel_angle]
             # goal pose (2D)
             goal_pose = pddl_action.args[4].pose
-            rel_angle = pb_robot.geometry.quat_angle_between(zero_quat, goal_pose[1])
-            x[5:8] = [*goal_pose[0][:2], rel_angle]
+            #rel_angle = pb_robot.geometry.quat_angle_between(zero_quat, goal_pose[1])
+            #x[5:8] = [*goal_pose[0][:2], rel_angle]
+            x[:] = [*goal_pose[0][:2]]
             return x
         else:
             raise NotImplementedError('No vectorization method for action %s' % pddl_action.name)
