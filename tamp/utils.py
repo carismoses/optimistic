@@ -297,16 +297,15 @@ def goal_to_urdf(name, urdf_path, color, radius):
 
 def vis_frame(pb_pose, client, length=0.2, lifeTime=0.):
     pos, quat = pb_pose
-    print(pos)
     obj_tform = pb_robot.geometry.tform_from_pose(pb_pose)
 
     for dim in [0,1,2]:
         dim_tform = np.eye(4)
         dim_tform[dim,3] = 1.
-        unit_vec = np.zeros(3)
-        unit_vec[dim] = 1
+        rgb = np.zeros(3)
+        rgb[dim] = 1
         p.addUserDebugLine(pos,
-                            (dim_tform@obj_tform)[:3,3],
-                            unit_vec,
+                            (obj_tform@dim_tform)[:3,3],
+                            lineColorRGB=rgb,
                             lifeTime=lifeTime,
                             physicsClientId=client)
