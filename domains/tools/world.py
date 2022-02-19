@@ -12,13 +12,13 @@ import time
 import pybullet as p
 
 import pb_robot
-
+from pb_robot.transformations import rotation_from_matrix
 from pddlstream.language.constants import Action
 from pddlstream.utils import read
 from pddlstream.language.generator import from_list_fn, from_fn, from_test
 
 from panda_wrapper.panda_agent import PandaAgent
-from tamp.utils import get_simple_state, get_learned_pddl, block_to_urdf, goal_to_urdf
+from tamp.utils import get_learned_pddl, block_to_urdf, goal_to_urdf, get_simple_state
 from domains.tools.primitives import get_free_motion_gen, \
     get_holding_motion_gen, get_ik_fn, get_pose_gen_block, get_tool_grasp_gen, \
     get_block_grasp_gen, get_contact_motion_gen, get_contact_gen, contact_approach_fn, ee_ik
@@ -73,6 +73,7 @@ class ToolsWorld:
                         abs(init_y-self.min_y),
                         abs(init_y-self.max_y)])
         self.goal_radius = 0.05
+
 
     def get_init_state(self):
         pddl_state = copy(self.obj_init_state)
@@ -538,30 +539,24 @@ class ToolsWorld:
         return np.array([*goal[2].pose[0][:2], goal_orn])
 
 
-    def action_to_vec(self, pddl_action):
-        #state = get_simple_state(state)
-
+    def state_and_action_to_vec(self, state, pddl_action):
+        state = get_simple_state(state)
+        x = np.zeros(N_MC_IN)
         if pddl_action.name == 'move_contact':
-            x = np.zeros(N_MC_IN)
-            # object ids
-            #x[0] = pddl_action.args[0].id
-            #x[1] = pddl_action.args[2].id
-            # relative pose (2D)
-            #rel_pose = pddl_action.args[5].rel_pose
-            #zero_quat = (0., 0., 0., 1.)
-            #rel_angle = pb_robot.geometry.quat_angle_between(zero_quat, rel_pose[1])
-            #x[2:5] = [*rel_pose[0][:2], rel_angle]
-            # goal pose (2D)
-            goal_pose = pddl_action.args[4].pose
-            #rel_angle = pb_robot.geometry.quat_angle_between(zero_quat, goal_pose[1])
-            #x[5:8] = [*goal_pose[0][:2], rel_angle]
-            x[:] = [*goal_pose[0][:2]]
+            # calculate the pose of the push goal in the contact frame
+            cont = pddl_action.args[5]
+            tool_w_pose = self.get_obj_pose_from_state(self.objects['tool'], state)
+            tool_w_tform = pb_robot.geometry.tform_from_pose(tool_w_pose)
+            cont_w_tform = np.dot(tool_w_tform, np.linalg.inv(cont.tool_in_cont_tform))
+            goal_world_point = (*pddl_action.args[4].pose[0], 1)
+            goal_cont = np.dot(np.linalg.inv(cont_w_tform), goal_world_point)
+            x[:] = goal_cont[:2]
             return x
         else:
             raise NotImplementedError('No vectorization method for action %s' % pddl_action.name)
 
 
-    def pred_args_to_vec(self, obj1, obj2, pose1, pose2, cont):
+    def pred_args_to_vec(self, obj1, obj2, pose1, pose2, cont, state):
         action = Action(name='move_contact', args=(obj1,
                                                     None,
                                                     obj2,
@@ -571,7 +566,7 @@ class ToolsWorld:
                                                     None,
                                                     None,
                                                     None))
-        return self.action_to_vec(action)
+        return self.state_and_action_to_vec(state, action)
 
 
     def valid_transition(self, new_pddl_state, pddl_action):
@@ -609,16 +604,26 @@ class ToolsWorld:
             return ar, extent
 
 
-    def vis_tool_ax(self, cont, ax):
-        # show tool pose relative to block in final axis
-        tool_base_pos, tool_base_orn = cont.rel_pose
-        angle = pb_robot.geometry.quat_angle_between(tool_base_orn, [0., 0., 0., 1.])
-        tool_2d_pose = (*np.add(self.init_pos_yellow, tool_base_pos[:2]), angle)
-        self.plot_block(ax, self.init_pos_yellow, color='k')
-        self.plot_tool(ax, tool_2d_pose, 'k')
+    # can visualize tool in world or contact frame
+    def vis_tool_ax(self, cont, ax, frame='world'):
+        if frame == 'world':
+            tool_pos_w = np.add(self.init_pos_yellow, tool_pose_block[0][:2])
+            init_block_pos = self.init_pos_yellow
+            # TODO: this assumes that the block is always aligned with the world frame
+            tool_tform = pb_robot.geometry.tform_from_pose(cont.rel_pose)
+        elif frame == 'cont':
+            init_block_pos = (0., 0.)
+            tool_tform = cont.tool_in_cont_tform
+
+        self.plot_block(ax, init_block_pos, color='m')
+        self.plot_tool(ax, tool_tform, 'k')
         ax.set_aspect('equal')
-        ax.set_xlim([self.min_x, self.max_x])
-        ax.set_ylim([self.min_y, self.max_y])
+        if frame == 'world':
+            ax.set_xlim([self.min_x, self.max_x])
+            ax.set_ylim([self.min_y, self.max_y])
+        elif frame == 'cont':
+            ax.set_xlim([-1,1])
+            ax.set_ylim([-1,1])
 
 
     def vis_dense_plot(self, cont, ax, x_range, y_range, vmin, vmax, value_fn=None, cell_width=0.05):
@@ -695,9 +700,7 @@ class ToolsWorld:
     # each axis in axes is a 3 part subplot for a single contact
     def vis_dataset(self, ax, dataset, linestyle='-'):
         # plot initial position
-        init_state = self.get_init_state()
-        init_pose = self.get_obj_pose_from_state(self.objects['yellow_block'], init_state)
-        self.plot_block(ax, init_pose[0][:2], 'm')
+        self.plot_block(ax, (0,0), 'm')
         for x, y in dataset:
             color = 'r' if y == 0 else 'g'
             self.plot_block(ax, x, color, linestyle=linestyle)
@@ -712,20 +715,32 @@ class ToolsWorld:
                                 linestyle=linestyle))
 
 
-    def plot_tool(self, ax, rel_2d_pose, color):
+    # 00 is either the world or contact frame depending on what tool_tform
+    # is passed in
+    def plot_tool(self, ax, tool_tform, color):
         tool_data = p.getVisualShapeData(self.objects['tool'].id, -1)
         tool_base_dims = np.array(tool_data[0][3][:2])
         tool_link0_dims = np.array(tool_data[1][3][:2])
-        link0_relpos = np.array([-0.185, 0.115]) # from URDF
 
-        ax.add_patch(Rectangle(rel_2d_pose[:2] - tool_base_dims/2,
+        anchor_base_tool = np.array([*-tool_base_dims/2, 0, 1])
+        anchor_base_00 = np.dot(tool_tform, anchor_base_tool)
+        tool_pose = pb_robot.geometry.pose_from_tform(tool_tform)
+        angle_00, _, _ = rotation_from_matrix(tool_tform)
+        deg_angle_00 = angle_00*(180/np.pi)
+
+        # relative pose from center of base to link0
+        link0_base_relpos = np.array([-0.185, 0.115]) # from URDF
+        anchor_link0_tool = np.array([*(link0_base_relpos-tool_link0_dims/2), 0, 1])
+        anchor_link0_00 = np.dot(tool_tform, anchor_link0_tool)
+
+        ax.add_patch(Rectangle(anchor_base_00[:2],
                                 *tool_base_dims,
-                                angle = rel_2d_pose[2],
+                                angle = deg_angle_00,
                                 color = color,
                                 fill = False))
-        ax.add_patch(Rectangle(rel_2d_pose[:2] + link0_relpos - tool_link0_dims/2,
+        ax.add_patch(Rectangle(anchor_link0_00[:2],
                                 *tool_link0_dims,
-                                angle = rel_2d_pose[2],
+                                angle = deg_angle_00,
                                 color = color,
                                 fill = False))
 
@@ -782,45 +797,3 @@ class ToolsWorld:
             dist = np.linalg.norm(np.subtract(vef_j, ef))
             if dist < 0.01:
                 self.plot_block(ax, goal_pos_xy, 'b', linestyle=linestyle)
-
-
-# just for testing
-if __name__ == '__main__':
-    import pybullet as p
-    import time
-    from pddlstream.utils import INF
-    from pddlstream.algorithms.focused import solve_focused
-    from tamp.utils import execute_plan, vis_frame
-
-    import pdb; pdb.set_trace()
-    vis = True  # set to visualize pyBullet GUI
-    world, opt_pddl_info, pddl_info = ToolsWorld.init(None, 'optimistic', vis, logger=None)
-
-    # get initial state and add yellow block goal pose to fluents
-    push_distance = 0.15
-    init = world.init_state
-    initial_point, initial_orn = world.objects['yellow_block'].get_base_link_pose()
-    final_pose = (np.add(initial_point, (push_distance, 0., 0.)), initial_orn)
-    final_yb_pose = pb_robot.vobj.BodyPose(world.objects['yellow_block'], final_pose)
-    goal = ('atpose', world.objects['yellow_block'], final_yb_pose)
-    init += [('pose', world.objects['yellow_block'], goal[2])]
-
-    problem = tuple([*pddl_info, init, goal])
-
-    # call planner
-    print('Init: ', init)
-    print('Goal: ', goal)
-    pddl_plan, cost, init_expanded = solve_focused(problem,
-                                        success_cost=INF,
-                                        max_skeletons=2,
-                                        search_sample_ratio=1.0,
-                                        max_time=INF,
-                                        verbose=False,
-                                        unit_costs=True)
-    print('Plan: ', pddl_plan)
-
-    # execute plan
-    if pddl_plan:
-        trajectory, _ = execute_plan(world, problem, pddl_plan, init_expanded)
-    else:
-        print('No plan found.')

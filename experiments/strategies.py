@@ -248,7 +248,7 @@ def sequential_bald(plan, model, world, ret_states=False):
     x = None
     for pddl_state, pddl_action in plan:
         if pddl_action.name == 'move_contact':
-            x = world.action_to_vec(pddl_action)
+            x = world.state_and_action_to_vec(pddl_action, pddl_action)
             contact_type = pddl_action.args[5].type
             predictions = model_forward(contact_type, model, x, single_batch=True)
             mean_prediction = predictions.mean()

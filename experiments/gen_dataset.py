@@ -12,26 +12,28 @@ from experiments.strategies import collect_trajectory_wrapper
 from domains.tools.primitives import get_contact_gen
 from domains.tools.world import CONTACT_TYPES
 
-def plot_dataset(world, dataset, di, logger):
-    #contacts_fn = get_contact_gen(world.panda.planning_robot)
-    #contacts = contacts_fn(world.objects['tool'], world.objects['yellow_block'], shuffle=False)
-    ts = time.strftime('%Y%m%d-%H%M%S')
-    all_axes = {}
-    #for ci, contact in enumerate(contacts):
-    for type in CONTACT_TYPES:
-        cont = contact[0]
-        fig, axes = plt.subplots(2, figsize=(8,15))
-        world.vis_tool_ax(cont, axes[1])
-        world.vis_dataset(cont, axes[0], dataset)
-        axes[0].set_aspect('equal')
-        axes[0].set_xlim([world.min_x, world.max_x])
-        axes[0].set_ylim([world.min_y, world.max_y])
-        all_axes[ci] = axes
 
-        fname = 'dataset_%s_%i_%i.svg' % (ts, ci, di)
-        dir = 'dataset'
-        logger.save_figure(fname, dir=dir)
-        plt.close()
+def plot_dataset(world, dataset, di, logger):
+    contacts_fn = get_contact_gen(world.panda.planning_robot)
+    contacts = contacts_fn(world.objects['tool'], world.objects['yellow_block'], shuffle=False)
+    ts = time.strftime('%Y%m%d-%H%M%S')
+    for type in CONTACT_TYPES:
+        plotted_type_dataset = False
+        fig, axes = plt.subplots(2, figsize=(8,15))
+        for contact in contacts:
+            if contact[0].type == type:
+                world.vis_tool_ax(contact[0], axes[1], frame='cont')
+                if not plotted_type_dataset:
+                    world.vis_dataset(axes[0], dataset[type])
+                    plotted_type_dataset = True
+                    axes[0].set_aspect('equal')
+                    axes[0].set_xlim([-1, 1])
+                    axes[0].set_ylim([-1, 1])
+
+                fname = 'dataset_%s_%s_%i.svg' % (ts, type, di)
+                dir = 'dataset'
+                logger.save_figure(fname, dir=dir)
+    plt.close()
 
 '''
 expert_feasible_goals = [(.6, -.29),     # cont 0
@@ -56,7 +58,7 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
                         'optimistic',
                         False,
                         None)
-    feasible_goal_i = 0
+    #feasible_goal_i = 0
     while len(dataset) < len(CONTACT_TYPES)*args.max_type_size:
         print('# actions = %i, |dataset| = %i' % (n_actions, len(dataset)))
         if model_logger is None:
@@ -78,7 +80,7 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
                                                 #goal_xy=goal_xy)
         if len(trajectory) > 0:
             n_actions += len(trajectory)
-
+            plot_dataset(world, dataset, n_actions, dataset_logger)
             # if feasible and in feasible goals, add to dataset and move to next goal
             # if done with feasibe goals, add to dataset
             #if (feasible_goal_i < len(expert_feasible_goals) and \
@@ -94,7 +96,6 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
             dataset = dataset_logger.load_trans_dataset('')
             if args.balanced:
                 # balance dataset by removing added element if makes it unbalanced
-                #plot_dataset(world, dataset, n_actions, dataset_logger)
                 num_per_class = args.max_type_size // 2
                 for type in CONTACT_TYPES:
                     num_pos_datapoints = sum([y for x,y in dataset[type]])

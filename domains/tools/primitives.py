@@ -4,8 +4,8 @@ import random
 
 import pb_robot
 from pb_robot.tsrs.panda_box import ComputePrePose
+from pb_robot.transformations import rotation_matrix
 from tsr.tsr import TSR
-
 from pddlstream.language.constants import Action
 
 from tamp.utils import pause, Contact, vis_frame
@@ -23,17 +23,35 @@ def get_contact_gen(robot):
         tool_length, tool_width = 0.4, 0.2+tool_thickness
         half_length, half_width = tool_length/2, tool_width/2
 
+        # TODO: the relative pose should be from the tool frame to the contact frame
+        # not the block frame. Then can handle blocks at any orientation I think...
+        # should make the rel_pose arg of Contact the pose of the contact frame
+        # in the tool frame
         rel_z = 0
         # for now defining 4 contact points (pose from obj2 to obj1)
-        rel_points_xy = [((-(half_length+half_b), 0), 'poke'),      # long end
-                        (((half_length-tool_thickness-half_b), -(half_tool+half_b)), 'hook'),
-                        (((half_length+half_b), -(half_width)), 'push_pull'), # outside short end
-                        (((half_length-half_tool), -(tool_width-half_tool+half_b)), 'poke')] # short end
+        rel_points_xy = [(-(half_length+half_b), 0),                                # long end poke
+                        ((half_length-tool_thickness-half_b), -(half_tool+half_b)), # corner hook
+                        ((half_length+half_b), -(half_width)),                      # outside short end push
+                        ((half_length-half_tool), -(tool_width-half_tool+half_b))]  # short end poke
+
+        contact_types = ['poke', 'hook', 'push_pull', 'poke']
+
+        tool_in_cont_points = [(-(half_length+half_b), 0, 0),
+                        ((half_length-tool_thickness-half_b), -(half_tool+half_b), 0),
+                        (-(half_length+half_b), (half_width), 0),
+                        (-(tool_width-half_tool+half_b), -(half_length-half_tool), 0)]
+
+        tool_in_cont_z_angle = [0, 0, np.pi, -np.pi/2]
+        tool_in_cont_tforms = []
+        for point, angle in zip(tool_in_cont_points, tool_in_cont_z_angle):
+            M = rotation_matrix(angle, (0,0,1))
+            M[:3,3] = point
+            tool_in_cont_tforms.append(M)
 
         contacts = []
-        for rel_point_xy, type in rel_points_xy:
+        for rel_point_xy, type, tool_in_cont_tform in zip(rel_points_xy, contact_types, tool_in_cont_tforms):
             rel_pose = ((*rel_point_xy, rel_z), (0., 0., 0., 1.))
-            contact = Contact(obj1, obj2, rel_pose, type)
+            contact = Contact(obj1, obj2, rel_pose, type, tool_in_cont_tform)
             contacts.append((contact,))
         if shuffle:
             random.shuffle(contacts)
