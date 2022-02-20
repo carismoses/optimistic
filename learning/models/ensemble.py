@@ -12,7 +12,7 @@ class Ensembles(nn.Module):
         self.reset()
 
     def reset(self):
-        self.ensembles = {}
+        self.ensembles = nn.ModuleDict()
         for class_name in self.classes:
             ensemble = Ensemble(self.base_model,
                                 self.base_args,
