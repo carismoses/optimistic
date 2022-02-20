@@ -80,7 +80,7 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
                                                 #goal_xy=goal_xy)
         if len(trajectory) > 0:
             n_actions += len(trajectory)
-            plot_dataset(world, dataset, n_actions, dataset_logger)
+            #plot_dataset(world, dataset, n_actions, dataset_logger)
             # if feasible and in feasible goals, add to dataset and move to next goal
             # if done with feasibe goals, add to dataset
             #if (feasible_goal_i < len(expert_feasible_goals) and \

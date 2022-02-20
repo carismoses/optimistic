@@ -607,7 +607,6 @@ class ToolsWorld:
     # can visualize tool in world or contact frame
     def vis_tool_ax(self, cont, ax, frame='world'):
         if frame == 'world':
-            tool_pos_w = np.add(self.init_pos_yellow, tool_pose_block[0][:2])
             init_block_pos = self.init_pos_yellow
             # TODO: this assumes that the block is always aligned with the world frame
             tool_tform = pb_robot.geometry.tform_from_pose(cont.rel_pose)

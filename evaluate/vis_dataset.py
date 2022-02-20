@@ -41,14 +41,14 @@ if __name__ == '__main__':
         for contact in contacts:
             cont = contact[0]
             if cont.type == type:
-                world.vis_tool_ax(cont, axes[1])
+                world.vis_tool_ax(cont, axes[1], 'cont')
 
         axes[0].set_title('%s Dataset' % type)
         axes[1].set_title('Contact Configuration')
 
         axes[0].set_aspect('equal')
-        axes[0].set_xlim([world.min_x, world.max_x])
-        axes[0].set_ylim([world.min_y, world.max_y])
+        axes[0].set_xlim([-1, 1])
+        axes[0].set_ylim([-1, 1])
 
         all_axes[type] = axes
 
