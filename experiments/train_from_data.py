@@ -1,17 +1,27 @@
-import torch
 import numpy as np
 import argparse
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
-import time
-from pprint import pformat
-import matplotlib.pyplot as plt
 
 from learning.models.mlp import MLP
 from learning.models.ensemble import Ensembles
-from learning.utils import train_move_contact
-from domains.utils import init_world
-from domains.tools.world import ToolsWorld
+from domains.tools.world import ToolsWorld, CONTACT_TYPES
+from experiments.utils import ExperimentLogger
+from learning.train import train
+
+
+def train_step(args, base_args, i):
+    dataset = logger.load_trans_dataset('', i=i)
+    if len(dataset) > 0:
+        ensembles = Ensembles(MLP, base_args, args.n_models, CONTACT_TYPES)
+        for type in CONTACT_TYPES:
+            print('Training %s ensemble with |dataset| = %i' % (type, len(dataset)))
+            dataloader = DataLoader(dataset[type], batch_size=args.batch_size, shuffle=True)
+            for model in ensembles.ensembles[type].models:
+                train(dataloader, model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
+
+    # save model and accuracy plots
+    logger.save_trans_model(ensembles, i=i)
 
 
 def train_from_data(args, logger, start_i):
@@ -21,22 +31,13 @@ def train_from_data(args, logger, start_i):
                 'n_hidden': args.n_hidden,
                 'n_layers': args.n_layers}
 
-    largest_dataset, max_actions = logger.load_trans_dataset('', ret_i=True)
-
-    for i in range(0, max_actions+1, args.train_freq):
-        if i > start_i:
-            dataset = logger.load_trans_dataset('', i=i)
-            if len(dataset) > 0:
-                ensembles = Ensembles(MLP, base_args, n_models, contact_types)
-                for type in contact_types:
-                    print('Training %s ensemble.' % type)
-                    dataloader = DataLoader(dataset[type], batch_size=batch_size, shuffle=True)
-                    for model in ensembles.ensembles[type].models:
-                        train(dataloader, model, n_epochs=n_epochs, loss_fn=F.binary_cross_entropy)
-                print('Training model from |dataset| = %i' % len(dataset))
-
-            # save model and accuracy plots
-            logger.save_trans_model(models, i=i)
+    if args.single_train_step:
+        train_step(args, base_args, args.single_train_step)
+    else:
+        largest_dataset, max_actions = logger.load_trans_dataset('', ret_i=True)
+        for i in range(0, max_actions+1, args.train_freq):
+            if i > start_i:
+                single_train_step(args, base_args, i)
 
 
 if __name__ == '__main__':
@@ -53,6 +54,9 @@ if __name__ == '__main__':
                         type=int,
                         default=10,
                         help='number of actions between model training')
+    parser.add_argument('--single-train-step',
+                        type=int,
+                        help='use when just want to train a single model from a single dataset step')
 
     # Training args
     parser.add_argument('--batch-size',
@@ -90,8 +94,8 @@ if __name__ == '__main__':
         models_exist = len(indices) > 0
         if models_exist:
             print('Adding to models already in logger')
-        else:
-            logger.add_model_args(args)
+        #else:
+            #logger.add_model_args(args)
 
         start_i = 0 if not models_exist else max(indices)
         train_from_data(args, logger, start_i)
