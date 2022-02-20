@@ -20,6 +20,7 @@ def model_forward(contact_type, model, inputs, single_batch=False):
 
 
 def add_trajectory_to_dataset(domain, dataset_logger, trajectory, world):
+    datapoints = []
     if len(trajectory) > 0:
         print('Adding trajectory to dataset.')
         dataset, n_actions = dataset_logger.load_trans_dataset('', ret_i=True)
@@ -31,6 +32,8 @@ def add_trajectory_to_dataset(domain, dataset_logger, trajectory, world):
                 contact_type = pddl_action.args[5].type
                 dataset[contact_type].add_to_dataset(x, opt_accuracy)
                 dataset_logger.save_trans_dataset(dataset, '', n_actions)
+                datapoints.append((pddl_action.name, contact_type, x, opt_accuracy))
+    return datapoints
 
 
 def make_layers(n_input, n_output, n_hidden, n_layers):

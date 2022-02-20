@@ -201,9 +201,10 @@ class ExperimentLogger:
 
 
     # info on abstract plans that fail to plan trajectories
-    def add_to_failed_plans(self, datapoint):
+    def add_to_failed_plans(self, datapoints):
         datapoints = self.load_failed_plans()
-        datapoints.append(datapoint)
+        for datapoint in datapoints:
+            datapoints.append(datapoint)
         self.save_failed_plans(datapoints)
 
     def load_failed_plans(self):
