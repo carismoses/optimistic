@@ -116,7 +116,7 @@ if __name__ == '__main__':
     # Training args
     parser.add_argument('--batch-size',
                         type=int,
-                        default=16,
+                        default=8,
                         help='training batch size')
     parser.add_argument('--n-epochs',
                         type=int,
@@ -124,7 +124,7 @@ if __name__ == '__main__':
                         help='training epochs')
     parser.add_argument('--n-hidden',
                         type=int,
-                        default=32,
+                        default=48,
                         help='number of hidden units in network')
     parser.add_argument('--n-layers',
                         type=int,
