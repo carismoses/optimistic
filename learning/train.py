@@ -17,7 +17,7 @@ def evaluate(loader, model, loss_fn, val_metric='f1'):
     labels = []
     for x, y in loader:
         if torch.cuda.is_available():
-            x = [xi.cuda() for xi in x]
+            x = xi.cuda()
             y = y.cuda()
         pred = model.forward(x).squeeze()
         if len(pred.shape) == 0: pred = pred.unsqueeze(-1)
@@ -57,7 +57,7 @@ def train(dataloader, model, val_dataloader=None, n_epochs=20, loss_fn=F.binary_
         #print('Epoch', ex)
         for x, y in dataloader:
             if torch.cuda.is_available():
-                x = [xi.cuda() for xi in x]
+                x = x.cuda()
                 y = y.cuda()
             optimizer.zero_grad()
 
