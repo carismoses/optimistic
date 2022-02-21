@@ -7,15 +7,22 @@ from domains.utils import init_world
 
 ## Params
 
-all_model_paths = {'sequential-goals-val-and-init': ['logs/experiments/sequential-goals-20220216-182615',
-                                        'logs/experiments/sequential-goals-20220216-183036',
-                                        'logs/experiments/sequential-goals-20220216-183101'],
-                   'sequential-goals-init': ['logs/experiments/sequential-goals-noval-20220216-205218',
-                                        'logs/experiments/sequential-goals-noval-20220216-205236',
-                                        'logs/experiments/sequential-goals-noval-20220217-040812'],
-                   'sequential-goals-old': ['logs/experiments/sequential-goals-20220208-025351',
-                                        'logs/experiments/sequential-goals-20220208-025356',
-                                        'logs/experiments/sequential-goals-20220208-025405'],
+all_model_paths = {'sequential-goals-new-rep':
+                        ['logs/experiments/sequestial-goals-new-rep-20220221-020651',
+                        'logs/experiments/sequestial-goals-new-rep-20220221-020704',
+                        'logs/experiments/sequestial-goals-new-rep-20220221-020714'],
+                    'sequential-goals-new-rep-init':
+                        ['logs/experiments/sequential-goals-18init-new-rep-20220221-020840',
+                        'logs/experiments/sequential-goals-18init-new-rep-20220221-020846']
+                    #'sequential-goals-val-and-init': ['logs/experiments/sequential-goals-20220216-182615',
+                    #                    'logs/experiments/sequential-goals-20220216-183036',
+                    #                    'logs/experiments/sequential-goals-20220216-183101'],
+                   #'sequential-goals-init': ['logs/experiments/sequential-goals-noval-20220216-205218',
+                    #                    'logs/experiments/sequential-goals-noval-20220216-205236',
+                    #                    'logs/experiments/sequential-goals-noval-20220217-040812'],
+                   #'sequential-goals-old': ['logs/experiments/sequential-goals-20220208-025351',
+                    #                    'logs/experiments/sequential-goals-20220208-025356',
+                    #                    'logs/experiments/sequential-goals-20220208-025405'],
                    #'random-actions': ['logs/experiments/random-actions-20220207-192035',
                     #                    'logs/experiments/random-actions-20220207-205436',
                     #                    'logs/experiments/random-actions-20220207-223028'],
@@ -27,22 +34,16 @@ all_model_paths = {'sequential-goals-val-and-init': ['logs/experiments/sequentia
                     #                    'logs/experiments/sequential-plans-20220208-230530'],
                    }
 
-batch_size = 16
-n_epochs = 300
-n_hidden = 32
-n_layers = 5
-n_of_in = 1
-n_af_in = 7
-n_ef_in = 3
-legend_title = 'Method'
-test_dataset_path = 'logs/experiments/100_random_goals_balanced-20220217-041010'
+test_dataset_path = 'logs/experiments/90_random_goals_balanced-20220219-170056'
 
 if __name__ == '__main__':
     #import pdb; pdb.set_trace()
     test_dataset_logger = ExperimentLogger(test_dataset_path)
     test_dataset = test_dataset_logger.load_trans_dataset('')
-    gts = [int(y) for _,y in test_dataset]
-    
+    gts = {}
+    for type, dataset in test_dataset.datasets.items():
+        gts[type] = [int(y) for _,y in dataset]
+
     fig, ax = plt.subplots()
     cs = ['r', 'g', 'b', 'c', 'm', 'y', 'k']
     for pi, (method, model_paths) in enumerate(all_model_paths.items()):
@@ -53,10 +54,13 @@ if __name__ == '__main__':
             accuracies = []
             n_actions = []
             model_logger = ExperimentLogger(model_path)
-            for model, mii in model_logger.get_model_iterator():
-                preds = [model_forward(model, x, single_batch=True).squeeze().mean().round() for x,_ in test_dataset]
-                accuracy = np.mean([(pred == gt) for pred, gt in zip(preds, gts)])
-                accuracies.append(accuracy)
+            for ensembles, mii in model_logger.get_model_iterator():
+                model_accuracies = []
+                for type, dataset in test_dataset.datasets.items()
+                    model_preds = [model_forward(type, ensembles, x, single_batch=True).squeeze().mean().round() \
+                                        for x,_ in dataset]
+                    model_accuracies.append([(pred == gt) for pred, gt in zip(model_preds, gts[type])])
+                accuracies.append(np.mean(model_accuracies))
                 n_actions.append(mii)
             all_accuracies.append(accuracies)
 
@@ -77,8 +81,7 @@ if __name__ == '__main__':
     ax.set_xlabel('Number of Executed Actions')
     ax.set_ylabel('Model Accuracy')
     ax.set_title('Model Accuracy over Training Time')
-    ax.legend(title=legend_title)
+    ax.legend(title='Method')
     ax.set_ylim([0.3,1])
     plt.savefig('model_accuracy.svg', format='svg')
     #plt.show()
-

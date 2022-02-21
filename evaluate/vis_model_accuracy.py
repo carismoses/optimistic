@@ -4,51 +4,61 @@ import matplotlib.pyplot as plt
 
 from experiments.utils import ExperimentLogger
 from domains.utils import init_world
+from domains.tools.world import CONTACT_TYPES
 from evaluate.plot_value_fns import get_model_accuracy_fn, get_seq_fn
 from domains.tools.primitives import get_contact_gen
 
+test_dataset_path = 'logs/experiments/90_random_goals_balanced-20220219-170056'
 
-def gen_plots(di):
-    dataset = logger.load_trans_dataset('train', i=di)
-    val_dataset = logger.load_trans_dataset('val', i=di)
-    curr_dataset = logger.load_trans_dataset('curr')
-    model = logger.load_trans_model(i=di)
-    print('Generating figures for action step %i' % di)
+def gen_plots(args):
+    dir = 'accuracy'
+    world = init_world('tools',
+                        None,
+                        'optimistic',
+                        False,
+                        None)
+    dataset_logger = ExperimentLogger(args.dataset_exp_path)
+    dataset, di = dataset_logger.load_trans_dataset('', ret_i=True)
+
+    model_logger = ExperimentLogger(args.model_exp_path)
+    ensembles, mi = model_logger.load_trans_model(ret_i=True)
+
+    print('Generating figures for models on path %s step %i' % (args.model_exp_path, mi))
+    print('Plotting dataset on path %s step %i' % (args.dataset_exp_path, di))
+
     ts = time.strftime('%Y%m%d-%H%M%S')
 
     # make a plot for each contact type (subplot for mean, std, and tool vis)
     contacts_fn = get_contact_gen(world.panda.planning_robot)
     contacts = contacts_fn(world.objects['tool'], world.objects['yellow_block'], shuffle=False)
 
-    mean_fn = get_model_accuracy_fn(model, 'mean')
-    std_fn = get_model_accuracy_fn(model, 'std')
-    seq_fn = get_seq_fn(model)
+    mean_fn = get_model_accuracy_fn(ensembles, 'mean')
+    std_fn = get_model_accuracy_fn(ensembles, 'std')
+    #seq_fn = get_seq_fn(ensembles)
 
-    all_axes = {}
-    for ci, contact in enumerate(contacts):
-        cont = contact[0]
-        fig, axes = plt.subplots(4, figsize=(8,15))
-        world.vis_dense_plot(cont, axes[0], [world.min_x, world.max_x], \
-                        [world.min_y, world.max_y], 0, 1, value_fn=mean_fn)
-        world.vis_dense_plot(cont, axes[1], [world.min_x, world.max_x], \
-                        [world.min_y, world.max_y], None, None, value_fn=std_fn)
-        world.vis_dense_plot(cont, axes[2], [world.min_x, world.max_x], \
-                        [world.min_y, world.max_y], None, None, value_fn=seq_fn)
+    for type in CONTACT_TYPES:
+        fig, axes = plt.subplots(3, figsize=(4, 12))
+        world.vis_dense_plot(type, axes[0], [-1, 1], [-1, 1], 0, 1, value_fn=mean_fn)
+        world.vis_dense_plot(type, axes[1], [-1, 1], [-1, 1], None, None, value_fn=std_fn)
+        #world.vis_dense_plot(type, axes[2], [-1, 1], [-1, 1], None, None, value_fn=seq_fn)
         for ai in range(3):
-            world.vis_dataset(cont, axes[ai], dataset, linestyle='-')
-            world.vis_dataset(cont, axes[ai], val_dataset, linestyle='--')
-            world.vis_dataset(cont, axes[ai], curr_dataset, linestyle=':')
-            world.vis_failed_trajes(cont, axes[ai], logger)
+            world.vis_dataset(axes[ai], dataset.datasets[type], linestyle='-')
+            #world.vis_dataset(cont, axes[ai], val_dataset, linestyle='--')
+            #world.vis_dataset(cont, axes[ai], curr_dataset, linestyle=':')
+            #world.vis_failed_trajes(cont, axes[ai], logger)
 
-        world.vis_tool_ax(cont, axes[3])
+        for contact in contacts:
+            cont = contact[0]
+            if cont.type == type:
+                world.vis_tool_ax(cont, axes[2], frame='cont')
 
         axes[0].set_title('Mean Ensemble Predictions')
         axes[1].set_title('Std Ensemble Predictions')
-        axes[2].set_title('Sequential Score')
-        all_axes[ci] = axes
+        #axes[2].set_title('Sequential Score')
+        #all_axes[ci] = axes
 
-        fname = 'acc_%s_%i_%i.png' % (ts, ci, di)
-        logger.save_figure(fname, dir=dir)
+        fname = 'acc_%s_%s_%i.png' % (ts, type, mi)
+        model_logger.save_figure(fname, dir=dir)
         plt.close()
 
 if __name__ == '__main__':
@@ -56,34 +66,15 @@ if __name__ == '__main__':
     parser.add_argument('--debug',
                         action='store_true',
                         help='use to run in debug mode')
-    parser.add_argument('--exp-path',
+    parser.add_argument('--model-exp-path',
                         type=str,
                         help='experiment path to visualize results for')
-    parser.add_argument('--plot-freq',
-                        type=int,
-                        default=4,
-                        help='number of actions taken between each generated figure')
-    parser.add_argument('--single-action-step',
-                        type=int,
-                        help='action step to plot')
+    parser.add_argument('--dataset-exp-path',
+                        type=str,
+                        help='experiment path to visualize results for')
     args = parser.parse_args()
 
     if args.debug:
         import pdb; pdb.set_trace()
 
-    world = init_world('tools',
-                        None,
-                        'optimistic',
-                        False,
-                        None)
-
-    logger = ExperimentLogger(args.exp_path)
-    dir = 'accuracy'
-
-    # plot functions
-    if args.single_action_step:
-        gen_plots(args.single_action_step)
-    else:
-        for dataset, di in logger.get_dataset_iterator('train'):
-            if not di % args.plot_freq:
-                gen_plots(di)
+    gen_plots(args)

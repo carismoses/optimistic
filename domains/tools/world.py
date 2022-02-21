@@ -625,7 +625,7 @@ class ToolsWorld:
             ax.set_ylim([-1,1])
 
 
-    def vis_dense_plot(self, cont, ax, x_range, y_range, vmin, vmax, value_fn=None, cell_width=0.05):
+    def vis_dense_plot(self, type, ax, x_range, y_range, vmin, vmax, value_fn=None, cell_width=0.05):
         # make 2d arrays of mean and std ensemble predictions
         xs, x_extent = self.make_array(*x_range, cell_width)
         ys, y_extent = self.make_array(*y_range, cell_width)
@@ -633,10 +633,7 @@ class ToolsWorld:
 
         for xi, xv in enumerate(xs):
             for yi, yv in enumerate(ys):
-                values[yi][xi] = value_fn(self, cont, xv, yv)
-
-        # show a block at initial pos
-        self.plot_block(ax, self.init_pos_yellow, color='c', linestyle='-')
+                values[yi][xi] = value_fn(self, type, xv, yv)
 
         # plot predictions w/ colorbars
         extent = (*x_extent, *y_extent)

@@ -153,7 +153,7 @@ class ExperimentLogger:
             fname = 'trans_model.pt'
         self.save_model(model, fname)
 
-    def load_trans_model(self, i=None):
+    def load_trans_model(self, i=None, ret_i=False):
         # NOTE: returns the highest numbered model if i is not given
         if i is not None:
             fname = 'trans_model_%i.pt' % i
@@ -178,7 +178,10 @@ class ExperimentLogger:
 
         loc = 'cuda:0' if torch.cuda.is_available() else 'cpu'
         ensembles.load_state_dict(torch.load(os.path.join(self.exp_path, 'models', fname), map_location=loc))
-        return ensembles
+        if ret_i:
+            return ensembles, i
+        else:
+            return ensembles
 
     # save trajectory data
     def save_trajectories(self, trajectories, i):
