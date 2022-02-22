@@ -163,13 +163,27 @@ def get_contact_motion_gen(robot, fixed=[], num_attempts=20, ret_traj=True):
         obj1_contact_world = obj2_world@cont_tform
         ee_contact_world = obj1_contact_world@grasp.grasp_objF
 
-        # ee pose at beginning of approach
+        # contact frame in world frame
+        M_cont_world = np.dot(obj1_contact_world, np.linalg.inv(cont.tool_in_cont_tform))
+        vis_frame(pb_robot.geometry.pose_from_tform(M_cont_world), 0)
+
+        # contact frame (on tool) at approach
+        # the approach (from the contact to the approach pose) direction should be
+        # from the contact to the approach pose ((-x,0) for poke/push/pull (-x,-y) for hook)
+        # convert the approach vector in the contact frame to the world frame
+        if cont.type in ['poke', 'push_pull']:
+            dir_contact = (-1, 0, 0)
+        elif cont.type in ['hook']:
+            dir_contact = (-1,-1, 0)
         approach_dist = 0.1
-        dir = np.subtract(pose1.pose[0], pose2.pose[0])
-        unit_dir = dir/np.linalg.norm(dir)
-        approach = np.eye(4)
-        approach[:3,3] = approach_dist*unit_dir
-        obj1_approach_world = obj2_world@approach@cont_tform
+
+        unit_dir_contact = approach_dist*(dir_contact/np.linalg.norm(dir_contact))
+        M_cont_approach = np.eye(4)
+        M_cont_approach[:3,3] = unit_dir_contact
+        M_cont_approach_world = np.dot(M_cont_world, M_cont_approach)
+
+        # tool at approach
+        obj1_approach_world = np.dot(M_cont_approach_world, cont.tool_in_cont_tform)
         ee_approach_world = obj1_approach_world@grasp.grasp_objF
 
         # ee pose at end of push path
