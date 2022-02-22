@@ -7,34 +7,11 @@ from domains.utils import init_world
 
 ## Params
 
-all_model_paths = {'sequential-goals-new-rep':
-                        ['logs/experiments/sequestial-goals-new-rep-20220221-020651',
-                        'logs/experiments/sequestial-goals-new-rep-20220221-020704',
-                        'logs/experiments/sequestial-goals-new-rep-20220221-020714'],
-                    'sequential-goals-new-rep-init':
-                        ['logs/experiments/sequential-goals-18init-new-rep-20220221-020840',
-                        'logs/experiments/sequential-goals-18init-new-rep-20220221-020846']
-                    #'sequential-goals-val-and-init': ['logs/experiments/sequential-goals-20220216-182615',
-                    #                    'logs/experiments/sequential-goals-20220216-183036',
-                    #                    'logs/experiments/sequential-goals-20220216-183101'],
-                   #'sequential-goals-init': ['logs/experiments/sequential-goals-noval-20220216-205218',
-                    #                    'logs/experiments/sequential-goals-noval-20220216-205236',
-                    #                    'logs/experiments/sequential-goals-noval-20220217-040812'],
-                   #'sequential-goals-old': ['logs/experiments/sequential-goals-20220208-025351',
-                    #                    'logs/experiments/sequential-goals-20220208-025356',
-                    #                    'logs/experiments/sequential-goals-20220208-025405'],
-                   #'random-actions': ['logs/experiments/random-actions-20220207-192035',
-                    #                    'logs/experiments/random-actions-20220207-205436',
-                    #                    'logs/experiments/random-actions-20220207-223028'],
-                   #'random-goals': ['logs/experiments/random-goals-opt-20220207-192020',
-                    #                    'logs/experiments/random-goals-opt-20220207-204938',
-                    #                    'logs/experiments/random-goals-opt-20220207-221248'],
-                   #'sequential-actions': ['logs/experiments/sequential-plans-20220208-011124',
-                    #                    'logs/experiments/sequential-plans-20220208-141044',
-                    #                    'logs/experiments/sequential-plans-20220208-230530'],
-                   }
+all_model_paths = {'sequential-goals': ['logs/experiments/sequential-goals-6init-20220222-183425',
+                                        'logs/experiments/sequential-goals-6init-20220222-183547',
+                                        'logs/experiments/sequential-goals-6init-20220222-183438']}
 
-test_dataset_path = 'logs/experiments/90_random_goals_balanced-20220219-170056'
+test_dataset_path = 'logs/experiments/90_random_goals_balanced-20220222-041940'
 
 if __name__ == '__main__':
     #import pdb; pdb.set_trace()
@@ -56,7 +33,7 @@ if __name__ == '__main__':
             model_logger = ExperimentLogger(model_path)
             for ensembles, mii in model_logger.get_model_iterator():
                 model_accuracies = []
-                for type, dataset in test_dataset.datasets.items()
+                for type, dataset in test_dataset.datasets.items():
                     model_preds = [model_forward(type, ensembles, x, single_batch=True).squeeze().mean().round() \
                                         for x,_ in dataset]
                     model_accuracies.append([(pred == gt) for pred, gt in zip(model_preds, gts[type])])
