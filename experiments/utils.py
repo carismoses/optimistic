@@ -204,16 +204,16 @@ class ExperimentLogger:
 
 
     # info on abstract plans that fail to plan trajectories
-    def add_to_failed_plans(self, datapoints):
+    def add_to_failed_plans(self, new_datapoints):
         datapoints = self.load_failed_plans()
-        for datapoint in datapoints:
+        for datapoint in new_datapoints:
             datapoints.append(datapoint)
         self.save_failed_plans(datapoints)
 
     def load_failed_plans(self):
         # TODO: change dir and filename so doesn't conflict with goals fns
         dir = 'goals'
-        fname = 'goals.pkl'
+        fname = 'failed_goals.pkl'
         ##
         path = os.path.join(self.exp_path, dir)
         if os.path.exists(os.path.join(path, fname)):
@@ -227,7 +227,7 @@ class ExperimentLogger:
     def save_failed_plans(self, datapoints):
         # TODO: change dir and filename so doesn't conflict with goals fns
         dir = 'goals'
-        fname = 'goals.pkl'
+        fname = 'failed_goals.pkl'
         ##
         path = os.path.join(self.exp_path, dir)
         with open(os.path.join(path, fname), 'wb') as handle:

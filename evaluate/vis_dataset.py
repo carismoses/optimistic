@@ -38,6 +38,11 @@ if __name__ == '__main__':
     for type, dataset in dataset.datasets.items():
         fig, axes = plt.subplots(2, figsize=(5,10))
         world.vis_dataset(axes[0], dataset)
+        # add blue squares for goals that failed to plan
+        failed_goals = logger.load_failed_plans()
+        for _, contact_type, x, _ in failed_goals:
+            if contact_type == type:
+                world.plot_block(axes[0], x, 'b')
         for contact in contacts:
             cont = contact[0]
             if cont.type == type:

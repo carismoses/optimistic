@@ -46,6 +46,14 @@ def gen_plots(args):
             #world.vis_dataset(cont, axes[ai], val_dataset, linestyle='--')
             #world.vis_dataset(cont, axes[ai], curr_dataset, linestyle=':')
             #world.vis_failed_trajes(cont, axes[ai], logger)
+        # visualize failed planning goals
+        if args.dataset_exp_path == args.model_exp_path:
+            failed_goals = dataset_logger.load_failed_plans()
+            for _, contact_type, x, _ in failed_goals:
+                if contact_type == type:
+                    world.plot_block(axes[0], x, 'b')
+                    world.plot_block(axes[1], x, 'b')
+
 
         for contact in contacts:
             cont = contact[0]
