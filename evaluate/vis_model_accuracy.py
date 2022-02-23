@@ -17,11 +17,15 @@ def gen_plots(args):
                         'optimistic',
                         False,
                         None)
-    dataset_logger = ExperimentLogger(args.dataset_exp_path)
-    dataset, di = dataset_logger.load_trans_dataset('', ret_i=True)
 
     model_logger = ExperimentLogger(args.model_exp_path)
     ensembles, mi = model_logger.load_trans_model(ret_i=True)
+
+    if args.dataset_exp_path:
+        dataset_logger = ExperimentLogger(args.dataset_exp_path)
+    else:
+        dataset_logger = model_logger
+    dataset, di = dataset_logger.load_trans_dataset('', ret_i=True)
 
     print('Generating figures for models on path %s step %i' % (args.model_exp_path, mi))
     print('Plotting dataset on path %s step %i' % (args.dataset_exp_path, di))
