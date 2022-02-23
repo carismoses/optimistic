@@ -10,3 +10,4 @@ networkx==2.5.1
 numpy-quaternion
 git+https://github.com/mike-n-7/tsr.git
 dill==0.3.4
+sklearn
