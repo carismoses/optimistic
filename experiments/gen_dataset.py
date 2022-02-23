@@ -165,11 +165,9 @@ if __name__ == '__main__':
                         help='use to run in debug mode')
     parser.add_argument('--max-type-size',
                         type=int,
-                        default=400,
                         help='max number of actions IN DATASET for each class in balanced case')
     parser.add_argument('--max-actions',
                         type=int,
-                        default=400,
                         help='max number of ALL actions total for unbalanced case')
     parser.add_argument('--balanced',
                         type=str,
@@ -225,14 +223,15 @@ if __name__ == '__main__':
     if args.restart:
         assert args.exp_path, 'Must set the --exp-path to restart experiment'
         dataset_logger = ExperimentLogger(args.exp_path)
-        n_actions = dataset_logger.get_action_count()
+        _, n_actions = dataset_logger.load_trans_dataset('', ret_i=True)
         dataset_args = dataset_logger.args
-        if args.max_dataset_size > dataset_args.max_dataset_size:
-            print('Adding %i to previous max dataset size' % (args.max_dataset_size - dataset_args.max_dataset_size))
-            dataset_args.max_dataset_size = args.max_dataset_size
-
+        # check if want to add to a dataset that previously finished (doesn't work for balanced case yet)
+        #if args.max_actions:
+        #    if args.max_actions > dataset_args.max_actions:
+        #        print('Adding %i to previous max dataset size' % (args.max_actions - dataset_args.max_actions))
+        #        dataset_args.max_actions = args.max_actions
         model_logger = ExperimentLogger(dataset_args.data_model_path) \
-                            if 'data_model_path' in vars(dataset_args) else None
+                    if dataset_args.data_model_path else None
         gen_dataset(dataset_args, n_actions, dataset_logger, model_logger)
         print('Finished dataset path: %s' % args.exp_path)
     else:
