@@ -90,12 +90,21 @@ def get_traj(robot, obstacles, pddl_action, num_attempts=20):
         push_ee_positions = np.linspace(ee_pose1[:3,3],
                                 ee_pose2[:3,3],
                                 path_len)
+        push_ee_tforms = []
+        for ee_pos in push_ee_positions:
+            ee_tform = copy(ee_pose1)
+            ee_tform[:3,3] = ee_pos
+            push_ee_tforms.append(ee_tform)
+
+        push_tool_tforms = []
+        for ee_tform in push_ee_tforms:
+            push_tool_tform = ee_tform@np.linalg.inv(grasp.grasp_objF)
+            push_tool_tforms.append(push_tool_tform)
+
         push_ee_orn = ee_pose1[1]
         push_path = [conf_pose1.configuration]
         seed_q = conf_pose1.configuration
-        for ee_pos in push_ee_positions[1:-1]:
-            ee_tform = copy(ee_pose1)
-            ee_tform[:3,3] = ee_pos
+        for ee_tform in push_ee_tforms[1:-1]:
             for a in range(num_attempts):
                 push_conf = ee_ik(ee_tform, robot, obstacles, seed_q=seed_q)
                 #print(a, push_conf)
@@ -114,7 +123,7 @@ def get_traj(robot, obstacles, pddl_action, num_attempts=20):
 
         # TODO: add a path that breaks contact from the object
         command = [pb_robot.vobj.MoveToTouch(robot.arm, conf_approach.configuration, conf_pose1.configuration, None, obj2),
-                    pb_robot.vobj.JointSpacePushPath(robot.arm, push_path)]
+                    pb_robot.vobj.JointSpacePushPath(robot.arm, push_path, push_tool_tforms)]
         init = ('contactmotion', *[a for a in pddl_action.args[:-1]]+[command])
     elif pddl_action.name == 'move_free':
         conf1, conf2, _ = pddl_action.args
