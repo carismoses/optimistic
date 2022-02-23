@@ -21,6 +21,37 @@ class MoveContactDataset:
         self.datasets[contact_type].add_to_dataset(x, y)
 
 
+    def remove_elements(self, remove_lists):
+        for type, type_dataset in self.datasets.items():
+            mask = np.ones(len(type_dataset.xs), dtype=bool)
+            mask[remove_list[type]] = False
+            type_dataset.xs = type_dataset.xs[mask]
+            type_dataset.ys = type_dataset.ys[mask]
+
+
+def get_balanced_dataset(dataset, types):
+    bal_dataset = MoveContactDataset(types)
+
+    for type, type_dataset in dataset.datasets.items():
+        if len(type_dataset) > 0:
+            len_type_dataset = len(type_dataset)
+            n_pos = sum(type_dataset.ys)
+            n_neg = len_type_dataset - n_pos
+            max_per_class = min(n_pos, n_neg)
+            indices = np.arange(len(type_dataset))
+            np.random.shuffle(indices)
+            n_pos_count, n_neg_count = 0, 0
+            for index in indices:
+                x, y = type_dataset[index]
+                if y == 1 and n_pos_count < max_per_class:
+                    bal_dataset.datasets[type].add_to_dataset(x,y)
+                    n_pos_count += 1
+                elif y == 0 and n_neg_count < max_per_class:
+                    bal_dataset.datasets[type].add_to_dataset(x,y)
+                    n_neg_count += 1
+    return bal_dataset
+
+
 class OptDataset(Dataset):
     def __init__(self):
         self.xs = torch.tensor([], dtype=torch.float64)
