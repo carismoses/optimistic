@@ -210,7 +210,7 @@ class ToolsWorld:
             'sample-tool-grasp': from_list_fn(get_tool_grasp_gen(robot)),
             'plan-contact-motion': from_fn(get_contact_motion_gen(robot,
                                                                     self.fixed,
-                                                                    ret_traj=ret_traj)),
+                                                                    ret_traj=True)),
             'sample-contact': from_list_fn(get_contact_gen(robot))
             }
 
@@ -307,7 +307,7 @@ class ToolsWorld:
                                 self.fixed,
                                 approach_frame='global',
                                 backoff_frame='gripper')
-        move_contact_fn = get_contact_motion_gen(self.panda.planning_robot, self.fixed, ret_traj=ret_traj)
+        move_contact_fn = get_contact_motion_gen(self.panda.planning_robot, self.fixed, ret_traj=True)
         move_free_fn = get_free_motion_gen(self.panda.planning_robot, self.fixed, ret_traj=ret_traj)
         move_holding_fn = get_holding_motion_gen(self.panda.planning_robot, self.fixed, ret_traj=ret_traj)
 
