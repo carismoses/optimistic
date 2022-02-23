@@ -32,11 +32,13 @@ def train_class(args, logger, n_actions):
         # train at training freq
         if not n_dataset_actions % args.train_freq:
             # if train_bal then balance dataset, save, and train
+            '''
             if args.train_bal:
                 print('Balancing datasets before training')
                 bal_dataset = get_balanced_dataset(dataset, CONTACT_TYPES)
                 logger.save_bal_dataset(bal_dataset, 'bal', i=n_actions)
                 dataset = bal_dataset
+            '''
             ensembles = Ensembles(MLP, base_args, args.n_models, CONTACT_TYPES)
             for type in CONTACT_TYPES:
                 if len(dataset[type]) > 0:
