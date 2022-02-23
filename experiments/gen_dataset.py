@@ -61,10 +61,10 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
     #feasible_goal_i = 0
 
     if args.balanced:
-        max_actions = len(CONTACT_TYPES)*args.max_type_size
+        condition = len(dataset) < len(CONTACT_TYPES)*args.max_type_size
     else:
-        max_actions = args.max_actions
-    while len(dataset) < max_actions:
+        condition = n_actions < args.max_actions
+    while condition:
         print('# actions = %i, |dataset| = %i' % (n_actions, len(dataset)))
         if model_logger is None:
             pddl_model_type = 'optimistic'
@@ -122,6 +122,11 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
                 n_actions -= len(trajectory)
             '''
 
+        if args.balanced:
+            condition = len(dataset) < len(CONTACT_TYPES)*args.max_type_size
+        else:
+            condition = n_actions < args.max_actions
+
         # optionally replay with pyBullet
         '''
         if args.vis_performance:
@@ -161,11 +166,11 @@ if __name__ == '__main__':
     parser.add_argument('--max-type-size',
                         type=int,
                         default=400,
-                        help='max number of actions for each class in balanced case')
+                        help='max number of actions IN DATASET for each class in balanced case')
     parser.add_argument('--max-actions',
                         type=int,
                         default=400,
-                        help='max number of actions total for unbalanced case')
+                        help='max number of ALL actions total for unbalanced case')
     parser.add_argument('--balanced',
                         type=str,
                         default='False',

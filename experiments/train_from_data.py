@@ -13,6 +13,7 @@ from domains.utils import init_world
 
 
 def train_step(args, base_args, i):
+    print('Training for action step %i' % i)
     dataset = logger.load_trans_dataset('', i=i)
     ensembles = Ensembles(MLP, base_args, args.n_models, CONTACT_TYPES)
     for type in CONTACT_TYPES:
@@ -41,9 +42,11 @@ def train_from_data(args, logger, start_i):
         train_step(args, base_args, args.single_train_step)
     else:
         largest_dataset, max_actions = logger.load_trans_dataset('', ret_i=True)
-        for i in range(0, max_actions+1, args.train_freq):
-            if i > start_i:
-                single_train_step(args, base_args, i)
+        for dataset, i in logger.get_dataset_iterator(''):
+            n_dataset_actions = len(dataset)
+            if not n_dataset_actions % args.train_freq:
+                if i > start_i:
+                    train_step(args, base_args, i)
 
 
 if __name__ == '__main__':
