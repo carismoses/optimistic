@@ -59,7 +59,12 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
                         False,
                         None)
     #feasible_goal_i = 0
-    while len(dataset) < len(CONTACT_TYPES)*args.max_type_size:
+
+    if args.balanced:
+        max_actions = len(CONTACT_TYPES)*args.max_type_size
+    else:
+        max_actions = args.max_actions
+    while len(dataset) < max_actions:
         print('# actions = %i, |dataset| = %i' % (n_actions, len(dataset)))
         if model_logger is None:
             pddl_model_type = 'optimistic'
@@ -156,7 +161,11 @@ if __name__ == '__main__':
     parser.add_argument('--max-type-size',
                         type=int,
                         default=400,
-                        help='max number of actions for the robot to attempt')
+                        help='max number of actions for each class in balanced case')
+    parser.add_argument('--max-actions',
+                        type=int,
+                        default=400,
+                        help='max number of actions total for unbalanced case')
     parser.add_argument('--balanced',
                         type=str,
                         default='False',
