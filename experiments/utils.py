@@ -47,6 +47,7 @@ class ExperimentLogger:
             os.mkdir(os.path.join(exp_path, 'datasets', 'train'))
             os.mkdir(os.path.join(exp_path, 'datasets', 'val'))
             os.mkdir(os.path.join(exp_path, 'datasets', 'curr'))
+            os.mkdir(os.path.join(exp_path, 'datasets', 'bal'))
             os.mkdir(os.path.join(exp_path, 'models'))
             os.mkdir(os.path.join(exp_path, 'figures'))
             os.mkdir(os.path.join(exp_path, 'eval_trajs'))
@@ -72,6 +73,10 @@ class ExperimentLogger:
 
     def save_trans_dataset(self, dataset, dir, i):
         fname = os.path.join(dir, 'trans_dataset_%i.pkl' % i)
+        self.save_dataset(dataset, fname)
+
+    def save_bal_dataset(self, dataset, dir, i):
+        fname = os.path.join(dir, 'bal_dataset_%i.pkl' % i)
         self.save_dataset(dataset, fname)
 
     def load_dataset(self, fname):

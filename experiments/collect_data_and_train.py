@@ -8,6 +8,7 @@ from domains.tools.world import N_MC_IN, CONTACT_TYPES
 from learning.models.ensemble import Ensembles
 from learning.models.mlp import MLP
 from learning.train import train
+from learning.datasets import get_balanced_dataset
 
 
 def train_class(args, logger, n_actions):
@@ -30,6 +31,12 @@ def train_class(args, logger, n_actions):
 
         # train at training freq
         if not n_dataset_actions % args.train_freq:
+            # if train_bal then balance dataset, save, and train
+            if args.train_bal:
+                print('Balancing datasets before training')
+                bal_dataset = get_balanced_dataset(dataset, CONTACT_TYPES)
+                logger.save_bal_dataset(bal_dataset, 'bal', i=n_actions)
+                dataset = bal_dataset
             ensembles = Ensembles(MLP, base_args, args.n_models, CONTACT_TYPES)
             for type in CONTACT_TYPES:
                 if len(dataset[type]) > 0:
@@ -41,6 +48,36 @@ def train_class(args, logger, n_actions):
             # save model and accuracy plots
             logger.save_trans_model(ensembles, i=n_actions)
             print('Saved model to %s' % logger.exp_path)
+
+            '''
+            # visualize balanced dataset and model accuracy
+            from domains.tools.primitives import get_contact_gen
+            from evaluate.plot_value_fns import get_model_accuracy_fn
+            from domains.utils import init_world
+            import matplotlib.pyplot as plt
+            world = init_world('tools',
+                                None,
+                                'optimistic',
+                                False,
+                                None)
+            contacts_fn = get_contact_gen(world.panda.planning_robot)
+            contacts = contacts_fn(world.objects['tool'], world.objects['yellow_block'], shuffle=False)
+            mean_fn = get_model_accuracy_fn(ensembles, 'mean')
+            std_fn = get_model_accuracy_fn(ensembles, 'std')
+            for type in CONTACT_TYPES:
+                fig, axes = plt.subplots(3, figsize=(4.5, 8))
+                world.vis_dense_plot(type, axes[0], [-1, 1], [-1, 1], 0, 1, value_fn=mean_fn)
+                world.vis_dense_plot(type, axes[1], [-1, 1], [-1, 1], None, None, value_fn=std_fn)
+                for ai in range(3):
+                    world.vis_dataset(axes[ai], bal_dataset.datasets[type], linestyle='-')
+                for contact in contacts:
+                    cont = contact[0]
+                    if cont.type == type:
+                        world.vis_tool_ax(cont, axes[2], frame='cont')
+                axes[0].set_title('Mean Ensemble Predictions')
+                axes[1].set_title('Std Ensemble Predictions')
+            plt.show()
+            '''
 
         progress = None
         trajectory = collect_trajectory_wrapper(args,
@@ -112,6 +149,9 @@ if __name__ == '__main__':
     parser.add_argument('--initial-dataset-path',
                         type=str,
                         help='path to initial dataset to start with')
+    parser.add_argument('--train-bal',
+                        action='store_true',
+                        help='if want to train only on balanced datasets')
 
     # Training args
     parser.add_argument('--batch-size',
