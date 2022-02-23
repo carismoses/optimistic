@@ -545,8 +545,14 @@ class ToolsWorld:
         if pddl_action.name == 'move_contact':
             # calculate the pose of the push goal in the contact frame
             cont = pddl_action.args[5]
-            tool_w_pose = self.get_obj_pose_from_state(self.objects['tool'], state)
-            tool_w_tform = pb_robot.geometry.tform_from_pose(tool_w_pose)
+            pose1 = pddl_action.args[3]
+
+            # tool pose at contact
+            block_world = pb_robot.geometry.tform_from_pose(pose1.pose)
+            cont_tform = pb_robot.geometry.tform_from_pose(cont.rel_pose)
+            tool_w_tform = block_world@cont_tform
+
+            # contact frame in the world
             cont_w_tform = np.dot(tool_w_tform, np.linalg.inv(cont.tool_in_cont_tform))
             goal_world_point = (*pddl_action.args[4].pose[0], 1)
             goal_cont = np.dot(np.linalg.inv(cont_w_tform), goal_world_point)
