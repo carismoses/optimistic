@@ -32,11 +32,11 @@ class Contact(object):
         return 'c{}'.format(id(self) % 1000)
 
 
-def pause():
+def pause(client=0):
     print('pausing (make sure you are visualizing the correct robot)')
     try:
         while True:
-            p.stepSimulation()
+            p.stepSimulation(physicsClientId=client)
     except KeyboardInterrupt:
         pass
 
