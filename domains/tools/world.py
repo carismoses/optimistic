@@ -68,7 +68,8 @@ class ToolsWorld:
         self.min_goal_radius = 0.05
         self.min_push_dist = 0.05
 
-        self.goal_radius = 0.05
+        self.push_goal_radius = 0.05
+        self.valid_pick_yellow_radius = 0.5
 
 
     def get_init_state(self):
@@ -258,7 +259,7 @@ class ToolsWorld:
             name = 'goal_patch'
             color = (0.0, 1.0, 0.0, 1.0)
             urdf_path = 'tamp/urdf_models/%s.urdf' % name
-            goal_to_urdf(name, urdf_path, color, self.goal_radius)
+            goal_to_urdf(name, urdf_path, color, self.push_goal_radius)
             self.panda.execute()
             self.place_object(name, urdf_path, goal_xy)
             self.panda.plan()
@@ -565,8 +566,15 @@ class ToolsWorld:
             goal_pos2 = pddl_action.args[4].pose[0]
             true_pos2 = pddl_action.args[2].get_base_link_pose()[0]
             dist_to_goal = np.linalg.norm(np.subtract(goal_pos2, true_pos2))
-            if dist_to_goal > self.goal_radius:
+            if dist_to_goal > self.push_goal_radius:
                 valid_transition = False
+        elif pddl_action.name == 'pick':
+            # check that if yellow block, was close to base of robot
+            if pddl_action.args[0] == self.objects['yellow_block']:
+                init_pos = pddl_action.args[1].pose[0]
+                dist_to_base = np.linalg.norm(init_pos)
+                if dist_to_base > self.valid_pick_yellow_radius:
+                    valid_transition = False
         self.panda.plan()
         return valid_transition
 
