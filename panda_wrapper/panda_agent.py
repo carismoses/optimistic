@@ -134,13 +134,16 @@ class PandaAgent:
         name, args = action
         executionItems = args[-1]
         self.execute()
+        collision_detected = False
         for e in executionItems:
             # want to execute on the execution robot, not planning robot
             try:
                 e.manip = self.execution_robot.arm
             except:
                 pass
-            e.simulate(timestep=0.1, obstacles=obstacles)
+            collision_detected = e.simulate(timestep=0.1, obstacles=obstacles)
+            if collision_detected:
+                break
 
             # Simulate failures if specified
             if (name in ["pick", "move_free"] and not isinstance(e, pb_robot.vobj.BodyGrasp)
@@ -168,3 +171,4 @@ class PandaAgent:
             for e in executionItems:
                 e.execute(realRobot=arm, obstacles=obstacles)
         self.plan()
+        return collision_detected

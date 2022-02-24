@@ -27,7 +27,6 @@
     (AtPose ?o ?p)
     (FreeObj ?o)
     (Held ?o)
-    (NotHeavy ?o)
   )
 
   ; Move in free space while not holing anything
@@ -59,7 +58,6 @@
                        (AtConf ?q1)
                        (Clear ?ot)
                        (On ?ot ?ob)
-                       (NotHeavy ?ot)
                        (FreeObj ?ot))
     :effect (and (AtGrasp ?ot ?g)
                  (AtConf ?q2)

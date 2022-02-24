@@ -208,14 +208,16 @@ def get_learned_pddl(opt_domain_pddl_path, opt_streams_pddl_path, \
 
 
 def transition(world, pddl_state, fd_state, pddl_action, fd_action):
+    world.fixed.append(world.tunnel)
     if world.use_panda:
         print('Executing action: ', pddl_action)
-        world.panda.execute_action(pddl_action, world.fixed, world_obstacles=world.fixed)
-
+        collision_detected = world.panda.execute_action(pddl_action, world.fixed, world_obstacles=world.fixed)
+        if collision_detected: print('Collision detected.')
     new_fd_state = copy(fd_state)
     apply_action(new_fd_state, fd_action) # apply action (optimistically) in PDDL action model
     new_pddl_state = [fact_from_fd(sfd) for sfd in new_fd_state]
     valid_transition = world.valid_transition(new_pddl_state, pddl_action) # check that real state matches opt pddl state
+    valid_transition = valid_transition and (not collision_detected)
     if valid_transition:
         print('Valid transition.')
     else:

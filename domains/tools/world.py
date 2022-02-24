@@ -40,19 +40,20 @@ class ToolsWorld:
     def get_model_params():
         return N_MC_IN
 
-    def __init__(self, vis, pddl_model_type, logger, planning_model_i):
-        # initial block poses
-        self.init_pos_yellow = (0.4, -0.3)
-
+    def __init__(self, vis, pddl_model_type, logger, planning_model_i, init_objs_pos_xy={}):
+        if len(init_objs_pos_xy) == 0:
+            init_objs_pos_xy = {'yellow_block': (0.4, -0.3),
+                                'blue_block': (0.3, 0.4)}
+        self.init_objs_pos_xy = init_objs_pos_xy
         self.use_panda = True
         self.panda = PandaAgent(vis)
         self.panda.plan()
-        self.objects, self.orig_poses, self.obj_init_state = self.place_objects()
+        self.objects, self.orig_poses, self.obj_init_state = self.place_objects(place_tunnel=False)
         self.panda_init_state = self.panda.get_init_state()
         self.panda.execute()
-        self.place_objects()
+        self.place_objects(place_tunnel=True)
         self.panda.plan()
-        self.fixed = [self.panda.table, self.tunnel]
+        self.fixed = [self.panda.table]
 
         # TODO: test without gravity?? maybe will stop robot from jumping around so much
         p.setGravity(0, 0, -9.81, physicsClientId=self.panda._execution_client_id)
@@ -67,11 +68,6 @@ class ToolsWorld:
         self.min_goal_radius = 0.05
         self.min_push_dist = 0.05
 
-        init_x, init_y = self.init_pos_yellow
-        self.max_dist = max([abs(init_x-self.min_x),
-                        abs(init_x-self.max_x),
-                        abs(init_y-self.min_y),
-                        abs(init_y-self.max_y)])
         self.goal_radius = 0.05
 
 
@@ -113,7 +109,7 @@ class ToolsWorld:
 
 
     # world frame aligns with the robot base
-    def place_objects(self):
+    def place_objects(self, place_tunnel=True):
         pb_objects, orig_poses = {}, {}
         init_state = []
         self.obj_init_poses = {}
@@ -129,54 +125,47 @@ class ToolsWorld:
                         ('clear', tool), \
                         ('atpose', tool, pose),
                         ('pose', tool, pose),
-                        ('freeobj', tool),
-                        ('notheavy', tool)]
-        '''
-        # blue_block (under tunnel)
+                        ('freeobj', tool)]
+
+        # blue_block (initially constrained by tunnel)
         name = 'blue_block'
         color = (0.0, 0.0, 1.0, 1.0)
-        pos_xy = (0.3, 0.4)
+        pos_xy = self.init_objs_pos_xy[name]
         urdf_path = 'tamp/urdf_models/%s.urdf' % name
         block_to_urdf(name, urdf_path, color)
         block, pose = self.place_object(name, urdf_path, pos_xy)
         pb_objects[name] = block
         orig_poses[name] = pose
         self.obj_init_poses[name] = pose
-        init_state += [('block', block), ('on', block, self.panda.table), ('clear', block), \
-                        ('atpose', block, pose), ('pose', block, pose), ('freeobj', block)]#, \
-                        #('notheavy', block)]
-        '''
-        # yellow block (heavy --> must be pushed)
+        init_state += [('block', block),
+                        ('on', block, self.panda.table),
+                        ('clear', block), \
+                        ('atpose', block, pose),
+                        ('pose', block, pose),
+                        ('freeobj', block)]
+
+        # yellow block (heavy --> must be pushed when outside specified region)
         name = 'yellow_block'
         color = (1.0, 1.0, 0.0, 1.0)
-        pos_xy = self.init_pos_yellow
+        pos_xy = self.init_objs_pos_xy[name]
         urdf_path = 'tamp/urdf_models/%s.urdf' % name
         block_to_urdf(name, urdf_path, color)
         block, pose = self.place_object(name, urdf_path, pos_xy)
         pb_objects[name] = block
         orig_poses[name] = pose
         self.obj_init_poses[name] = pose
-        init_state += [('block', block), ('on', block, self.panda.table), ('clear', block), \
-                        ('atpose', block, pose), ('pose', block, pose), ('freeobj', block)]
-        '''
-        # red block (notheavy --> can be picked)
-        name = 'red_block'
-        color = (1.0, 0.0, 0.0, 1.0)
-        pos_xy = (0.6, 0.0)
-        urdf_path = 'tamp/urdf_models/%s.urdf' % name
-        block_to_urdf(name, urdf_path, color)
-        block, pose = self.place_object(name, urdf_path, pos_xy)
-        pb_objects[name] = block
-        orig_poses[name] = pose
-        self.obj_init_poses[name] = pose
-        init_state += [('block', block), ('on', block, self.panda.table), ('clear', block), \
-                        ('atpose', block, pose), ('pose', block, pose), ('freeobj', block), \
-                        ('notheavy', block)]
-        '''
-        # tunnel
-        tunnel_name = 'tunnel'
-        tunnel, pose = self.place_object(tunnel_name, 'tamp/urdf_models/%s.urdf' % tunnel_name, (0.3, 0.4))
-        self.tunnel = tunnel
+        init_state += [('block', block),
+                        ('on', block, self.panda.table),
+                        ('clear', block), \
+                        ('atpose', block, pose),
+                        ('pose', block, pose),
+                        ('freeobj', block)]
+
+        if place_tunnel:
+            # tunnel
+            tunnel_name = 'tunnel'
+            tunnel, pose = self.place_object(tunnel_name, 'tamp/urdf_models/%s.urdf' % tunnel_name, (0.3, 0.4))
+            self.tunnel = tunnel
 
         return pb_objects, orig_poses, init_state
 
@@ -231,13 +220,6 @@ class ToolsWorld:
         constant_map = {}
         pddl_info = [domain_pddl, constant_map, streams_pddl, streams_map]
         return pddl_info
-
-
-    def change_goal_space(self, progress):
-        if progress is not None:
-            new_goal_radius = self.max_dist*(1-progress)
-            if new_goal_radius > self.min_goal_radius:
-                self.goal_radius = new_goal_radius
 
 
     def generate_goal(self, show_goal=False, goal_xy=None):
@@ -317,7 +299,7 @@ class ToolsWorld:
         def get_pick_action():
             obj_picked = False
             for obj in shuffled_objects:
-                if ('notheavy', obj) in state and ('freeobj', obj) in state:
+                if ('freeobj', obj) in state:
                     for pred in state:
                         if pred[0] == 'on' and pred[1] == obj:
                             bot_obj = pred[2]
@@ -613,7 +595,7 @@ class ToolsWorld:
     # can visualize tool in world or contact frame
     def vis_tool_ax(self, cont, ax, frame='world'):
         if frame == 'world':
-            init_block_pos = self.init_pos_yellow
+            init_block_pos = self.init_objs_pos_xy['yellow_block']
             # TODO: this assumes that the block is always aligned with the world frame
             tool_tform = pb_robot.geometry.tform_from_pose(cont.rel_pose)
         elif frame == 'cont':

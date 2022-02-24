@@ -62,7 +62,6 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_lo
                         pddl_model_type,
                         args.vis,
                         model_logger)
-    world.change_goal_space(progress)
 
     if args.data_collection_mode == 'random-actions':
         pddl_plan, problem, init_expanded = random_plan(world, 'optimistic')
