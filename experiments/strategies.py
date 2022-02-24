@@ -246,7 +246,7 @@ def sequential(world, mode, n_seq_plans):
 
     cont_class = np.random.choice(CONTACT_TYPES)
     sorted_bald_score_indices = np.argsort(bald_scores)
-    for index in sorted_bald_score_indices:
+    for index in np.flip(sorted_bald_score_indices):
         plan_with_states, problem, init_expanded = all_plan_info[index]
         state, action = plan_with_states[-1]
         if action.args[5].type == cont_class:
