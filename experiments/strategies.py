@@ -17,6 +17,7 @@ from tamp.utils import execute_plan, get_simple_state, task_from_problem,   \
 from learning.utils import model_forward, add_trajectory_to_dataset
 from domains.tools.primitives import get_traj
 from domains.utils import init_world
+from domains.tools.world import CONTACT_TYPES
 
 
 MAX_PLAN_LEN = 6           # max num of actions in a randomly generated plan
@@ -222,6 +223,8 @@ def sequential(world, mode, n_seq_plans):
     n_plans_searched = 0
     bald_scores, states = [], []
     i = 0
+    all_plan_info = []
+
     while n_plans_searched < n_seq_plans:
         # need to return states to calculate the sequential score
         if mode == 'plans':
@@ -234,11 +237,24 @@ def sequential(world, mode, n_seq_plans):
             bald_score, state = sequential_bald(plan_with_states, model, world, ret_states=True)
             bald_scores.append(bald_score)
             states.append(state)
+            all_plan_info.append((plan_with_states, problem, init_expanded))
             if bald_score >= best_bald_score:
                 best_i = i
                 best_plan_info = plan_with_states, problem, init_expanded
                 best_bald_score = bald_score
             i += 1
+
+    cont_class = np.random.choice(CONTACT_TYPES)
+    sorted_bald_score_indices = np.argsort(bald_scores)
+    for index in sorted_bald_score_indices:
+        plan_with_states, problem, init_expanded = all_plan_info[index]
+        state, action = plan_with_states[-1]
+        if action.args[5].type == cont_class:
+            plan = [pa for ps, pa in plan_with_states]
+            return plan, problem, init_expanded
+
+    # if for some reason desired contact not in list then return the best one
+    best_plan_info = all_plan_info[sorted_bald_score_indices[0]]
     return [pa for ps, pa in best_plan_info[0]], best_plan_info[1], best_plan_info[2]
 
 
