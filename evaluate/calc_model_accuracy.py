@@ -5,8 +5,8 @@ from learning.utils import model_forward
 from domains.tools.world import CONTACT_TYPES
 
 
-test_dataset_path = 'logs/experiments/90_random_goals_balanced-20220219-170056'
-model_path = 'logs/experiments/90_random_goals_balanced-20220219-170059'
+test_dataset_path = 'logs/experiments/90_random_goals_balanced-20220223-162637'
+model_path = 'logs/experiments/90_random_goals_balanced-20220224-031842'
 
 test_dataset_logger = ExperimentLogger(test_dataset_path)
 test_dataset = test_dataset_logger.load_trans_dataset('')
