@@ -41,7 +41,7 @@ def gen_plots(args):
     #seq_fn = get_seq_fn(ensembles)
 
     for type in CONTACT_TYPES:
-        fig, axes = plt.subplots(3, figsize=(4, 12))
+        fig, axes = plt.subplots(3, figsize=(5, 10))
         world.vis_dense_plot(type, axes[0], [-1, 1], [-1, 1], 0, 1, value_fn=mean_fn)
         world.vis_dense_plot(type, axes[1], [-1, 1], [-1, 1], None, None, value_fn=std_fn)
         #world.vis_dense_plot(type, axes[2], [-1, 1], [-1, 1], None, None, value_fn=seq_fn)
