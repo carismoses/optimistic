@@ -270,6 +270,90 @@ class ToolsWorld:
         return self.goal, add_to_state
 
 
+    def get_obj_pose_from_state(self, object, state):
+        for pred in state:
+            if pred[0] == 'atpose' and pred[1] == object:
+                return pred[2].pose
+            if pred[0] == 'atgrasp' and pred[1] == object:
+                grasp_objF = pred[2].grasp_objF
+                for pred in state:
+                    if pred[0] == 'atconf':
+                        ee_pose = self.panda.planning_robot.arm.ComputeFK(pred[1].configuration)
+                        return pb_robot.geometry.pose_from_tform(ee_pose@np.linalg.inv(grasp_objF))
+
+
+    def goal_to_vec(self, goal):
+        goal_orn = pb_robot.geometry.quat_angle_between(goal[2].pose[1], [0., 0., 0., 1.])
+        return np.array([*goal[2].pose[0][:2], goal_orn])
+
+
+    def state_and_action_to_vec(self, state, pddl_action):
+        state = get_simple_state(state)
+        x = np.zeros(N_MC_IN)
+        if pddl_action.name == 'move_contact':
+            # calculate the pose of the push goal in the contact frame
+            cont = pddl_action.args[5]
+            pose1 = pddl_action.args[3]
+
+            # tool pose at contact
+            block_world = pb_robot.geometry.tform_from_pose(pose1.pose)
+            cont_tform = pb_robot.geometry.tform_from_pose(cont.rel_pose)
+            tool_w_tform = block_world@cont_tform
+
+            # contact frame in the world
+            cont_w_tform = np.dot(tool_w_tform, np.linalg.inv(cont.tool_in_cont_tform))
+            goal_world_point = (*pddl_action.args[4].pose[0], 1)
+            goal_cont = np.dot(np.linalg.inv(cont_w_tform), goal_world_point)
+            x[:] = goal_cont[:2]
+            return x
+        else:
+            raise NotImplementedError('No vectorization method for action %s' % pddl_action.name)
+
+
+    def pred_args_to_vec(self, obj1, obj2, pose1, pose2, cont, state):
+        action = Action(name='move_contact', args=(obj1,
+                                                    None,
+                                                    obj2,
+                                                    pose1,
+                                                    pose2,
+                                                    cont,
+                                                    None,
+                                                    None,
+                                                    None))
+        return self.state_and_action_to_vec(state, action)
+
+
+    def valid_transition(self, new_pddl_state, pddl_action):
+        self.panda.execute()
+        valid_transition = True
+        if pddl_action.name == 'move_contact':
+            # check that block ended up where it was supposed to (with some tolerance)
+            goal_pos2 = pddl_action.args[4].pose[0]
+            true_pos2 = pddl_action.args[2].get_base_link_pose()[0]
+            dist_to_goal = np.linalg.norm(np.subtract(goal_pos2, true_pos2))
+            if dist_to_goal > self.push_goal_radius:
+                valid_transition = False
+        elif pddl_action.name == 'pick':
+            # check that if yellow block, was close to base of robot
+            if pddl_action.args[0] == self.objects['yellow_block']:
+                init_pos = pddl_action.args[1].pose[0]
+                dist_to_base = np.linalg.norm(init_pos)
+                if dist_to_base > self.valid_pick_yellow_radius:
+                    valid_transition = False
+        self.panda.plan()
+        return valid_transition
+
+
+    def add_goal_text(self, goal):
+        self.panda.add_text('Planning for Goal: (%s, %s, (%f, %f, %f))' % \
+                                            (goal[0], goal[1], *goal[2].pose[0]),
+                        position=(0, -1, 1),
+                        size=1.5)
+
+
+    '''
+    RANDOM ACTION FUNCTIONS
+    '''
     # selects random optimistic actions
     # pddl_model_type in optimistic or opt_no_traj
     def random_actions(self, state, pddl_model_type):
@@ -503,87 +587,6 @@ class ToolsWorld:
                 return actions, expanded_states, precondition_met
             attempt += 1
         return None, None, False
-
-
-    def get_obj_pose_from_state(self, object, state):
-        for pred in state:
-            if pred[0] == 'atpose' and pred[1] == object:
-                return pred[2].pose
-            if pred[0] == 'atgrasp' and pred[1] == object:
-                grasp_objF = pred[2].grasp_objF
-                for pred in state:
-                    if pred[0] == 'atconf':
-                        ee_pose = self.panda.planning_robot.arm.ComputeFK(pred[1].configuration)
-                        return pb_robot.geometry.pose_from_tform(ee_pose@np.linalg.inv(grasp_objF))
-
-
-    def goal_to_vec(self, goal):
-        goal_orn = pb_robot.geometry.quat_angle_between(goal[2].pose[1], [0., 0., 0., 1.])
-        return np.array([*goal[2].pose[0][:2], goal_orn])
-
-
-    def state_and_action_to_vec(self, state, pddl_action):
-        state = get_simple_state(state)
-        x = np.zeros(N_MC_IN)
-        if pddl_action.name == 'move_contact':
-            # calculate the pose of the push goal in the contact frame
-            cont = pddl_action.args[5]
-            pose1 = pddl_action.args[3]
-
-            # tool pose at contact
-            block_world = pb_robot.geometry.tform_from_pose(pose1.pose)
-            cont_tform = pb_robot.geometry.tform_from_pose(cont.rel_pose)
-            tool_w_tform = block_world@cont_tform
-
-            # contact frame in the world
-            cont_w_tform = np.dot(tool_w_tform, np.linalg.inv(cont.tool_in_cont_tform))
-            goal_world_point = (*pddl_action.args[4].pose[0], 1)
-            goal_cont = np.dot(np.linalg.inv(cont_w_tform), goal_world_point)
-            x[:] = goal_cont[:2]
-            return x
-        else:
-            raise NotImplementedError('No vectorization method for action %s' % pddl_action.name)
-
-
-    def pred_args_to_vec(self, obj1, obj2, pose1, pose2, cont, state):
-        action = Action(name='move_contact', args=(obj1,
-                                                    None,
-                                                    obj2,
-                                                    pose1,
-                                                    pose2,
-                                                    cont,
-                                                    None,
-                                                    None,
-                                                    None))
-        return self.state_and_action_to_vec(state, action)
-
-
-    def valid_transition(self, new_pddl_state, pddl_action):
-        self.panda.execute()
-        valid_transition = True
-        if pddl_action.name == 'move_contact':
-            # check that block ended up where it was supposed to (with some tolerance)
-            goal_pos2 = pddl_action.args[4].pose[0]
-            true_pos2 = pddl_action.args[2].get_base_link_pose()[0]
-            dist_to_goal = np.linalg.norm(np.subtract(goal_pos2, true_pos2))
-            if dist_to_goal > self.push_goal_radius:
-                valid_transition = False
-        elif pddl_action.name == 'pick':
-            # check that if yellow block, was close to base of robot
-            if pddl_action.args[0] == self.objects['yellow_block']:
-                init_pos = pddl_action.args[1].pose[0]
-                dist_to_base = np.linalg.norm(init_pos)
-                if dist_to_base > self.valid_pick_yellow_radius:
-                    valid_transition = False
-        self.panda.plan()
-        return valid_transition
-
-
-    def add_goal_text(self, goal):
-        self.panda.add_text('Planning for Goal: (%s, %s, (%f, %f, %f))' % \
-                                            (goal[0], goal[1], *goal[2].pose[0]),
-                        position=(0, -1, 1),
-                        size=1.5)
 
 
     '''
