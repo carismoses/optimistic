@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 from learning.utils import model_forward
 from experiments.utils import ExperimentLogger
 from domains.tools.world import ToolsWorld
-from domains.utils import init_world
 
 ## Params
 

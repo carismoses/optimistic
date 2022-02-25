@@ -57,7 +57,6 @@ def train_class(args, logger, n_actions):
             import matplotlib.pyplot as plt
             world = init_world('tools',
                                 None,
-                                'optimistic',
                                 False,
                                 None)
             contacts_fn = get_contact_gen(world.panda.planning_robot)

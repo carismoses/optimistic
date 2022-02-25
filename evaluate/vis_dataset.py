@@ -23,7 +23,6 @@ if __name__ == '__main__':
 
     world = init_world('tools',
                         None,
-                        'optimistic',
                         False,
                         None)
     logger = ExperimentLogger(args.exp_path)

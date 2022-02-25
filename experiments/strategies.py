@@ -59,7 +59,6 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_lo
         model_logger = dataset_logger
     world = init_world(args.domain,
                         args.domain_args,
-                        pddl_model_type,
                         args.vis,
                         model_logger)
 
@@ -246,7 +245,7 @@ def sequential_bald(plan, model, world, ret_states=False):
     x = None
     for pddl_state, pddl_action in plan:
         if pddl_action.name == 'move_contact':
-            x = world.state_and_action_to_vec(pddl_state, pddl_action)
+            x = world.action_to_vec(pddl_action)
             contact_type = pddl_action.args[5].type
             predictions = model_forward(contact_type, model, x, single_batch=True)
             mean_prediction = predictions.mean()

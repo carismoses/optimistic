@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 from experiments.utils import ExperimentLogger
 from experiments.strategies import bald
 from learning.utils import model_forward
-from domains.utils import init_world
 
 ##
 #dataset_paths = {'0': ['logs/experiments/sequential_goals-20220120-030537'],

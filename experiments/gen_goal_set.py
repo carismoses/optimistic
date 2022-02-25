@@ -24,7 +24,6 @@ if __name__ == '__main__':
 
     world = init_world('tools',
                         [],
-                        'optimistic',
                         False,
                         None)
     goals = []

@@ -22,7 +22,7 @@ from tamp.utils import get_learned_pddl, block_to_urdf, goal_to_urdf, get_simple
 from domains.tools.primitives import get_free_motion_gen, \
     get_holding_motion_gen, get_ik_fn, get_pose_gen_block, get_tool_grasp_gen, \
     get_block_grasp_gen, get_contact_motion_gen, get_contact_gen, contact_approach_fn, ee_ik
-from domains.tools.add_to_primitives import get_trust_model
+from domains.tools.add_to_primitives import get_trust_contact_model, get_trust_pick_model
 
 
 N_MC_IN = 2 # input dimensionality for move contact action
@@ -32,15 +32,15 @@ CONTACT_TYPES = ['poke', 'push_pull', 'hook']
 # TODO: make parent world template class
 class ToolsWorld:
     @staticmethod
-    def init(domain_args, pddl_model_type, vis, logger=None, planning_model_i=None):
-        world = ToolsWorld(vis, pddl_model_type, logger, planning_model_i)
+    def init(domain_args, vis, logger=None, planning_model_i=None):
+        world = ToolsWorld(vis, logger, planning_model_i)
         return world
 
     @staticmethod
     def get_model_params():
         return N_MC_IN
 
-    def __init__(self, vis, pddl_model_type, logger, planning_model_i, init_objs_pos_xy={}):
+    def __init__(self, vis, logger, planning_model_i, init_objs_pos_xy={}):
         if len(init_objs_pos_xy) == 0:
             init_objs_pos_xy = {'yellow_block': (0.4, -0.3),
                                 'blue_block': (0.3, 0.4)}
@@ -70,6 +70,7 @@ class ToolsWorld:
 
         self.push_goal_radius = 0.05
         self.valid_pick_yellow_radius = 0.5
+        self.approx_valid_push_angle = np.pi/32
 
 
     def get_init_state(self):
@@ -165,7 +166,8 @@ class ToolsWorld:
         if place_tunnel:
             # tunnel
             tunnel_name = 'tunnel'
-            tunnel, pose = self.place_object(tunnel_name, 'tamp/urdf_models/%s.urdf' % tunnel_name, (0.3, 0.4))
+            self.tunnel_pos_xy = (0.3, 0.4)
+            tunnel, pose = self.place_object(tunnel_name, 'tamp/urdf_models/%s.urdf' % tunnel_name, self.tunnel_pos_xy)
             self.tunnel = tunnel
 
         return pb_objects, orig_poses, init_state
@@ -217,7 +219,8 @@ class ToolsWorld:
                                                         add_to_domain_path,
                                                         add_to_streams_path)
             streams_map = copy(opt_streams_map)
-            streams_map['trust-model'] = from_test(get_trust_model(self, self.logger, planning_model_i=self.planning_model_i))
+            streams_map['trust-contact-model'] = from_test(get_trust_contact_model(self, self.logger, planning_model_i=self.planning_model_i))
+            streams_map['trust-pick-model'] = from_test(get_trust_pick_model(self, self.logger, planning_model_i=self.planning_model_i))
         constant_map = {}
         pddl_info = [domain_pddl, constant_map, streams_pddl, streams_map]
         return pddl_info
@@ -287,8 +290,7 @@ class ToolsWorld:
         return np.array([*goal[2].pose[0][:2], goal_orn])
 
 
-    def state_and_action_to_vec(self, state, pddl_action):
-        state = get_simple_state(state)
+    def action_to_vec(self, pddl_action):
         x = np.zeros(N_MC_IN)
         if pddl_action.name == 'move_contact':
             # calculate the pose of the push goal in the contact frame
@@ -310,7 +312,7 @@ class ToolsWorld:
             raise NotImplementedError('No vectorization method for action %s' % pddl_action.name)
 
 
-    def pred_args_to_vec(self, obj1, obj2, pose1, pose2, cont, state):
+    def pred_args_to_vec(self, obj1, obj2, pose1, pose2, cont):
         action = Action(name='move_contact', args=(obj1,
                                                     None,
                                                     obj2,
@@ -320,7 +322,7 @@ class ToolsWorld:
                                                     None,
                                                     None,
                                                     None))
-        return self.state_and_action_to_vec(state, action)
+        return self.action_to_vec(action)
 
 
     def valid_transition(self, new_pddl_state, pddl_action):
@@ -350,6 +352,25 @@ class ToolsWorld:
                         position=(0, -1, 1),
                         size=1.5)
 
+
+    def block_in_tunnel(self, pos_xy):
+        tunnel_dims = (0.2, 0.09) # from urdf
+        min_x = self.tunnel_pos_xy[0] - tunnel_dims[0]/2
+        max_x = self.tunnel_pos_xy[0] + tunnel_dims[0]/2
+        min_y = self.tunnel_pos_xy[1] - tunnel_dims[1]/2
+        max_y = self.tunnel_pos_xy[1] + tunnel_dims[1]/2
+
+        block_dims = np.array(self.objects['yellow_block'].get_dimensions()[:2])
+        half_block = block_dims[0]/2
+        # check if any corners are inside of tunnel
+        for corner_xy in [np.add(pos_xy, (-half_block, -half_block)),
+                            np.add(pos_xy, (-half_block, half_block)),
+                            np.add(pos_xy, (half_block, -half_block)),
+                            np.add(pos_xy, (half_block, half_block))]:
+            x, y = corner_xy
+            if x > min_x and x < max_x and y > min_y and y < max_y:
+                return True
+        return False
 
     '''
     RANDOM ACTION FUNCTIONS

@@ -9,7 +9,6 @@ from learning.models.ensemble import Ensembles
 from domains.tools.world import ToolsWorld, CONTACT_TYPES
 from experiments.utils import ExperimentLogger
 from learning.train import train
-from domains.utils import init_world
 
 
 def train_step(args, base_args, i):

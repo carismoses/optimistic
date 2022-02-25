@@ -165,7 +165,7 @@ def add_to_domain(domain_pddl_path, add_to_pddl_path, domain_pddl_path_dir):
                         found_action = True
                         ai = i
             if ':precondition' in line and found_action:
-                new_learned_domain_pddl.append(pres[i]+'\n')
+                new_learned_domain_pddl.append(pres[ai]+'\n')
                 found_action = False
             if ':predicates' in line:
                 new_learned_domain_pddl.append('\n'.join(pres)+'\n')

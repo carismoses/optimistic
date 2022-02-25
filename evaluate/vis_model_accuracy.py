@@ -14,7 +14,6 @@ def gen_plots(args):
     dir = 'accuracy'
     world = init_world('tools',
                         None,
-                        'optimistic',
                         False,
                         None)
 

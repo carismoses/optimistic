@@ -55,7 +55,6 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
     dataset = dataset_logger.load_trans_dataset('')
     world = init_world('tools',
                         None,
-                        'optimistic',
                         False,
                         None)
     #feasible_goal_i = 0
@@ -138,7 +137,6 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
                 vis = True
                 world = init_world('tools',
                                     None,
-                                    'optimistic',
                                     vis,
                                     dataset_logger)
                 trajectory = execute_plan(world, *plan_data)
