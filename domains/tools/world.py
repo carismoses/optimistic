@@ -22,7 +22,6 @@ from tamp.utils import get_learned_pddl, block_to_urdf, goal_to_urdf, get_simple
 from domains.tools.primitives import get_free_motion_gen, \
     get_holding_motion_gen, get_ik_fn, get_pose_gen_block, get_tool_grasp_gen, \
     get_block_grasp_gen, get_contact_motion_gen, get_contact_gen, contact_approach_fn, ee_ik
-from domains.tools.add_to_primitives import get_trust_contact_model, get_trust_pick_model
 
 
 N_MC_IN = 2 # input dimensionality for move contact action
@@ -32,15 +31,15 @@ CONTACT_TYPES = ['poke', 'push_pull', 'hook']
 # TODO: make parent world template class
 class ToolsWorld:
     @staticmethod
-    def init(domain_args, vis, logger=None, planning_model_i=None):
-        world = ToolsWorld(vis, logger, planning_model_i)
+    def init(domain_args, vis, logger=None):
+        world = ToolsWorld(vis, logger)
         return world
 
     @staticmethod
     def get_model_params():
         return N_MC_IN
 
-    def __init__(self, vis, logger, planning_model_i, init_objs_pos_xy={}):
+    def __init__(self, vis, logger, init_objs_pos_xy={}):
         if len(init_objs_pos_xy) == 0:
             init_objs_pos_xy = {'yellow_block': (0.4, -0.3),
                                 'blue_block': (0.3, 0.4)}
@@ -60,7 +59,6 @@ class ToolsWorld:
 
         # get pddl domain description
         self.logger = logger
-        self.planning_model_i = planning_model_i
 
         # goal sampling properties
         self.min_x, self.max_x = 0.05, 0.85
@@ -175,52 +173,47 @@ class ToolsWorld:
 
     # pddl_model_type in {optimistic, learned, opt_no_traj}
     def get_pddl_info(self, pddl_model_type):
+        if pddl_model_type == 'learned':
+            assert self.logger, 'Must pass in logger to world to plan with learned domain'
         ret_traj = True
         if pddl_model_type == 'opt_no_traj':
             ret_traj = False
             pddl_model_type = 'optimistic'
+        learned = True if pddl_model_type == 'learned' else False
         robot = self.panda.planning_robot
-        opt_domain_pddl_path = 'domains/tools/domain.pddl'
-        opt_streams_pddl_path = 'domains/tools/streams.pddl'
-        opt_streams_map = {
+        domain_pddl_path = 'domains/tools/domain.pddl'
+        streams_pddl_path = 'domains/tools/streams.pddl'
+        streams_map = {
             'plan-free-motion': from_fn(get_free_motion_gen(robot,
                                                             self.fixed,
                                                             ret_traj=ret_traj)),
             'plan-holding-motion': from_fn(get_holding_motion_gen(robot,
                                                                     self.fixed,
                                                                     ret_traj=ret_traj)),
-            'pick-inverse-kinematics': from_fn(get_ik_fn(robot,
+            'pick-inverse-kinematics': from_fn(get_ik_fn(self,
+                                                        robot,
                                                         self.fixed,
                                                         approach_frame='gripper',
-                                                        backoff_frame='global')),
-            'place-inverse-kinematics': from_fn(get_ik_fn(robot,
+                                                        backoff_frame='global',
+                                                        learned=learned)),
+            'place-inverse-kinematics': from_fn(get_ik_fn(self,
+                                                            robot,
                                                             self.fixed,
                                                             approach_frame='global',
                                                             backoff_frame='gripper')),
             'sample-pose-block': from_fn(get_pose_gen_block(self.fixed)),
             'sample-block-grasp': from_list_fn(get_block_grasp_gen(robot)),
             'sample-tool-grasp': from_list_fn(get_tool_grasp_gen(robot)),
-            'plan-contact-motion': from_fn(get_contact_motion_gen(robot,
+            'plan-contact-motion': from_fn(get_contact_motion_gen(self,
+                                                                    robot,
                                                                     self.fixed,
-                                                                    ret_traj=True)),
+                                                                    ret_traj=True,
+                                                                    learned=learned)),
             'sample-contact': from_list_fn(get_contact_gen(robot))
             }
 
-        opt_streams_pddl = read(opt_streams_pddl_path) if opt_streams_pddl_path else None
-        if pddl_model_type == 'optimistic':
-            domain_pddl = read(opt_domain_pddl_path)
-            streams_pddl = opt_streams_pddl
-            streams_map = opt_streams_map
-        elif pddl_model_type == 'learned':
-            add_to_domain_path = 'domains/tools/add_to_domain.pddl'
-            add_to_streams_path = 'domains/tools/add_to_streams.pddl'
-            domain_pddl, streams_pddl = get_learned_pddl(opt_domain_pddl_path,
-                                                        opt_streams_pddl_path,
-                                                        add_to_domain_path,
-                                                        add_to_streams_path)
-            streams_map = copy(opt_streams_map)
-            streams_map['trust-contact-model'] = from_test(get_trust_contact_model(self, self.logger, planning_model_i=self.planning_model_i))
-            streams_map['trust-pick-model'] = from_test(get_trust_pick_model(self, self.logger, planning_model_i=self.planning_model_i))
+        streams_pddl = read(streams_pddl_path)
+        domain_pddl = read(domain_pddl_path)
         constant_map = {}
         pddl_info = [domain_pddl, constant_map, streams_pddl, streams_map]
         return pddl_info
@@ -312,8 +305,8 @@ class ToolsWorld:
             raise NotImplementedError('No vectorization method for action %s' % pddl_action.name)
 
 
-    def pred_args_to_vec(self, obj1, obj2, pose1, pose2, cont):
-        action = Action(name='move_contact', args=(obj1,
+    def pred_args_to_vec(self, obj2, pose1, pose2, cont):
+        action = Action(name='move_contact', args=(None,
                                                     None,
                                                     obj2,
                                                     pose1,
@@ -387,11 +380,13 @@ class ToolsWorld:
         block_grasp_fn = get_block_grasp_gen(self.panda.planning_robot)
         block_place_pose_fn = get_pose_gen_block(self.fixed)
         contacts_fn = get_contact_gen(self.panda.planning_robot)
-        pick_fn = get_ik_fn(self.panda.planning_robot,
+        pick_fn = get_ik_fn(self,
+                            self.panda.planning_robot,
                             self.fixed,
                             approach_frame='gripper',
                             backoff_frame='global')
-        place_fn = get_ik_fn(self.panda.planning_robot,
+        place_fn = get_ik_fn(self,
+                                self.panda.planning_robot,
                                 self.fixed,
                                 approach_frame='global',
                                 backoff_frame='gripper')

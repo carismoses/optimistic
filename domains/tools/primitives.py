@@ -8,6 +8,7 @@ from pb_robot.transformations import rotation_matrix
 from tsr.tsr import TSR
 from pddlstream.language.constants import Action
 
+from learning.utils import model_forward
 from tamp.utils import pause, Contact, vis_frame
 
 DEBUG_FAILURE = False
@@ -186,9 +187,13 @@ def get_traj(robot, obstacles, pddl_action, num_attempts=20):
     return command, init
 
 
-def get_contact_motion_gen(robot, fixed=[], num_attempts=20, ret_traj=True):
+def get_contact_motion_gen(world, robot, fixed=[], num_attempts=20, ret_traj=True, learned=False):
     # obj1 is tool in grasp, obj2 is at pose1, cont is in obj2 frame
     def fn(obj1, grasp, obj2, pose1, pose2, cont):
+        if learned:
+            trust = trust_contact_model(world, obj2, pose1, pose2, cont)
+            if not trust:
+                return None
         # ee pose at contact
         obj2_world = pb_robot.geometry.tform_from_pose(pose1.pose)
         cont_tform = pb_robot.geometry.tform_from_pose(cont.rel_pose)
@@ -343,8 +348,12 @@ def get_holding_motion_gen(robot, fixed=[], ret_traj=True):
     return fn
 
 
-def get_ik_fn(robot, fixed=[], num_attempts=4, approach_frame='gripper', backoff_frame='global'):
+def get_ik_fn(world, robot, fixed=[], num_attempts=4, approach_frame='gripper', backoff_frame='global', learned=False):
     def fn(obj, pose, grasp, return_grasp_q=False, check_robust=False):
+        if learned and approach_frame == 'gripper': # learned pick action
+            trust = trust_pick_model(world, obj, pose)
+            if not trust:
+                return None
         obstacles = copy(fixed) # for some reason  adding to fixed here changes it in other primitives, so use copy of fixed
         if approach_frame == 'global': # grasp object for collision checking on place action
             orig_pose = obj.get_base_link_pose()
@@ -575,6 +584,59 @@ def get_tool_grasp_gen(robot, add_slanted_grasps=True, add_orthogonal_grasps=Tru
         random.shuffle(grasps)
         return grasps
     return gen
+
+
+def trust_contact_model(world, block, pose1, pose2, cont):
+    ## Calculate angle between contact frame and push direction
+    # get cont axis in world
+    block_world = pb_robot.geometry.tform_from_pose(pose1.pose)
+    cont_tform = pb_robot.geometry.tform_from_pose(cont.rel_pose)
+    tool_w_tform = block_world@cont_tform
+    cont_w_tform = np.dot(tool_w_tform, np.linalg.inv(cont.tool_in_cont_tform))
+    valid_push_cont_frame = (1., 0., 0.)
+    valid_push_w_frame = np.dot(cont_w_tform[:3,:3], valid_push_cont_frame[:3])[:2]
+    unit_valid_push_w_frame = valid_push_w_frame/np.linalg.norm(valid_push_w_frame)
+
+    # push direction in world
+    push_w_frame = np.subtract(pose2.pose[0][:2], pose1.pose[0][:2])
+    unit_push_w_frame = push_w_frame/np.linalg.norm(push_w_frame)
+
+    # angle between vectors
+    dot_product = np.dot(unit_valid_push_w_frame, unit_push_w_frame)
+    angle = np.arccos(dot_product)
+
+    # yellow can be pushed if cont axis aligns with push direction
+    if block == world.objects['yellow_block']:
+        if angle < world.approx_valid_push_angle:
+            return True
+        return False
+    # blue can be pushed if cont and push direction align AND push direction
+    # is x-axis in world
+    if block == world.objects['blue_block']:
+        angle_from_x_world = np.arccos(np.dot((1,0), unit_push_w_frame))
+        if angle < world.approx_valid_push_angle and \
+                angle_from_x_world < world.approx_valid_push_angle:
+            return True
+        return False
+    #model = world.logger.load_trans_model()
+    #x = world.pred_args_to_vec(block, pose1, pose2, cont)
+    #trust_model = model_forward(cont.type, model, x, single_batch=True).mean().round().squeeze()
+    #return trust_model
+
+
+def trust_pick_model(world, obj, pose):
+    if obj == world.objects['yellow_block']:
+        if np.linalg.norm(pose.pose[0][:2]) > world.valid_pick_yellow_radius:
+            return False
+    elif obj == world.objects['blue_block']:
+        if world.block_in_tunnel(pose.pose[0][:2]):
+            return False
+    return True
+
+    #model = world.logger.load_trans_model()
+    #x = world.pred_args_to_vec(obj1, obj2, pose1, pose2, cont)
+    #trust_model = model_forward(cont.type, model, x, single_batch=True).mean().round().squeeze()
+    #return trust_model
 
 
 def assign_fluent_state(fluents):
