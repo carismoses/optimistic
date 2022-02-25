@@ -20,7 +20,9 @@ def get_contact_gen(robot):
         half_b = block_dim/2
         tool_thickness = 0.03
         half_tool = tool_thickness/2
-        tool_length, tool_width = 0.4, 0.2+tool_thickness
+        tool_inside_width = 0.2
+        tool_inside_half_width = tool_inside_width/2
+        tool_length, tool_width = 0.4, tool_inside_width+tool_thickness
         half_length, half_width = tool_length/2, tool_width/2
 
         # TODO: the relative pose should be from the tool frame to the contact frame
@@ -28,6 +30,7 @@ def get_contact_gen(robot):
         # should make the rel_pose arg of Contact the pose of the contact frame
         # in the tool frame
         rel_z = 0
+        '''
         # for now defining 4 contact points (pose from obj2 to obj1)
         rel_points_xy = [(-(half_length+half_b), 0),                                # long end poke
                         ((half_length-tool_thickness-half_b), -(half_tool+half_b)), # corner hook
@@ -47,7 +50,27 @@ def get_contact_gen(robot):
             M = rotation_matrix(angle, (0,0,1))
             M[:3,3] = point
             tool_in_cont_tforms.append(M)
+        '''
+        # for now defining 3 contact points (pose from block to tool)
+        rel_points_xy = [(-(half_length+half_b), 0),                                # long end poke
+                        ((half_length+half_b), -(half_width)),                      # outside short end push
+                        ((half_length-half_b-tool_thickness), \
+                                    -(tool_inside_half_width+half_tool))]           # outside short end pull
 
+        contact_types = ['poke', 'push_pull', 'push_pull']
+
+        tool_in_cont_points = [(-(half_length+half_b), 0, 0),
+                        (-(half_length+half_b), (half_width), 0),
+                        ((half_length-half_b-tool_thickness), \
+                                    -(tool_inside_half_width+half_tool),
+                                    0)]
+
+        tool_in_cont_z_angle = [0, np.pi, 0]
+        tool_in_cont_tforms = []
+        for point, angle in zip(tool_in_cont_points, tool_in_cont_z_angle):
+            M = rotation_matrix(angle, (0,0,1))
+            M[:3,3] = point
+            tool_in_cont_tforms.append(M)
         contacts = []
         for rel_point_xy, type, tool_in_cont_tform in zip(rel_points_xy, contact_types, tool_in_cont_tforms):
             rel_pose = ((*rel_point_xy, rel_z), (0., 0., 0., 1.))
@@ -509,16 +532,26 @@ def get_tool_grasp_gen(robot, add_slanted_grasps=True, add_orthogonal_grasps=Tru
                                 [ 0., 0., 1., -z_offset],
                                 [ 0., 0., 0., 1.]])
 
-        # hook grasps
-        hook_offset_xy = (0.1, 0.0)
+        tool_thickness = 0.03
+        half_tool = tool_thickness/2
+        tool_inside_width = 0.2
+        tool_inside_half_width = tool_inside_width/2
+        tool_length, tool_width = 0.4, tool_inside_width+tool_thickness
+        half_length, half_width = tool_length/2, tool_width/2
 
-        # poke grasps
-        poke_offset_xy = (-.185, 0.115)
+        # hook grasps xy in tool frame near poke end
+        hook0_offset_xy = (0.1, 0.0)
+
+        # hook grasps xy in tool frame near hook end
+        hook1_offset_xy = (-0.1, 0.0)
+
+        # poke grasps xy in tool frame
+        poke_offset_xy = (-(half_length-half_tool), (half_tool+tool_inside_half_width))
 
         Bw = np.zeros((6,2))
         grasp_tsrs = []
         for Tw_e in [Tw_e_side1, Tw_e_side2, Tw_e_side3, Tw_e_side4]:
-            for x_offset, y_offset in [hook_offset_xy, poke_offset_xy]:
+            for x_offset, y_offset in [hook0_offset_xy, hook1_offset_xy, poke_offset_xy]:
                 Tw_e_adjust = copy(Tw_e)
                 Tw_e_adjust[0][3] += x_offset
                 Tw_e_adjust[1][3] += y_offset
