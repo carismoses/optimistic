@@ -42,7 +42,8 @@ class ToolsWorld:
     def __init__(self, vis, logger, init_objs_pos_xy={}):
         if len(init_objs_pos_xy) == 0:
             init_objs_pos_xy = {'yellow_block': (0.4, -0.3),
-                                'blue_block': (0.3, 0.4)}
+                                'blue_block': (0.3, 0.4),
+                                'tool': (0.3, -0.4)}
         self.init_objs_pos_xy = init_objs_pos_xy
         self.use_panda = True
         self.panda = PandaAgent(vis)
@@ -116,7 +117,7 @@ class ToolsWorld:
 
         # tool
         tool_name = 'tool'
-        tool, pose = self.place_object(tool_name, 'tamp/urdf_models/%s.urdf' % tool_name, (0.3, -0.4))
+        tool, pose = self.place_object(tool_name, 'tamp/urdf_models/%s.urdf' % tool_name, self.init_objs_pos_xy['tool'])
         pb_objects[tool_name] = tool
         orig_poses[tool_name] = pose
         self.obj_init_poses[tool_name] = pose
@@ -164,7 +165,7 @@ class ToolsWorld:
         if place_tunnel:
             # tunnel
             tunnel_name = 'tunnel'
-            self.tunnel_pos_xy = (0.3, 0.4)
+            self.tunnel_pos_xy = (0.2, 0.3)
             tunnel, pose = self.place_object(tunnel_name, 'tamp/urdf_models/%s.urdf' % tunnel_name, self.tunnel_pos_xy)
             self.tunnel = tunnel
 
