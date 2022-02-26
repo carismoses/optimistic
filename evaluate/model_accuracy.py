@@ -5,12 +5,17 @@ from experiments.utils import ExperimentLogger
 from domains.tools.world import ToolsWorld
 
 ## Params
+all_model_paths = {'sequential-goals-0': ['logs/experiments/sequential-goals-20220224-043346'],
+                    'sequential-goals-1': ['logs/experiments/sequential-goals-20220224-043412'],
+                    'sequential-goals-2': ['logs/experiments/sequential-goals-20220224-144200'],
+                    #'sequential-goals-bal-0': ['logs/experiments/sequential-goals-6init-bal-20220224-143800'],
+                    #'sequential-goals-bal-1': ['logs/experiments/sequential-goals-6init-bal-20220224-143923'],
+                    #'sequential-goals-bal-2': ['logs/experiments/sequential-goals-6init-bal-20220224-143951'],
+                    'random-goals-opt': ['logs/experiments/random-goals-opt-20220223-183356', 
+                                        'logs/experiments/random-goals-opt-20220223-183458',
+                                        'logs/experiments/random-goals-opt-20220223-183443']}
 
-all_model_paths = {'sequential-goals': ['logs/experiments/sequential-goals-6init-20220222-183425',
-                                        'logs/experiments/sequential-goals-6init-20220222-183547',
-                                        'logs/experiments/sequential-goals-6init-20220222-183438']}
-
-test_dataset_path = 'logs/experiments/90_random_goals_balanced-20220222-041940'
+test_dataset_path = 'logs/experiments/90_random_goals_balanced-20220223-162637'
 
 if __name__ == '__main__':
     #import pdb; pdb.set_trace()
@@ -61,3 +66,4 @@ if __name__ == '__main__':
     ax.set_ylim([0.3,1])
     plt.savefig('model_accuracy.svg', format='svg')
     #plt.show()
+

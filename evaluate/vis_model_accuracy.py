@@ -40,11 +40,16 @@ def gen_plots(args):
     #seq_fn = get_seq_fn(ensembles)
 
     for type in CONTACT_TYPES:
-        fig, axes = plt.subplots(3, figsize=(4, 12))
+        if model_logger.args.n_models == 1:
+            n_axes = 2
+        else:
+            n_axes = 3
+        fig, axes = plt.subplots(n_axes, figsize=(5, 10))
         world.vis_dense_plot(type, axes[0], [-1, 1], [-1, 1], 0, 1, value_fn=mean_fn)
-        world.vis_dense_plot(type, axes[1], [-1, 1], [-1, 1], None, None, value_fn=std_fn)
+        if n_axes == 3:
+            world.vis_dense_plot(type, axes[1], [-1, 1], [-1, 1], None, None, value_fn=std_fn)
         #world.vis_dense_plot(type, axes[2], [-1, 1], [-1, 1], None, None, value_fn=seq_fn)
-        for ai in range(3):
+        for ai in range(n_axes):
             world.vis_dataset(axes[ai], dataset.datasets[type], linestyle='-')
             #world.vis_dataset(cont, axes[ai], val_dataset, linestyle='--')
             #world.vis_dataset(cont, axes[ai], curr_dataset, linestyle=':')
@@ -61,10 +66,11 @@ def gen_plots(args):
         for contact in contacts:
             cont = contact[0]
             if cont.type == type:
-                world.vis_tool_ax(cont, axes[2], frame='cont')
+                world.vis_tool_ax(cont, axes[n_axes-1], frame='cont')
 
         axes[0].set_title('Mean Ensemble Predictions')
-        axes[1].set_title('Std Ensemble Predictions')
+        if n_axes == 3:
+            axes[1].set_title('Std Ensemble Predictions')
         #axes[2].set_title('Sequential Score')
         #all_axes[ci] = axes
 

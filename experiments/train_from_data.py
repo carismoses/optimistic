@@ -12,8 +12,8 @@ from learning.train import train
 
 
 def train_step(args, base_args, i):
+    dataset, i = logger.load_trans_dataset('', i=i, ret_i=True)
     print('Training for action step %i' % i)
-    dataset = logger.load_trans_dataset('', i=i)
     ensembles = Ensembles(MLP, base_args, args.n_models, CONTACT_TYPES)
     for type in CONTACT_TYPES:
         if len(dataset[type]) > 0:
@@ -38,7 +38,7 @@ def train_from_data(args, logger, start_i):
                 'n_layers': args.n_layers}
 
     if args.single_train_step:
-        train_step(args, base_args, args.single_train_step)
+        train_step(args, base_args, None)
     else:
         largest_dataset, max_actions = logger.load_trans_dataset('', ret_i=True)
         for dataset, i in logger.get_dataset_iterator(''):
@@ -63,8 +63,8 @@ if __name__ == '__main__':
                         default=10,
                         help='number of actions between model training')
     parser.add_argument('--single-train-step',
-                        type=int,
-                        help='use when just want to train a single model from a single dataset step')
+                        action='store_true',
+                        help='use when just want to train a single model from the last dataset step')
 
     # Training args
     parser.add_argument('--batch-size',

@@ -32,7 +32,7 @@ if __name__ == '__main__':
 
     contacts_fn = get_contact_gen(world.panda.planning_robot)
     contacts = contacts_fn(world.objects['tool'], world.objects['yellow_block'], shuffle=False)
-
+    ts = time.strftime('%Y%m%d-%H%M%S')
     all_axes = {}
     for type, dataset in dataset.datasets.items():
         fig, axes = plt.subplots(2, figsize=(5,10))
@@ -56,6 +56,6 @@ if __name__ == '__main__':
 
         all_axes[type] = axes
 
-        fname = 'dataset_%s.svg' % type
+        fname = 'dataset_%s_%s.svg' % (ts, type)
         logger.save_figure(fname, dir=dir)
         plt.close()
