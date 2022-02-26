@@ -630,7 +630,8 @@ def trust_contact_model(world, block, pose1, pose2, cont):
     if block == world.objects['blue_block']:
         angle_from_x_world = np.arccos(np.dot((1,0), unit_push_w_frame))
         if angle < world.approx_valid_push_angle and \
-                angle_from_x_world < world.approx_valid_push_angle:
+                angle_from_x_world < world.approx_valid_push_angle and \
+                cont.type == 'poke':
             return True
         return False
     #model = world.logger.load_trans_model()

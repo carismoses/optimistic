@@ -41,9 +41,10 @@ class ToolsWorld:
 
     def __init__(self, vis, logger, init_objs_pos_xy={}):
         if len(init_objs_pos_xy) == 0:
-            init_objs_pos_xy = {'yellow_block': (0.4, -0.3),
-                                'blue_block': (0.3, 0.4),
-                                'tool': (0.3, -0.45)}
+            init_objs_pos_xy = {'yellow_block': (0.4, -0.25),
+                                'blue_block': (0.3, 0.3),
+                                'tool': (0.3, -0.45),
+                                'tunnel': (0.3, 0.3)}
         self.init_objs_pos_xy = init_objs_pos_xy
         self.use_panda = True
         self.panda = PandaAgent(vis)
@@ -51,7 +52,7 @@ class ToolsWorld:
         self.objects, self.orig_poses, self.obj_init_state = self.place_objects(place_tunnel=False)
         self.panda_init_state = self.panda.get_init_state()
         self.panda.execute()
-        self.place_objects(place_tunnel=False)
+        self.place_objects(place_tunnel=True)
         self.panda.plan()
         self.fixed = [self.panda.table]
 
@@ -136,7 +137,7 @@ class ToolsWorld:
                         ('freeobj', tool)]
 
         # blue_block (initially constrained by tunnel)
-        '''
+
         name = 'blue_block'
         color = (0.0, 0.0, 1.0, 1.0)
         pos_xy = self.init_objs_pos_xy[name]
@@ -153,7 +154,7 @@ class ToolsWorld:
                         ('atpose', block, pb_pose),
                         ('pose', block, pb_pose),
                         ('freeobj', block)]
-        '''
+
         # yellow block (heavy --> must be pushed when outside specified region)
         name = 'yellow_block'
         color = (1.0, 1.0, 0.0, 1.0)
@@ -180,7 +181,7 @@ class ToolsWorld:
             orn = (0,0,0,1)
             tunnel, pb_pose = self.place_object(tunnel_name,
                                 'tamp/urdf_models/%s.urdf' % tunnel_name,
-                                self.tunnel_pos_xy,
+                                self.init_objs_pos_xy['tunnel'],
                                 orn)
             self.tunnel = tunnel
 
@@ -362,11 +363,12 @@ class ToolsWorld:
 
 
     def block_in_tunnel(self, pos_xy):
+        tunnel_pos_xy = self.init_objs_pos_xy['tunnel']
         tunnel_dims = (0.2, 0.09) # from urdf
-        min_x = self.tunnel_pos_xy[0] - tunnel_dims[0]/2
-        max_x = self.tunnel_pos_xy[0] + tunnel_dims[0]/2
-        min_y = self.tunnel_pos_xy[1] - tunnel_dims[1]/2
-        max_y = self.tunnel_pos_xy[1] + tunnel_dims[1]/2
+        min_x = tunnel_pos_xy[0] - tunnel_dims[0]/2
+        max_x = tunnel_pos_xy[0] + tunnel_dims[0]/2
+        min_y = tunnel_pos_xy[1] - tunnel_dims[1]/2
+        max_y = tunnel_pos_xy[1] + tunnel_dims[1]/2
 
         block_dims = np.array(self.objects['yellow_block'].get_dimensions()[:2])
         half_block = block_dims[0]/2
