@@ -52,6 +52,7 @@ def get_contact_gen(robot):
             M[:3,3] = point
             tool_in_cont_tforms.append(M)
         '''
+        '''
         # for now defining 3 contact points (pose from block to tool)
         rel_points_xy = [(-(half_length+half_b), 0),                                # long end poke
                         ((half_length+half_b), -(half_width)),                      # outside short end push
@@ -67,15 +68,30 @@ def get_contact_gen(robot):
                                     0)]
 
         tool_in_cont_z_angle = [0, np.pi, 0]
+        '''
+        rel_points_xy = [(-(half_length+half_b), 0, 0),            # long end poke
+                        ((half_length+half_b), -(half_width), 0)]   # pull closer
+        rel_points_z_angle = [0.0, 0.0]
+        contact_types = ['poke', 'push_pull']
+        tool_in_cont_points = [(-(half_length+half_b), 0, 0),
+                            (-(half_length+half_b), (half_width), 0)]
+        tool_in_cont_z_angle = [0.0, np.pi]
+
         tool_in_cont_tforms = []
         for point, angle in zip(tool_in_cont_points, tool_in_cont_z_angle):
             M = rotation_matrix(angle, (0,0,1))
             M[:3,3] = point
             tool_in_cont_tforms.append(M)
+
+        rel_tool_block_tforms = []
+        for point, angle in zip(rel_points_xy, rel_points_z_angle):
+            M = rotation_matrix(angle, (0,0,1))
+            M[:3,3] = point
+            rel_tool_block_tforms.append(M)
+
         contacts = []
-        for rel_point_xy, type, tool_in_cont_tform in zip(rel_points_xy, contact_types, tool_in_cont_tforms):
-            rel_pose = ((*rel_point_xy, rel_z), (0., 0., 0., 1.))
-            contact = Contact(obj1, obj2, rel_pose, type, tool_in_cont_tform)
+        for rel_pose_tform, type, tool_in_cont_tform in zip(rel_tool_block_tforms, contact_types, tool_in_cont_tforms):
+            contact = Contact(obj1, obj2, rel_pose_tform, type, tool_in_cont_tform)
             contacts.append((contact,))
         if shuffle:
             random.shuffle(contacts)
@@ -196,7 +212,7 @@ def get_contact_motion_gen(world, robot, fixed=[], num_attempts=20, ret_traj=Tru
                 return None
         # ee pose at contact
         obj2_world = pb_robot.geometry.tform_from_pose(pose1.pose)
-        cont_tform = pb_robot.geometry.tform_from_pose(cont.rel_pose)
+        cont_tform = cont.rel_pose
         obj1_contact_world = obj2_world@cont_tform
         ee_contact_world = obj1_contact_world@grasp.grasp_objF
 
@@ -224,8 +240,7 @@ def get_contact_motion_gen(world, robot, fixed=[], num_attempts=20, ret_traj=Tru
         ee_approach_world = obj1_approach_world@grasp.grasp_objF
 
         # ee pose at end of push path
-        obj1_pose2_world = pb_robot.geometry.tform_from_pose(pose2.pose)@\
-                            pb_robot.geometry.tform_from_pose(cont.rel_pose)
+        obj1_pose2_world = pb_robot.geometry.tform_from_pose(pose2.pose)@cont.rel_pose
         ee_pose2_world = obj1_pose2_world@grasp.grasp_objF
 
         # grab object
@@ -299,8 +314,7 @@ def get_contact_motion_gen(world, robot, fixed=[], num_attempts=20, ret_traj=Tru
 def contact_approach_fn(obj1, obj2, pose1, pose2, cont):
     # ee pose at contact
     obj2_world = pb_robot.geometry.tform_from_pose(pose1.pose)
-    cont_tform = pb_robot.geometry.tform_from_pose(cont.rel_pose)
-    obj1_contact_world = obj2_world@cont_tform
+    obj1_contact_world = obj2_world@cont.rel_pose
 
     # obj1 pose at beginning of approach
     approach_dist = 0.1
@@ -548,6 +562,8 @@ def get_tool_grasp_gen(robot, add_slanted_grasps=True, add_orthogonal_grasps=Tru
         tool_length, tool_width = 0.4, tool_inside_width+tool_thickness
         half_length, half_width = tool_length/2, tool_width/2
 
+        center_grasp_offset = (0.0, 0.0)
+
         # hook grasps xy in tool frame near poke end
         hook0_offset_xy = (0.1, 0.0)
 
@@ -560,7 +576,7 @@ def get_tool_grasp_gen(robot, add_slanted_grasps=True, add_orthogonal_grasps=Tru
         Bw = np.zeros((6,2))
         grasp_tsrs = []
         for Tw_e in [Tw_e_side1, Tw_e_side2, Tw_e_side3, Tw_e_side4]:
-            for x_offset, y_offset in [hook0_offset_xy, hook1_offset_xy, poke_offset_xy]:
+            for x_offset, y_offset in [hook0_offset_xy, hook1_offset_xy]:#, poke_offset_xy]:
                 Tw_e_adjust = copy(Tw_e)
                 Tw_e_adjust[0][3] += x_offset
                 Tw_e_adjust[1][3] += y_offset
@@ -590,8 +606,7 @@ def trust_contact_model(world, block, pose1, pose2, cont):
     ## Calculate angle between contact frame and push direction
     # get cont axis in world
     block_world = pb_robot.geometry.tform_from_pose(pose1.pose)
-    cont_tform = pb_robot.geometry.tform_from_pose(cont.rel_pose)
-    tool_w_tform = block_world@cont_tform
+    tool_w_tform = block_world@cont.rel_pose
     cont_w_tform = np.dot(tool_w_tform, np.linalg.inv(cont.tool_in_cont_tform))
     valid_push_cont_frame = (1., 0., 0.)
     valid_push_w_frame = np.dot(cont_w_tform[:3,:3], valid_push_cont_frame[:3])[:2]

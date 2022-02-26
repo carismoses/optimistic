@@ -25,7 +25,7 @@ from domains.tools.primitives import get_free_motion_gen, \
 
 
 N_MC_IN = 2 # input dimensionality for move contact action
-CONTACT_TYPES = ['poke', 'push_pull', 'hook']
+CONTACT_TYPES = ['poke', 'push_pull']#, 'hook']
 
 
 # TODO: make parent world template class
@@ -43,7 +43,7 @@ class ToolsWorld:
         if len(init_objs_pos_xy) == 0:
             init_objs_pos_xy = {'yellow_block': (0.4, -0.3),
                                 'blue_block': (0.3, 0.4),
-                                'tool': (0.3, -0.4)}
+                                'tool': (0.3, -0.45)}
         self.init_objs_pos_xy = init_objs_pos_xy
         self.use_panda = True
         self.panda = PandaAgent(vis)
@@ -51,7 +51,7 @@ class ToolsWorld:
         self.objects, self.orig_poses, self.obj_init_state = self.place_objects(place_tunnel=False)
         self.panda_init_state = self.panda.get_init_state()
         self.panda.execute()
-        self.place_objects(place_tunnel=True)
+        self.place_objects(place_tunnel=False)
         self.panda.plan()
         self.fixed = [self.panda.table]
 
@@ -98,13 +98,13 @@ class ToolsWorld:
         pb_robot.utils.disconnect()
 
 
-    def place_object(self, obj_name, path, pos_xy):
+    def place_object(self, obj_name, path, pos_xy, orn):
         fname = os.path.basename(path)
         copyfile(path, os.path.join('pb_robot/models', fname))
         obj = pb_robot.body.createBody(os.path.join('models', fname))
         z = pb_robot.placements.stable_z(obj, self.panda.table)
-        obj_pose = ((*pos_xy, z), (0., 0., 0., 1.))
-        obj.set_base_link_pose(obj_pose)
+        pose = ((*pos_xy, z), orn)
+        obj.set_base_link_pose(pose)
         pb_pose = pb_robot.vobj.BodyPose(obj, obj.get_base_link_pose())
         return obj, pb_pose
 
@@ -117,56 +117,71 @@ class ToolsWorld:
 
         # tool
         tool_name = 'tool'
-        tool, pose = self.place_object(tool_name, 'tamp/urdf_models/%s.urdf' % tool_name, self.init_objs_pos_xy['tool'])
+        orn = (0,0,0,1)
+        #orn_90 = (0,0,1,0)
+        #r = np.random.rand()
+        #orn = orn if r < .5 else orn_90  # place it randomly at an orientation
+        tool, pb_pose = self.place_object(tool_name,
+                                            'tamp/urdf_models/%s.urdf' % tool_name,
+                                            self.init_objs_pos_xy['tool'],
+                                            orn)
         pb_objects[tool_name] = tool
-        orig_poses[tool_name] = pose
-        self.obj_init_poses[tool_name] = pose
+        orig_poses[tool_name] = pb_pose
+        self.obj_init_poses[tool_name] = pb_pose
         init_state += [('tool', tool),
                         ('on', tool, self.panda.table),
                         ('clear', tool), \
-                        ('atpose', tool, pose),
-                        ('pose', tool, pose),
+                        ('atpose', tool, pb_pose),
+                        ('pose', tool, pb_pose),
                         ('freeobj', tool)]
 
         # blue_block (initially constrained by tunnel)
+        '''
         name = 'blue_block'
         color = (0.0, 0.0, 1.0, 1.0)
         pos_xy = self.init_objs_pos_xy[name]
         urdf_path = 'tamp/urdf_models/%s.urdf' % name
         block_to_urdf(name, urdf_path, color)
-        block, pose = self.place_object(name, urdf_path, pos_xy)
+        orn = (0,0,0,1)
+        block, pb_pose = self.place_object(name, urdf_path, pos_xy, orn)
         pb_objects[name] = block
-        orig_poses[name] = pose
-        self.obj_init_poses[name] = pose
+        orig_poses[name] = pb_pose
+        self.obj_init_poses[name] = pb_pose
         init_state += [('block', block),
                         ('on', block, self.panda.table),
                         ('clear', block), \
-                        ('atpose', block, pose),
-                        ('pose', block, pose),
+                        ('atpose', block, pb_pose),
+                        ('pose', block, pb_pose),
                         ('freeobj', block)]
-
+        '''
         # yellow block (heavy --> must be pushed when outside specified region)
         name = 'yellow_block'
         color = (1.0, 1.0, 0.0, 1.0)
-        pos_xy = self.init_objs_pos_xy[name]
         urdf_path = 'tamp/urdf_models/%s.urdf' % name
         block_to_urdf(name, urdf_path, color)
-        block, pose = self.place_object(name, urdf_path, pos_xy)
+        orn = (0,0,0,1)
+        block, pb_pose = self.place_object(name,
+                                urdf_path,
+                                self.init_objs_pos_xy[name],
+                                orn)
         pb_objects[name] = block
-        orig_poses[name] = pose
-        self.obj_init_poses[name] = pose
+        orig_poses[name] = pb_pose
+        self.obj_init_poses[name] = pb_pose
         init_state += [('block', block),
                         ('on', block, self.panda.table),
                         ('clear', block), \
-                        ('atpose', block, pose),
-                        ('pose', block, pose),
+                        ('atpose', block, pb_pose),
+                        ('pose', block, pb_pose),
                         ('freeobj', block)]
 
         if place_tunnel:
             # tunnel
             tunnel_name = 'tunnel'
-            self.tunnel_pos_xy = (0.2, 0.3)
-            tunnel, pose = self.place_object(tunnel_name, 'tamp/urdf_models/%s.urdf' % tunnel_name, self.tunnel_pos_xy)
+            orn = (0,0,0,1)
+            tunnel, pb_pose = self.place_object(tunnel_name,
+                                'tamp/urdf_models/%s.urdf' % tunnel_name,
+                                self.tunnel_pos_xy,
+                                orn)
             self.tunnel = tunnel
 
         return pb_objects, orig_poses, init_state
@@ -258,9 +273,9 @@ class ToolsWorld:
             urdf_path = 'tamp/urdf_models/%s.urdf' % name
             goal_to_urdf(name, urdf_path, color, self.push_goal_radius)
             self.panda.execute()
-            self.place_object(name, urdf_path, goal_xy)
+            self.place_object(name, urdf_path, goal_xy, (0,0,0,1))
             self.panda.plan()
-            self.place_object(name, urdf_path, goal_xy)
+            self.place_object(name, urdf_path, goal_xy, (0,0,0,1))
 
         # return goal
         self.goal = ('atpose', random_object, final_pose)
@@ -293,8 +308,7 @@ class ToolsWorld:
 
             # tool pose at contact
             block_world = pb_robot.geometry.tform_from_pose(pose1.pose)
-            cont_tform = pb_robot.geometry.tform_from_pose(cont.rel_pose)
-            tool_w_tform = block_world@cont_tform
+            tool_w_tform = block_world@cont.rel_pose
 
             # contact frame in the world
             cont_w_tform = np.dot(tool_w_tform, np.linalg.inv(cont.tool_in_cont_tform))
@@ -625,7 +639,7 @@ class ToolsWorld:
         if frame == 'world':
             init_block_pos = self.init_objs_pos_xy['yellow_block']
             # TODO: this assumes that the block is always aligned with the world frame
-            tool_tform = pb_robot.geometry.tform_from_pose(cont.rel_pose)
+            tool_tform = cont.rel_pose
         elif frame == 'cont':
             init_block_pos = (0., 0.)
             tool_tform = cont.tool_in_cont_tform
