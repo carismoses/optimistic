@@ -30,11 +30,11 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
     while n_actions < len(types):
         print('# actions = %i, |dataset| = %i' % (n_actions, len(dataset)))
         pddl_model_type = 'optimistic'
-
+        goal_progress = None
         trajectory = collect_trajectory_wrapper(args,
                                                 pddl_model_type,
                                                 dataset_logger,
-                                                args.goal_progress,
+                                                goal_progress,
                                                 separate_process=not args.single_process,
                                                 model_logger=model_logger,
                                                 save_to_dataset=True)
@@ -78,21 +78,9 @@ if __name__ == '__main__':
     parser.add_argument('--debug',
                         action='store_true',
                         help='use to run in debug mode')
-    parser.add_argument('--max-type-size',
-                        type=int,
-                        help='max number of actions IN DATASET for each class in balanced case')
-    parser.add_argument('--max-actions',
-                        type=int,
-                        help='max number of ALL actions total for unbalanced case')
     parser.add_argument('--exp-name',
                         type=str,
                         help='path to save datasets and models to (unless a restart, then use exp-path)')
-    parser.add_argument('--goal-progress',
-                        type=float,
-                        help='what fraction of the maximum goal region is acceptable')
-    parser.add_argument('--vis-performance',
-                        action='store_true',
-                        help='use to visualize success/failure of robot executions and optionally replay with pyBullet.')
     parser.add_argument('--vis',
                         action='store_true',
                         help='use to visualize robot executions.')
