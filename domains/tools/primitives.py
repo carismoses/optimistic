@@ -476,7 +476,7 @@ def get_ik_fn(world, robot, fixed=[], num_attempts=4, approach_frame='gripper', 
                         print(x - new_pose.pose[0][0], y - new_pose.pose[0][1])
                         return None
 
-            command = [pb_robot.vobj.MoveToTouch(robot.arm, q_approach, q_grasp, grasp, obj),
+            command = [pb_robot.vobj.MoveToTouch(robot.arm, q_approach, q_grasp, grasp, obj, check_collisions=True),
                        grasp,
                        pb_robot.vobj.MoveFromTouch(robot.arm, q_backoff)]
             if approach_frame == 'global':
@@ -522,6 +522,7 @@ def get_block_grasp_gen(robot, add_slanted_grasps=True, add_orthogonal_grasps=Tr
             grasp_objF = np.dot(np.linalg.inv(block.get_base_link_transform()), grasp_worldF)
             block_grasp = pb_robot.vobj.BodyGrasp(block, grasp_objF, robot.arm)
             grasps.append((block_grasp,))
+        random.shuffle(grasps)
         return grasps
     return gen
 

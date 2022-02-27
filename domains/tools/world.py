@@ -24,9 +24,8 @@ from domains.tools.primitives import get_free_motion_gen, \
     get_block_grasp_gen, get_contact_motion_gen, get_contact_gen, contact_approach_fn, ee_ik
 
 
-N_MC_IN = 2 # input dimensionality for move contact action
 CONTACT_TYPES = ['poke', 'push_pull']#, 'hook']
-
+MODEL_INPUT_DIMS = {'push': 2, 'pick': 2}
 
 # TODO: make parent world template class
 class ToolsWorld:
@@ -35,17 +34,28 @@ class ToolsWorld:
         world = ToolsWorld(vis, logger)
         return world
 
-    @staticmethod
-    def get_model_params():
-        return N_MC_IN
 
-    def __init__(self, vis, logger, init_objs_pos_xy={}):
+    def __init__(self, vis, logger, init_objs_pos_xy={}, goal_type=None, goal_obj=None):
         if len(init_objs_pos_xy) == 0:
             init_objs_pos_xy = {'yellow_block': (0.4, -0.25),
                                 'blue_block': (0.3, 0.3),
                                 'tool': (0.3, -0.45),
                                 'tunnel': (0.3, 0.3)}
         self.init_objs_pos_xy = init_objs_pos_xy
+        self.blue_pos_xy = None
+
+        # goal sampling properties
+        self.goal_limits = {'yellow_block': {'min_x': 0.05,
+                                                'max_x': 0.85,
+                                                'min_y': 0.0,
+                                                'max_y':-0.5},
+                            'blue_block': {'min_x': 0.05,
+                                                'max_x': 0.75,
+                                                'min_y': 0.5,
+                                                'max_y':0.0}}
+        self.max_x_pick = 0.55
+        self.goal_type = goal_type
+        self.goal_obj = goal_obj
         self.use_panda = True
         self.panda = PandaAgent(vis)
         self.panda.plan()
@@ -62,14 +72,9 @@ class ToolsWorld:
         # get pddl domain description
         self.logger = logger
 
-        # goal sampling properties
-        self.min_x, self.max_x = 0.05, 0.85
-        self.min_y, self.max_y = 0.2, -0.5
-        self.min_goal_radius = 0.05
-        self.min_push_dist = 0.05
-
+        # parameters that will be learned
         self.push_goal_radius = 0.05
-        self.valid_pick_yellow_radius = 0.5
+        self.valid_pick_yellow_radius = 0.35
         self.approx_valid_push_angle = np.pi/32
 
 
@@ -136,15 +141,29 @@ class ToolsWorld:
                         ('pose', tool, pb_pose),
                         ('freeobj', tool)]
 
-        # blue_block (initially constrained by tunnel)
 
         name = 'blue_block'
         color = (0.0, 0.0, 1.0, 1.0)
-        pos_xy = self.init_objs_pos_xy[name]
+        r = np.random.rand()
+        if self.blue_pos_xy is None:
+            if self.goal_type is not None:
+                if self.goal_type == 'pick' and self.goal_obj == 'blue_block':
+                    # blue_block (initially constrained by tunnel with 50%)
+                    if r < .5:
+                        pos_xy = self.init_objs_pos_xy[name]
+                    else:
+                        limits = self.goal_limits[name]
+                        self.blue_pos_xy = np.array([np.random.uniform(limits['min_x'], self.max_x_pick),
+                                            np.random.uniform(limits['min_y'], limits['max_y'])])
+                elif self.goal_type == 'push':
+                    self.blue_pos_xy = self.init_objs_pos_xy[name]
+            else:
+                self.blue_pos_xy = self.init_objs_pos_xy[name]
+        print('Initial bue block pose', self.blue_pos_xy)
         urdf_path = 'tamp/urdf_models/%s.urdf' % name
         block_to_urdf(name, urdf_path, color)
         orn = (0,0,0,1)
-        block, pb_pose = self.place_object(name, urdf_path, pos_xy, orn)
+        block, pb_pose = self.place_object(name, urdf_path, self.blue_pos_xy, orn)
         pb_objects[name] = block
         orig_poses[name] = pb_pose
         self.obj_init_poses[name] = pb_pose
@@ -236,34 +255,34 @@ class ToolsWorld:
         return pddl_info
 
 
-    def generate_goal(self, show_goal=False, goal_xy=None):
-        init_state = self.get_init_state()
+    def generate_dummy_goal(self):
+        return ('atpose', self.objects['yellow_block'], \
+                    pb_robot.vobj.BodyPose(self.objects['yellow_block'], ((0,0,0),(0,0,0,1))))
 
-        # select a random block
-        random_object = random.choice(list(self.objects.values()))
-        while not ('block', random_object) in init_state:
-            random_object = random.choice(list(self.objects.values()))
-        init_pose = self.get_obj_pose_from_state(random_object, init_state)
+
+    def generate_goal(self, goal_obj, goal_type, show_goal=True, goal_xy=None):
+        object = self.objects[goal_obj]
+        init_state = self.get_init_state()
+        init_pose = self.get_obj_pose_from_state(object, init_state)
         init_x, init_y = init_pose[0][:2]
 
-        # select random point on table (not near tunnel)
+        # select random point on table
+        limits = self.goal_limits[goal_obj]
+        if goal_type == 'pick':
+            max_x = self.max_x_pick
+        else:
+            max_x = limits['max_x']
         if not goal_xy:
-            goal_xy = np.array([np.random.uniform(self.min_x, self.max_x),
-                                np.random.uniform(self.min_y, self.max_y)])
+            goal_xy = np.array([np.random.uniform(limits['min_x'], max_x),
+                                np.random.uniform(limits['min_y'], limits['max_y'])])
 
         # add desired pose to state
         goal_pose = ((goal_xy[0], goal_xy[1], init_pose[0][2]), init_pose[1])
-        final_pose = pb_robot.vobj.BodyPose(random_object, goal_pose)
+        final_pose = pb_robot.vobj.BodyPose(object, goal_pose)
         table_pose = pb_robot.vobj.BodyPose(self.panda.table, self.panda.table.get_base_link_pose())
-        add_to_state = [('pose', random_object, final_pose),
-                            ('supported', random_object, final_pose, self.panda.table, table_pose)]
-                            #('atpose', self.panda.table, table_pose),
-                            #('clear', self.panda.table)] # TODO: make a place action that
-                                                        # doesn't have the effect of making
-                                                        # things clear so can place blocks on
-                                                        # table. for not hack by saying your
-                                                        # can only place something on the table once
-                                                        # (then it becomes not clear)
+        add_to_state = [('pose', object, final_pose),
+                        ('supported', object, final_pose, self.panda.table, table_pose),
+                        ('atpose', self.panda.table, table_pose)]
 
         # visualize goal patch in pyBullet
         # WARNING: SHOWING THE GOAL MESSES UP THE ROBOT INTERACTIONS AND CAUSES COLLISIONS!
@@ -279,7 +298,8 @@ class ToolsWorld:
             self.place_object(name, urdf_path, goal_xy, (0,0,0,1))
 
         # return goal
-        self.goal = ('atpose', random_object, final_pose)
+        fluent = 'push' if goal_type=='push' else 'place'
+        self.goal = ('at%spose'%fluent, object, final_pose)
         return self.goal, add_to_state
 
 
@@ -301,8 +321,8 @@ class ToolsWorld:
 
 
     def action_to_vec(self, pddl_action):
-        x = np.zeros(N_MC_IN)
         if pddl_action.name == 'move_contact':
+            x = np.zeros(MODEL_INPUT_DIMS['push'])
             # calculate the pose of the push goal in the contact frame
             cont = pddl_action.args[5]
             pose1 = pddl_action.args[3]
@@ -316,6 +336,12 @@ class ToolsWorld:
             goal_world_point = (*pddl_action.args[4].pose[0], 1)
             goal_cont = np.dot(np.linalg.inv(cont_w_tform), goal_world_point)
             x[:] = goal_cont[:2]
+            return x
+        elif pddl_action.name == 'pick':
+            x = np.zeros(MODEL_INPUT_DIMS['pick'])
+            pick_pose = pddl_action.args[1]
+            pick_xy = pick_pose.pose[0][:2]
+            x[:] = pick_xy
             return x
         else:
             raise NotImplementedError('No vectorization method for action %s' % pddl_action.name)

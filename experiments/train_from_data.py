@@ -1,39 +1,25 @@
 import numpy as np
 import argparse
-from torch.nn import functional as F
-from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 
-from learning.models.mlp import MLP
-from learning.models.ensemble import Ensembles
 from domains.tools.world import ToolsWorld, CONTACT_TYPES
 from experiments.utils import ExperimentLogger
-from learning.train import train
+from learning.utils import initialize_model, train_model
 
 
 def train_step(args, base_args, i):
     dataset, i = logger.load_trans_dataset('', i=i, ret_i=True)
     print('Training for action step %i' % i)
-    ensembles = Ensembles(MLP, base_args, args.n_models, CONTACT_TYPES)
-    for type in CONTACT_TYPES:
-        if len(dataset[type]) > 0:
-            print('Training %s ensemble with |dataset| = %i' % (type, len(dataset)))
-            dataloader = DataLoader(dataset[type], batch_size=args.batch_size, shuffle=True)
-            all_losses = []
-            for model in ensembles.ensembles[type].models:
-                losses = train(dataloader, model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
-                all_losses.append([losses])
-            fig, ax = plt.subplots()
-            ax.plot(np.array(all_losses).mean(axis=0).squeeze())
-            ax.set_title('Training Loss for %s' % type)
+    model = initialize_model(args, base_args, types=CONTACT_TYPES)
+    train_model(model, dataset, args, types=CONTACT_TYPES)
+
     # save model and accuracy plots
-    logger.save_trans_model(ensembles, i=i)
+    logger.save_trans_model(model, i=i)
 
 
 def train_from_data(args, logger, start_i):
     # get model params
-    n_mc_in = ToolsWorld.get_model_params()
-    base_args = {'n_in': n_mc_in,
+    base_args = {'n_in': MODEL_INPUT_DIMS[args.goal_type],
                 'n_hidden': args.n_hidden,
                 'n_layers': args.n_layers}
 

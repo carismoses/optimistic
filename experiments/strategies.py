@@ -16,7 +16,7 @@ from tamp.utils import execute_plan, get_simple_state, task_from_problem,   \
                         get_fd_action, postprocess_plan, failed_abstract_plan_to_traj
 from learning.utils import model_forward, add_trajectory_to_dataset
 from domains.tools.primitives import get_traj
-from domains.utils import init_world
+from domains.tools.world import ToolsWorld
 
 
 MAX_PLAN_LEN = 6           # max num of actions in a randomly generated plan
@@ -57,23 +57,20 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_lo
     # in sequential and learned methods data collection and training happen simultaneously
     if args.data_collection_mode in ['sequential-plans', 'sequential-goals', 'random-goals-learned']:
         model_logger = dataset_logger
-    world = init_world(args.domain,
-                        args.domain_args,
-                        args.vis,
-                        model_logger)
+    world = ToolsWorld(args.vis, model_logger, goal_type=args.goal_type, goal_obj=args.goal_obj)
 
     if args.data_collection_mode == 'random-actions':
         pddl_plan, problem, init_expanded = random_plan(world, 'optimistic')
     elif args.data_collection_mode == 'random-goals-opt':
-        goal, add_to_state = world.generate_goal(goal_xy=goal_xy)
+        goal, add_to_state = world.generate_goal(args.goal_obj, args.goal_type, goal_xy=goal_xy)
         pddl_plan, problem, init_expanded = goals(world, 'optimistic', goal, add_to_state)
     elif args.data_collection_mode == 'random-goals-learned':
-        goal, add_to_state = world.generate_goal(goal_xy=goal_xy)
+        goal, add_to_state = world.generate_goal(args.goal_obj, args.goal_type, goal_xy=goal_xy)
         pddl_plan, problem, init_expanded = goals(world, 'learned', goal, add_to_state)
     elif args.data_collection_mode == 'sequential-plans':
-        pddl_plan, problem, init_expanded = sequential(world, 'plans', args.n_seq_plans)
+        pddl_plan, problem, init_expanded = sequential(args, world, 'plans', args.n_seq_plans)
     elif args.data_collection_mode == 'sequential-goals':
-        pddl_plan, problem, init_expanded =  sequential(world, 'goals', args.n_seq_plans)
+        pddl_plan, problem, init_expanded =  sequential(args, world, 'goals', args.n_seq_plans)
     else:
         raise NotImplementedError('Strategy %s is not implemented' % args.data_collection_mode)
 
@@ -140,7 +137,7 @@ def random_plan(world, pddl_model_type, ret_states=False):
         world.panda.add_text('Planning random actions.',
                             position=(0, -1, 1),
                             size=1.5)
-    goal, _ = world.generate_goal() # dummy variable (TODO: can be None??)
+    goal, _ = world.generate_dummy_goal() # dummy variable (TODO: can be None??)
     states = []
     pddl_plan = []
     pddl_state = world.get_init_state()
@@ -213,7 +210,7 @@ def goals(world, pddl_model_type, goal, add_to_state, ret_states=False):
     return pddl_plan, problem, init_expanded
 
 
-def sequential(world, mode, n_seq_plans):
+def sequential(args, world, mode, n_seq_plans):
     model = world.logger.load_trans_model()
     best_plan_info = None
     best_bald_score = float('-inf')
@@ -225,7 +222,7 @@ def sequential(world, mode, n_seq_plans):
         if mode == 'plans':
             plan_with_states, problem, init_expanded = random_plan(world, 'opt_no_traj', ret_states=True)
         elif mode == 'goals':
-            goal, add_to_state = world.generate_goal()
+            goal, add_to_state = world.generate_goal(args.goal_obj, args.goal_type)
             plan_with_states, problem, init_expanded = goals(world, 'opt_no_traj', goal, add_to_state, ret_states=True)
         if plan_with_states:
             n_plans_searched += 1
@@ -285,16 +282,19 @@ def solve_trajectories(world, pddl_plan, ret_full_plan=False):
     add_to_init = []
     for pddl_action in pddl_plan:
         if pddl_action.name in ['move_free', 'move_holding', 'move_contact']:
-            command, init = get_traj(robot, obstacles, pddl_action)
-            if command is None:
-                print('Could not solve for %s trajectories.' % pddl_action.name)
-                if ret_full_plan: # if want to ground the entire plan, then return None if that's not possible
-                    return None, None
-                else:
-                    return pddl_plan_traj, add_to_init
-            pddl_plan_traj += [Action(name=pddl_action.name,
-                            args=tuple([a for a in pddl_action.args[:-1]]+[command]))]
-            add_to_init.append(init)
+            if len(pddl_action.args[-1]) == 0: # check that there isn't already a trajectory
+                command, init = get_traj(robot, obstacles, pddl_action)
+                if command is None:
+                    print('Could not solve for %s trajectories.' % pddl_action.name)
+                    if ret_full_plan: # if want to ground the entire plan, then return None if that's not possible
+                        return None, None
+                    else:
+                        return pddl_plan_traj, add_to_init
+                pddl_plan_traj += [Action(name=pddl_action.name,
+                                args=tuple([a for a in pddl_action.args[:-1]]+[command]))]
+                add_to_init.append(init)
+            else:
+                pddl_plan_traj.append(pddl_action)
         else:
             pddl_plan_traj.append(pddl_action)
     return pddl_plan_traj, add_to_init

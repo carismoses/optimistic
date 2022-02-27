@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 from experiments.utils import ExperimentLogger
 from tamp.utils import execute_plan
-from domains.utils import init_world
+from domains.tools.world import ToolsWorld
 from experiments.strategies import collect_trajectory_wrapper
 from domains.tools.primitives import get_contact_gen
 from domains.tools.world import CONTACT_TYPES
@@ -53,11 +53,6 @@ expert_feasible_goals = []
 # first try to get through expert goals (should be feasible)
 def gen_dataset(args, n_actions, dataset_logger, model_logger):
     dataset = dataset_logger.load_trans_dataset('')
-    world = init_world('tools',
-                        None,
-                        False,
-                        None)
-    #feasible_goal_i = 0
 
     if args.balanced:
         condition = len(dataset) < len(CONTACT_TYPES)*args.max_type_size
@@ -213,6 +208,14 @@ if __name__ == '__main__':
                         type=str,
                         nargs='+',
                         help='list of model paths to use for planning')
+    parser.add_argument('--goal-obj',
+                        required=True,
+                        type=str,
+                        choices=['yellow_block', 'blue_block'])
+    parser.add_argument('--goal-type',
+                        required=True,
+                        type=str,
+                        choices=['push', 'pick'])
     args = parser.parse_args()
 
     if args.debug:

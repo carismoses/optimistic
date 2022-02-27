@@ -20,7 +20,6 @@
 
     ; Fluents
     (On ?ot ?ob)
-    (Clear ?o)
     (AtConf ?q)
     (HandEmpty)
     (AtGrasp ?o ?g)

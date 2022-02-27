@@ -7,10 +7,9 @@ import numpy as np
 from argparse import Namespace
 import torch
 
-from domains.tools.world import N_MC_IN, CONTACT_TYPES
-from learning.models.mlp import MLP
-from learning.models.ensemble import Ensembles
-from learning.datasets import MoveContactDataset
+from domains.tools.world import MODEL_INPUT_DIMS, CONTACT_TYPES
+from learning.datasets import MoveContactDataset, OptDataset
+from learning.utils import initialize_model
 
 class ExperimentLogger:
 
@@ -101,7 +100,10 @@ class ExperimentLogger:
             else:
                 print('No NUMBERED datasets on path %s/datasets/%s. Returning new empty dataset.' % (self.exp_path, dir))
                 print('All datasets must be numbered')
-                dataset = MoveContactDataset(CONTACT_TYPES)
+                if self.args.goal_type == 'push':
+                    dataset = MoveContactDataset(CONTACT_TYPES)
+                elif self.args.goal_type == 'pick':
+                    dataset = OptDataset()
                 i = 0
         if ret_i:
             return dataset, i
@@ -172,21 +174,18 @@ class ExperimentLogger:
                 fname = 'trans_model_%i.pt' % i
                 #print('Loading model %s.' % fname)
 
-        base_args = {'n_in': N_MC_IN,
+        base_args = {'n_in': MODEL_INPUT_DIMS[self.args.goal_type],
                     'n_hidden': self.args.n_hidden,
                     'n_layers': self.args.n_layers}
-        ensembles = Ensembles(MLP,
-                            base_args,
-                            self.args.n_models,
-                            CONTACT_TYPES)
+        model = initialize_model(self.args, base_args, types=CONTACT_TYPES)
         assert fname, 'No models found on path' % os.path.join(self.exp_path, 'models')
 
         loc = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-        ensembles.load_state_dict(torch.load(os.path.join(self.exp_path, 'models', fname), map_location=loc))
+        model.load_state_dict(torch.load(os.path.join(self.exp_path, 'models', fname), map_location=loc))
         if ret_i:
-            return ensembles, i
+            return model, i
         else:
-            return ensembles
+            return model
 
     # save trajectory data
     def save_trajectories(self, trajectories, i):

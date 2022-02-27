@@ -1,28 +1,24 @@
 import argparse
-from torch.nn import functional as F
-from torch.utils.data import DataLoader
+
 
 from experiments.utils import ExperimentLogger
 from experiments.strategies import collect_trajectory_wrapper
-from domains.tools.world import N_MC_IN, CONTACT_TYPES
-from learning.models.ensemble import Ensembles
-from learning.models.mlp import MLP
-from learning.train import train
-from learning.datasets import get_balanced_dataset
+from domains.tools.world import MODEL_INPUT_DIMS, CONTACT_TYPES
+from learning.utils import initialize_model, train_model
 
 
 def train_class(args, logger, n_actions):
     pddl_model_type = 'learned' if 'learned' in args.data_collection_mode else 'optimistic'
 
     # get model params
-    base_args = {'n_in': N_MC_IN,
+    base_args = {'n_in': MODEL_INPUT_DIMS[args.goal_type],
                 'n_hidden': args.n_hidden,
                 'n_layers': args.n_layers}
 
     # if new exp, save a randomly initialized model
     if n_actions == 0:
-        ensembles = Ensembles(MLP, base_args, args.n_models, CONTACT_TYPES)
-        logger.save_trans_model(ensembles, i=n_actions)
+        model = initialize_model(args, base_args, types=CONTACT_TYPES)
+        logger.save_trans_model(model, i=n_actions)
 
     while n_actions < args.max_actions:
         dataset = logger.load_trans_dataset('')
@@ -31,52 +27,12 @@ def train_class(args, logger, n_actions):
 
         # train at training freq
         if not n_dataset_actions % args.train_freq:
-            # if train_bal then balance dataset, save, and train
-            if args.train_bal:
-                print('Balancing datasets before training')
-                bal_dataset = get_balanced_dataset(dataset, CONTACT_TYPES)
-                logger.save_bal_dataset(bal_dataset, 'bal', i=n_actions)
-                dataset = bal_dataset
-            ensembles = Ensembles(MLP, base_args, args.n_models, CONTACT_TYPES)
-            for type in CONTACT_TYPES:
-                if len(dataset[type]) > 0:
-                    print('Training %s ensemble.' % type)
-                    dataloader = DataLoader(dataset[type], batch_size=args.batch_size, shuffle=True)
-                    for model in ensembles.ensembles[type].models:
-                        train(dataloader, model, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
+            model = initialize_model(args, base_args, types=CONTACT_TYPES)
+            train_model(model, dataset, args, types=CONTACT_TYPES)
 
             # save model and accuracy plots
-            logger.save_trans_model(ensembles, i=n_actions)
+            logger.save_trans_model(model, i=n_actions)
             print('Saved model to %s' % logger.exp_path)
-
-            '''
-            # visualize balanced dataset and model accuracy
-            from domains.tools.primitives import get_contact_gen
-            from evaluate.plot_value_fns import get_model_accuracy_fn
-            from domains.utils import init_world
-            import matplotlib.pyplot as plt
-            world = init_world('tools',
-                                None,
-                                False,
-                                None)
-            contacts_fn = get_contact_gen(world.panda.planning_robot)
-            contacts = contacts_fn(world.objects['tool'], world.objects['yellow_block'], shuffle=False)
-            mean_fn = get_model_accuracy_fn(ensembles, 'mean')
-            std_fn = get_model_accuracy_fn(ensembles, 'std')
-            for type in CONTACT_TYPES:
-                fig, axes = plt.subplots(3, figsize=(4.5, 8))
-                world.vis_dense_plot(type, axes[0], [-1, 1], [-1, 1], 0, 1, value_fn=mean_fn)
-                world.vis_dense_plot(type, axes[1], [-1, 1], [-1, 1], None, None, value_fn=std_fn)
-                for ai in range(3):
-                    world.vis_dataset(axes[ai], bal_dataset.datasets[type], linestyle='-')
-                for contact in contacts:
-                    cont = contact[0]
-                    if cont.type == type:
-                        world.vis_tool_ax(cont, axes[2], frame='cont')
-                axes[0].set_title('Mean Ensemble Predictions')
-                axes[1].set_title('Std Ensemble Predictions')
-            plt.show()
-            '''
 
         progress = None
         trajectory = collect_trajectory_wrapper(args,
@@ -148,9 +104,14 @@ if __name__ == '__main__':
     parser.add_argument('--initial-dataset-path',
                         type=str,
                         help='path to initial dataset to start with')
-    parser.add_argument('--train-bal',
-                        action='store_true',
-                        help='if want to train only on balanced datasets')
+    parser.add_argument('--goal-obj',
+                        required=True,
+                        type=str,
+                        choices=['yellow_block', 'blue_block'])
+    parser.add_argument('--goal-type',
+                        required=True,
+                        type=str,
+                        choices=['push', 'pick'])
 
     # Training args
     parser.add_argument('--batch-size',
