@@ -30,11 +30,11 @@ if __name__ == '__main__':
     if logger.args.goal_type == 'push':
         contacts_fn = get_contact_gen(world.panda.planning_robot)
         contacts = contacts_fn(world.objects['tool'], world.objects['yellow_block'], shuffle=False)
-        
+
         all_axes = {}
         for type, dataset in dataset.datasets.items():
             fig, axes = plt.subplots(2, figsize=(5,10))
-            world.vis_dataset(axes[0], dataset)
+            world.vis_dataset(axes[0], dataset, logger.args.goal_type)
             # add blue squares for goals that failed to plan
             failed_goals = logger.load_failed_plans()
             for _, contact_type, x, _ in failed_goals:
@@ -59,7 +59,7 @@ if __name__ == '__main__':
             plt.close()
     elif logger.args.goal_type == 'pick':
         fig, ax = plt.subplots()
-        world.vis_dataset(ax, dataset)
+        world.vis_dataset(ax, dataset, logger.args.goal_type)
         # add blue squares for goals that failed to plan
         failed_goals = logger.load_failed_plans()
         for _, x, _ in failed_goals:

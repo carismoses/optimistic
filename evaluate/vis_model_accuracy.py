@@ -50,7 +50,7 @@ def gen_plots(args):
             world.vis_dense_plot(type, axes[1], [-1, 1], [-1, 1], None, None, value_fn=std_fn)
         #world.vis_dense_plot(type, axes[2], [-1, 1], [-1, 1], None, None, value_fn=seq_fn)
         for ai in range(n_axes):
-            world.vis_dataset(axes[ai], dataset.datasets[type], linestyle='-')
+            world.vis_dataset(axes[ai], dataset.datasets[type], model_logger.args.goal_type, linestyle='-')
             #world.vis_dataset(cont, axes[ai], val_dataset, linestyle='--')
             #world.vis_dataset(cont, axes[ai], curr_dataset, linestyle=':')
             #world.vis_failed_trajes(cont, axes[ai], logger)

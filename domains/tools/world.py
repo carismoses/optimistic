@@ -761,9 +761,10 @@ class ToolsWorld:
 
     # for now can only run this after vis_model_accuracy since it sets up the axes
     # each axis in axes is a 3 part subplot for a single contact
-    def vis_dataset(self, ax, dataset, linestyle='-'):
+    def vis_dataset(self, ax, dataset, type, linestyle='-'):
         # plot initial position
-        self.plot_block(ax, (0,0), 'm')
+        if type == 'push':
+            self.plot_block(ax, (0,0), 'm')
         for x, y in dataset:
             color = 'r' if y == 0 else 'g'
             self.plot_block(ax, x, color, linestyle=linestyle)
