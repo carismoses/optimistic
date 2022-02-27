@@ -12,7 +12,7 @@ from experiments.strategies import collect_trajectory_wrapper
 from domains.tools.primitives import get_contact_gen
 from domains.tools.world import CONTACT_TYPES
 
-
+'''
 def plot_dataset(world, dataset, di, logger):
     contacts_fn = get_contact_gen(world.panda.planning_robot)
     contacts = contacts_fn(world.objects['tool'], world.objects['yellow_block'], shuffle=False)
@@ -34,7 +34,7 @@ def plot_dataset(world, dataset, di, logger):
                 dir = 'dataset'
                 logger.save_figure(fname, dir=dir)
     plt.close()
-
+'''
 '''
 expert_feasible_goals = [(.6, -.29),     # cont 0
                         (.7, -.31),
@@ -54,8 +54,13 @@ expert_feasible_goals = []
 def gen_dataset(args, n_actions, dataset_logger, model_logger):
     dataset = dataset_logger.load_trans_dataset('')
 
+    if args.goal_type == 'push':
+        types = CONTACT_TYPES
+    elif args.goal_type == 'pick':
+        types = ['pick']
+
     if args.balanced:
-        condition = len(dataset) < len(CONTACT_TYPES)*args.max_type_size
+        condition = len(dataset) < len(types)*args.max_type_size
     else:
         condition = n_actions < args.max_actions
     while condition:
@@ -95,10 +100,6 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
             dataset = dataset_logger.load_trans_dataset('')
             if args.balanced:
                 # balance dataset by removing added element if makes it unbalanced
-                if args.goal_type == 'push':
-                    types = CONTACT_TYPES
-                elif args.goal_type == 'pick':
-                    types = ['pick']
                 num_per_class = args.max_type_size // 2
                 for type in types:
                     if args.goal_type == 'push':
@@ -133,7 +134,7 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
             '''
 
         if args.balanced:
-            condition = len(dataset) < len(CONTACT_TYPES)*args.max_type_size
+            condition = len(dataset) < len(types)*args.max_type_size
         else:
             condition = n_actions < args.max_actions
 
