@@ -95,16 +95,32 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
             dataset = dataset_logger.load_trans_dataset('')
             if args.balanced:
                 # balance dataset by removing added element if makes it unbalanced
+                if args.goal_type == 'push':
+                    types = CONTACT_TYPES
+                elif args.goal_type == 'pick':
+                    types = ['pick']
                 num_per_class = args.max_type_size // 2
-                for type in CONTACT_TYPES:
-                    num_pos_datapoints = sum([y for x,y in dataset[type]])
-                    num_neg_datapoints = len(dataset[type]) - num_pos_datapoints
+                for type in types:
+                    if args.goal_type == 'push':
+                        opt_dataset = dataset[type]
+                    else:
+                        opt_dataset = dataset
+                    num_pos_datapoints = sum([y for x,y in opt_dataset])
+                    num_neg_datapoints = len(opt_dataset) - num_pos_datapoints
                     print('Positive %s: %i' % (type, num_pos_datapoints))
                     print('Negative %s: %i' % (type, num_neg_datapoints))
-                    if num_pos_datapoints > num_per_class or num_neg_datapoints > num_per_class:
-                        print('Removing last trajectory added to dataset.')
-                        dataset_logger.remove_dataset('', i=n_actions)
-                        n_actions -= len(trajectory)
+                    if args.goal_type == 'push' and args.goal_obj == 'blue_block' \
+                            and type == 'push_pull':
+                        # can only get negative labels for push_pull type of blue block
+                        if num_neg_datapoints > 2*num_per_class:
+                            print('Removing last trajectory added to dataset.')
+                            dataset_logger.remove_dataset('', i=n_actions)
+                            n_actions -= len(trajectory)
+                    else:
+                        if num_pos_datapoints > num_per_class or num_neg_datapoints > num_per_class:
+                            print('Removing last trajectory added to dataset.')
+                            dataset_logger.remove_dataset('', i=n_actions)
+                            n_actions -= len(trajectory)
                     dataset = dataset_logger.load_trans_dataset('')
             '''
             else:

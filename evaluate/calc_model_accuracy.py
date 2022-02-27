@@ -2,7 +2,6 @@ import numpy as np
 
 from experiments.utils import ExperimentLogger
 from learning.utils import model_forward
-from domains.tools.world import CONTACT_TYPES
 
 
 test_dataset_path = 'logs/experiments/90_random_goals_balanced-20220223-162637'

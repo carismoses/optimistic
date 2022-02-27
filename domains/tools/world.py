@@ -42,7 +42,12 @@ class ToolsWorld:
                                 'tool': (0.3, -0.45),
                                 'tunnel': (0.3, 0.3)}
         self.init_objs_pos_xy = init_objs_pos_xy
+        self.random_blue_pos = True if goal_obj == 'blue_block' and goal_type == 'pick' else False
         self.blue_pos_xy = None
+
+        self.random_yellow_pos = True if goal_obj == 'yellow_block' and goal_type == 'pick' else False
+        self.yellow_pos_xy = None
+        self.place_tool = True if goal_obj == 'yellow_block' and goal_type == 'push' else False
 
         # goal sampling properties
         self.goal_limits = {'yellow_block': {'min_x': 0.05,
@@ -74,7 +79,7 @@ class ToolsWorld:
 
         # parameters that will be learned
         self.push_goal_radius = 0.05
-        self.valid_pick_yellow_radius = 0.35
+        self.valid_pick_yellow_radius = 0.4
         self.approx_valid_push_angle = np.pi/32
 
 
@@ -121,45 +126,42 @@ class ToolsWorld:
         init_state = []
         self.obj_init_poses = {}
 
-        # tool
-        tool_name = 'tool'
-        orn = (0,0,0,1)
-        #orn_90 = (0,0,1,0)
-        #r = np.random.rand()
-        #orn = orn if r < .5 else orn_90  # place it randomly at an orientation
-        tool, pb_pose = self.place_object(tool_name,
-                                            'tamp/urdf_models/%s.urdf' % tool_name,
-                                            self.init_objs_pos_xy['tool'],
-                                            orn)
-        pb_objects[tool_name] = tool
-        orig_poses[tool_name] = pb_pose
-        self.obj_init_poses[tool_name] = pb_pose
-        init_state += [('tool', tool),
-                        ('on', tool, self.panda.table),
-                        ('clear', tool), \
-                        ('atpose', tool, pb_pose),
-                        ('pose', tool, pb_pose),
-                        ('freeobj', tool)]
+        if self.place_tool:
+            # tool
+            tool_name = 'tool'
+            orn = (0,0,0,1)
+            #orn_90 = (0,0,1,0)
+            #r = np.random.rand()
+            #orn = orn if r < .5 else orn_90  # place it randomly at an orientation
+            tool, pb_pose = self.place_object(tool_name,
+                                                'tamp/urdf_models/%s.urdf' % tool_name,
+                                                self.init_objs_pos_xy['tool'],
+                                                orn)
+            pb_objects[tool_name] = tool
+            orig_poses[tool_name] = pb_pose
+            self.obj_init_poses[tool_name] = pb_pose
+            init_state += [('tool', tool),
+                            ('on', tool, self.panda.table),
+                            ('clear', tool), \
+                            ('atpose', tool, pb_pose),
+                            ('pose', tool, pb_pose),
+                            ('freeobj', tool)]
 
 
         name = 'blue_block'
         color = (0.0, 0.0, 1.0, 1.0)
         r = np.random.rand()
-        if self.blue_pos_xy is None:
-            if self.goal_type is not None:
-                if self.goal_type == 'pick' and self.goal_obj == 'blue_block':
-                    # blue_block (initially constrained by tunnel with 50%)
-                    if r < .5:
-                        pos_xy = self.init_objs_pos_xy[name]
-                    else:
-                        limits = self.goal_limits[name]
-                        self.blue_pos_xy = np.array([np.random.uniform(limits['min_x'], self.max_x_pick),
-                                            np.random.uniform(limits['min_y'], limits['max_y'])])
-                elif self.goal_type == 'push':
-                    self.blue_pos_xy = self.init_objs_pos_xy[name]
-            else:
+        if self.random_blue_pos and (self.blue_pos_xy is None):
+            # blue_block (initially constrained by tunnel with 50%)
+            if r < .5:
                 self.blue_pos_xy = self.init_objs_pos_xy[name]
-        print('Initial bue block pose', self.blue_pos_xy)
+            else:
+                limits = self.goal_limits[name]
+                self.blue_pos_xy = np.array([np.random.uniform(limits['min_x'], self.max_x_pick),
+                                            np.random.uniform(limits['min_y'], limits['max_y'])])
+        elif not self.random_blue_pos:
+            self.blue_pos_xy = self.init_objs_pos_xy[name]
+        print('Initial blue block pose', self.blue_pos_xy)
         urdf_path = 'tamp/urdf_models/%s.urdf' % name
         block_to_urdf(name, urdf_path, color)
         orn = (0,0,0,1)
@@ -177,12 +179,19 @@ class ToolsWorld:
         # yellow block (heavy --> must be pushed when outside specified region)
         name = 'yellow_block'
         color = (1.0, 1.0, 0.0, 1.0)
+        if self.random_yellow_pos and (self.yellow_pos_xy is None):
+            limits = self.goal_limits[name]
+            self.yellow_pos_xy = np.array([np.random.uniform(limits['min_x'], self.max_x_pick),
+                                            np.random.uniform(limits['min_y'], limits['max_y'])])
+        elif not self.random_yellow_pos:
+            self.yellow_pos_xy = self.init_objs_pos_xy[name]
+        print('Initial yellow block pose', self.yellow_pos_xy)
         urdf_path = 'tamp/urdf_models/%s.urdf' % name
         block_to_urdf(name, urdf_path, color)
         orn = (0,0,0,1)
         block, pb_pose = self.place_object(name,
                                 urdf_path,
-                                self.init_objs_pos_xy[name],
+                                self.yellow_pos_xy,
                                 orn)
         pb_objects[name] = block
         orig_poses[name] = pb_pose
@@ -375,7 +384,7 @@ class ToolsWorld:
             if pddl_action.args[0] == self.objects['yellow_block']:
                 init_pos = pddl_action.args[1].pose[0]
                 dist_to_base = np.linalg.norm(init_pos)
-                if dist_to_base > self.valid_pick_yellow_radius:
+                if dist_to_base < self.valid_pick_yellow_radius:
                     valid_transition = False
         self.panda.plan()
         return valid_transition
