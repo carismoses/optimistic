@@ -47,7 +47,7 @@ class ToolsWorld:
 
         self.random_yellow_pos = True if goal_obj == 'yellow_block' and goal_type == 'pick' else False
         self.yellow_pos_xy = None
-        self.place_tool = True if goal_obj == 'yellow_block' and goal_type == 'push' else False
+        self.place_tool = True if goal_type == 'push' else False
 
         # goal sampling properties
         self.goal_limits = {'yellow_block': {'min_x': 0.05,
