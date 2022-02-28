@@ -37,7 +37,7 @@ class ToolsWorld:
 
     def __init__(self, vis, logger, init_objs_pos_xy={}, goal_type=None, goal_obj=None):
         if len(init_objs_pos_xy) == 0:
-            init_objs_pos_xy = {'yellow_block': (0.4, -0.25),
+            init_objs_pos_xy = {'yellow_block': (0.4, -0.3),
                                 'blue_block': (0.3, 0.3),
                                 'tool': (0.3, -0.45),
                                 'tunnel': (0.3, 0.3)}
@@ -269,7 +269,7 @@ class ToolsWorld:
                     pb_robot.vobj.BodyPose(self.objects['yellow_block'], ((0,0,0),(0,0,0,1))))
 
 
-    def generate_goal(self, goal_obj, goal_type, show_goal=True, goal_xy=None):
+    def generate_goal(self, goal_obj, goal_type, show_goal=False, goal_xy=None):
         object = self.objects[goal_obj]
         init_state = self.get_init_state()
         init_pose = self.get_obj_pose_from_state(object, init_state)
@@ -384,7 +384,7 @@ class ToolsWorld:
             if pddl_action.args[0] == self.objects['yellow_block']:
                 init_pos = pddl_action.args[1].pose[0]
                 dist_to_base = np.linalg.norm(init_pos)
-                if dist_to_base < self.valid_pick_yellow_radius:
+                if dist_to_base > self.valid_pick_yellow_radius:
                     valid_transition = False
         self.panda.plan()
         return valid_transition
