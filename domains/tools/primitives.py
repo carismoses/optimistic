@@ -69,13 +69,13 @@ def get_contact_gen(robot):
 
         tool_in_cont_z_angle = [0, np.pi, 0]
         '''
-        rel_points_xy = [(-(half_length+half_b), 0, 0),            # long end poke
-                        ((half_length+half_b), -(half_width), 0)]   # pull closer
-        rel_points_z_angle = [0.0, 0.0]
-        contact_types = ['poke', 'push_pull']
-        tool_in_cont_points = [(-(half_length+half_b), 0, 0),
-                            (-(half_length+half_b), (half_width), 0)]
-        tool_in_cont_z_angle = [0.0, np.pi]
+        rel_points_xy = [(-(half_length+half_b), 0, 0)]#,            # long end poke
+                        #((half_length+half_b), -(half_width), 0)]   # pull closer
+        rel_points_z_angle = [0.0]#, 0.0]
+        contact_types = ['poke']#, 'push_pull']
+        tool_in_cont_points = [(-(half_length+half_b), 0, 0)]#,
+                            #(-(half_length+half_b), (half_width), 0)]
+        tool_in_cont_z_angle = [0.0]#, np.pi]
 
         tool_in_cont_tforms = []
         for point, angle in zip(tool_in_cont_points, tool_in_cont_z_angle):
@@ -667,3 +667,4 @@ def assign_fluent_state(fluents):
         else:
             raise ValueError(name)
     return obstacles
+
