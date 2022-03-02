@@ -672,21 +672,23 @@ class ToolsWorld:
 
 
     # can visualize tool in world or contact frame
-    def vis_tool_ax(self, cont, ax, frame='world'):
+    def vis_tool_ax(self, cont, ax, block_name='yellow_block', frame='world', color='k'):
         if frame == 'world':
-            init_block_pos = self.init_objs_pos_xy['yellow_block']
+            init_block_pos = self.init_objs_pos_xy[block_name]
             # TODO: this assumes that the block is always aligned with the world frame
-            tool_tform = cont.rel_pose
+            block_world = pb_robot.geometry.tform_from_pose(self.orig_poses[block_name].pose)
+            tool_tform = block_world@cont.rel_pose
         elif frame == 'cont':
             init_block_pos = (0., 0.)
             tool_tform = cont.tool_in_cont_tform
 
-        self.plot_block(ax, init_block_pos, color='m')
-        self.plot_tool(ax, tool_tform, 'k')
+        self.plot_block(ax, init_block_pos, color=color)
+        self.plot_tool(ax, tool_tform, color)
         ax.set_aspect('equal')
         if frame == 'world':
-            ax.set_xlim([self.min_x, self.max_x])
-            ax.set_ylim([self.min_y, self.max_y])
+            limits = self.goal_limits[block_name]
+            ax.set_xlim([limits['x_min'], limits['x_max']])
+            ax.set_ylim([limits['y_min'], limits['y_max']])
         elif frame == 'cont':
             ax.set_xlim([-1,1])
             ax.set_ylim([-1,1])
