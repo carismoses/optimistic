@@ -1,6 +1,7 @@
 from torch import nn
 import torch
 from torch.utils.data import random_split, ConcatDataset
+from learning.datasets import MoveContactDataset, OptDataset
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 
@@ -78,35 +79,45 @@ def make_layers(n_input, n_output, n_hidden, n_layers):
     return nn.Sequential(*modules)
 
 
+def initialize_dataset(args, types=None):
+    if args.goal_type == 'push':
+        dataset = MoveContactDataset(types)
+    elif args.goal_type == 'pick':
+        dataset = OptDataset()
+    return dataset
+
+
 def initialize_model(args, base_args, types=None):
     if args.goal_type == 'push':
-        return Ensembles(MLP, base_args, args.n_models, types)
+        model = Ensembles(MLP, base_args, args.n_models, types)
     elif args.goal_type == 'pick':
-        return Ensemble(MLP, base_args, args.n_models)
-
+        model = Ensemble(MLP, base_args, args.n_models)
+    return model
 
 def train_model(model, dataset, args, types=None, plot=False):
+    def inner_loop(type_dataset, ensemble):
+        dataloader = DataLoader(type_dataset, batch_size=args.batch_size, shuffle=True)
+        all_losses = []
+        for model_e in ensemble.models:
+            losses = train(dataloader,
+                            model_e,
+                            n_epochs=args.n_epochs,
+                            loss_fn=F.binary_cross_entropy,
+                            early_stop=args.early_stop)
+            all_losses.append([losses])
+        if plot:
+            fig, ax = plt.subplots()
+            ax.plot(np.array(all_losses).mean(axis=0).squeeze())
+
     if args.goal_type == 'push':
         for type in types:
             if len(dataset[type]) > 0:
                 print('Training %s ensemble with |dataset| = %i' % (type, len(dataset)))
-                dataloader = DataLoader(dataset[type], batch_size=args.batch_size, shuffle=True)
-                all_losses = []
-                for model_e in model.ensembles[type].models:
-                    losses = train(dataloader, model_e, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
-                    all_losses.append([losses])
+                inner_loop(dataset[type], model.ensembles[type])
                 if plot:
-                    fig, ax = plt.subplots()
-                    ax.plot(np.array(all_losses).mean(axis=0).squeeze())
                     ax.set_title('Training Loss for %s' % type)
     elif args.goal_type == 'pick':
         if len(dataset) > 0:
-            dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
-            all_losses = []
-            for model_e in model.models:
-                losses = train(dataloader, model_e, n_epochs=args.n_epochs, loss_fn=F.binary_cross_entropy)
-                all_losses.append([losses])
+            inner_loop(dataset, model)
             if plot:
-                fig, ax = plt.subplots()
-                ax.plot(np.array(all_losses).mean(axis=0).squeeze())
-                ax.set_title('Training Loss for %s' % type)
+                ax.set_title('Training Loss')

@@ -2,7 +2,6 @@ import numpy as np
 import argparse
 import matplotlib.pyplot as plt
 
-from domains.tools.world import ToolsWorld, CONTACT_TYPES
 from experiments.utils import ExperimentLogger
 from learning.utils import initialize_model, train_model
 
@@ -10,8 +9,9 @@ from learning.utils import initialize_model, train_model
 def train_step(args, base_args, i):
     dataset, i = logger.load_trans_dataset('', i=i, ret_i=True)
     print('Training for action step %i' % i)
-    model = initialize_model(args, base_args, types=CONTACT_TYPES)
-    train_model(model, dataset, args, types=CONTACT_TYPES)
+    types = logger.args.contact_types
+    model = initialize_model(args, base_args, types=types)
+    train_model(model, dataset, args, types=types)
 
     # save model and accuracy plots
     logger.save_trans_model(model, i=i)

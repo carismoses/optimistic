@@ -57,7 +57,11 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_lo
     # in sequential and learned methods data collection and training happen simultaneously
     if args.data_collection_mode in ['sequential-plans', 'sequential-goals', 'random-goals-learned']:
         model_logger = dataset_logger
-    world = ToolsWorld(args.vis, model_logger, goal_type=args.goal_type, goal_obj=args.goal_obj)
+    world = ToolsWorld(args.vis,
+                        model_logger,
+                        contact_types=args.contact_types,
+                        goal_type=args.goal_type,
+                        goal_obj=args.goal_obj)
 
     if args.data_collection_mode == 'random-actions':
         pddl_plan, problem, init_expanded = random_plan(world, 'optimistic')

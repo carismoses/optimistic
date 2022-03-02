@@ -7,9 +7,9 @@ import numpy as np
 from argparse import Namespace
 import torch
 
-from domains.tools.world import MODEL_INPUT_DIMS, CONTACT_TYPES
-from learning.datasets import MoveContactDataset, OptDataset
+from domains.tools.world import MODEL_INPUT_DIMS
 from learning.utils import initialize_model
+
 
 class ExperimentLogger:
 
@@ -100,11 +100,7 @@ class ExperimentLogger:
             else:
                 print('No NUMBERED datasets on path %s/datasets/%s. Returning new empty dataset.' % (self.exp_path, dir))
                 print('All datasets must be numbered')
-                if self.args.goal_type == 'push':
-                    dataset = MoveContactDataset(CONTACT_TYPES)
-                elif self.args.goal_type == 'pick':
-                    dataset = OptDataset()
-                i = 0
+                assert False, 'No models found on path %s' % os.path.join(self.exp_path, 'datasets')
         if ret_i:
             return dataset, i
         return dataset
@@ -177,9 +173,8 @@ class ExperimentLogger:
         base_args = {'n_in': MODEL_INPUT_DIMS[self.args.goal_type],
                     'n_hidden': self.args.n_hidden,
                     'n_layers': self.args.n_layers}
-        model = initialize_model(self.args, base_args, types=CONTACT_TYPES)
         assert fname, 'No models found on path' % os.path.join(self.exp_path, 'models')
-
+        model = initialize_model(self.args, base_args, types=self.args.contact_types)
         loc = 'cuda:0' if torch.cuda.is_available() else 'cpu'
         model.load_state_dict(torch.load(os.path.join(self.exp_path, 'models', fname), map_location=loc))
         if ret_i:

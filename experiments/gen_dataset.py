@@ -7,55 +7,21 @@ import matplotlib.pyplot as plt
 
 from experiments.utils import ExperimentLogger
 from tamp.utils import execute_plan
-from domains.tools.world import ToolsWorld
 from experiments.strategies import collect_trajectory_wrapper
-from domains.tools.primitives import get_contact_gen
-from domains.tools.world import CONTACT_TYPES
+from learning.utils import initialize_dataset
 
-'''
-def plot_dataset(world, dataset, di, logger):
-    contacts_fn = get_contact_gen(world.panda.planning_robot)
-    contacts = contacts_fn(world.objects['tool'], world.objects['yellow_block'], shuffle=False)
-    ts = time.strftime('%Y%m%d-%H%M%S')
-    for type in CONTACT_TYPES:
-        plotted_type_dataset = False
-        fig, axes = plt.subplots(2, figsize=(8,15))
-        for contact in contacts:
-            if contact[0].type == type:
-                world.vis_tool_ax(contact[0], axes[1], frame='cont')
-                if not plotted_type_dataset:
-                    world.vis_dataset(axes[0], dataset[type])
-                    plotted_type_dataset = True
-                    axes[0].set_aspect('equal')
-                    axes[0].set_xlim([-1, 1])
-                    axes[0].set_ylim([-1, 1])
 
-                fname = 'dataset_%s_%s_%i.svg' % (ts, type, di)
-                dir = 'dataset'
-                logger.save_figure(fname, dir=dir)
-    plt.close()
-'''
-'''
-expert_feasible_goals = [(.6, -.29),     # cont 0
-                        (.7, -.31),
-                        (.5, -.3),
-                        (.5, 0.),       # cont 1
-                        (.7, .1),
-                        (.42, -.1),
-                        (.3, -.3),      # cont 2
-                        (.35, -.28),
-                        (.4, -.1),     # cont 3
-                        (.41, -.2)
-                        ]
-'''
 expert_feasible_goals = []
 
 # first try to get through expert goals (should be feasible)
 def gen_dataset(args, n_actions, dataset_logger, model_logger):
-    dataset = dataset_logger.load_trans_dataset('')
+    try:
+        dataset = dataset.logger.load_trans_dataset('')
+    except:
+        dataset = initialize_dataset(args, args.contact_types)
 
     if args.goal_type == 'push':
-        types = CONTACT_TYPES
+        types = args.contact_types
     elif args.goal_type == 'pick':
         types = ['pick']
 
@@ -70,10 +36,7 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
         else:
             pddl_model_type = 'learned'
 
-        #if feasible_goal_i < len(expert_feasible_goals):
-        #    goal_xy = expert_feasible_goals[feasible_goal_i]
-        #else:
-        #    goal_xy = None
+
         trajectory = collect_trajectory_wrapper(args,
                                                 pddl_model_type,
                                                 dataset_logger,
@@ -84,19 +47,6 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
                                                 #goal_xy=goal_xy)
         if len(trajectory) > 0:
             n_actions += len(trajectory)
-            #plot_dataset(world, dataset, n_actions, dataset_logger)
-            # if feasible and in feasible goals, add to dataset and move to next goal
-            # if done with feasibe goals, add to dataset
-            #if (feasible_goal_i < len(expert_feasible_goals) and \
-            #                            trajectory[-1][-1]) or \
-            #                (feasible_goal_i >= len(expert_feasible_goals)):
-            #    feasible_goal_i += 1
-
-                # move curr dataset to /datasets
-                #dataset, _ = dataset_logger.load_trans_dataset('', ret_i=True)
-                #dataset = ConcatDataset([dataset, curr_dataset])
-                #dataset_logger.save_trans_dataset(dataset, '', i=n_actions)
-                #dataset_logger.remove_dataset('curr', curr_i)
             dataset = dataset_logger.load_trans_dataset('')
             if args.balanced:
                 # balance dataset by removing added element if makes it unbalanced
@@ -123,37 +73,12 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
                             dataset_logger.remove_dataset('', i=n_actions)
                             n_actions -= len(trajectory)
                     dataset = dataset_logger.load_trans_dataset('')
-            '''
-            else:
-                # remove from current dataset
-                print('Failed to find feasible plan for expert feasible goal')
-                print('Removing latest dataset.')
-                #_, curr_i = dataset_logger.load_trans_dataset('curr', ret_i=True)
-                dataset_logger.remove_dataset('', n_actions)
-                n_actions -= len(trajectory)
-            '''
 
         if args.balanced:
             condition = len(dataset) < len(types)*args.max_type_size
         else:
             condition = n_actions < args.max_actions
 
-        # optionally replay with pyBullet
-        '''
-        if args.vis_performance:
-            answer = input('Replay with pyBullet (r) or not (ENTER)?')
-            plt.close()
-            if answer == 'r':
-                # make new world to visualize plan execution
-                world.disconnect()
-                vis = True
-                world = init_world('tools',
-                                    None,
-                                    vis,
-                                    dataset_logger)
-                trajectory = execute_plan(world, *plan_data)
-                world.disconnect()
-        '''
     return dataset_logger
 
 if __name__ == '__main__':
@@ -233,6 +158,10 @@ if __name__ == '__main__':
                         required=True,
                         type=str,
                         choices=['push', 'pick'])
+    parser.add_arguments('--contact-types',
+                        type='str',
+                        nargs='+',
+                        default=['poke', 'push_pull'])
     args = parser.parse_args()
 
     if args.debug:
@@ -243,11 +172,6 @@ if __name__ == '__main__':
         dataset_logger = ExperimentLogger(args.exp_path)
         _, n_actions = dataset_logger.load_trans_dataset('', ret_i=True)
         dataset_args = dataset_logger.args
-        # check if want to add to a dataset that previously finished (doesn't work for balanced case yet)
-        #if args.max_actions:
-        #    if args.max_actions > dataset_args.max_actions:
-        #        print('Adding %i to previous max dataset size' % (args.max_actions - dataset_args.max_actions))
-        #        dataset_args.max_actions = args.max_actions
         model_logger = ExperimentLogger(dataset_args.data_model_path) \
                     if dataset_args.data_model_path else None
         gen_dataset(dataset_args, n_actions, dataset_logger, model_logger)

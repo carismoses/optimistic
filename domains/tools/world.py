@@ -24,18 +24,11 @@ from domains.tools.primitives import get_free_motion_gen, \
     get_block_grasp_gen, get_contact_motion_gen, get_contact_gen, contact_approach_fn, ee_ik
 
 
-CONTACT_TYPES = ['poke', 'push_pull']#, 'hook']
 MODEL_INPUT_DIMS = {'push': 2, 'pick': 2}
 
 # TODO: make parent world template class
 class ToolsWorld:
-    @staticmethod
-    def init(domain_args, vis, logger=None):
-        world = ToolsWorld(vis, logger)
-        return world
-
-
-    def __init__(self, vis, logger, init_objs_pos_xy={}, goal_type=None, goal_obj=None):
+    def __init__(self, vis, logger, contact_types, init_objs_pos_xy={}, goal_type=None, goal_obj=None):
         if len(init_objs_pos_xy) == 0:
             init_objs_pos_xy = {'yellow_block': (0.4, -0.3),
                                 'blue_block': (0.3, 0.3),
@@ -48,6 +41,7 @@ class ToolsWorld:
         self.random_yellow_pos = True if goal_obj == 'yellow_block' and goal_type == 'pick' else False
         self.yellow_pos_xy = None
         self.place_tool = True if goal_type == 'push' else False
+        self.contact_types = contact_types
 
         # goal sampling properties
         self.goal_limits = {'yellow_block': {'min_x': 0.05,
@@ -254,7 +248,8 @@ class ToolsWorld:
                                                                     self.fixed,
                                                                     ret_traj=True,
                                                                     learned=learned)),
-            'sample-contact': from_list_fn(get_contact_gen(robot))
+            'sample-contact': from_list_fn(get_contact_gen(robot,
+                                                            self.contact_types))
             }
 
         streams_pddl = read(streams_pddl_path)
@@ -431,7 +426,7 @@ class ToolsWorld:
         tool_grasp_fn = get_tool_grasp_gen(self.panda.planning_robot)
         block_grasp_fn = get_block_grasp_gen(self.panda.planning_robot)
         block_place_pose_fn = get_pose_gen_block(self.fixed)
-        contacts_fn = get_contact_gen(self.panda.planning_robot)
+        contacts_fn = get_contact_gen(self.panda.planning_robot, self.contact_types)
         pick_fn = get_ik_fn(self,
                             self.panda.planning_robot,
                             self.fixed,
@@ -722,54 +717,6 @@ class ToolsWorld:
         ax.set_aspect('equal')
         ax.set_xlim([self.min_x, self.max_x])
         ax.set_ylim([self.min_y, self.max_y])
-
-
-    # for now can only run this after vis_model_accuracy since it sets up the axes
-    def vis_bald(self, bald_scores, states, best_i, axes=None):
-        contacts_fn = get_contact_gen(self.panda.planning_robot)
-        contacts = contacts_fn(self.objects['tool'], self.objects['yellow_block'], shuffle=False)
-        #cont = contacts[0][0]   # NOTE: this was when I was debugging and there was only 1 possible contact
-
-        if not axes:
-            axes = {}
-
-        for ci, contact in enumerate(contacts):
-            if ci in axes:
-                ax = axes[ci]
-            else:
-                fig, ax = plt.subplots(3, figsize=(8,15))
-                axes[ci] = ax
-
-            # plot initial and goal (from BALD) poses as well as BALD's sampled poses
-            best_state = states[best_i]
-            vof, vef, va = best_state
-
-            max_score = max(bald_scores)
-            normalized_scores = [score/max_score for score in bald_scores]
-            for ax_k in ax[:2]:# show a block at initial pos
-                # visualize goal that was selected by BALD
-                self.plot_block(ax_k, va[:2], color='m', linestyle='--')
-
-                # visualize all BALD scores
-                for n_score, state in zip(normalized_scores, states):
-                    vof, vef, va = state
-                    plot_vec = va[:2]
-
-                    ax_k.plot(*plot_vec[:2], 'cx')#, color=str(n_score))
-                    print(plot_vec[:2], n_score)
-
-        return axes
-
-
-    # for now can only run this after vis_model_accuracy since it sets up the axes
-    # each axis in axes is a 3 part subplot for a single contact
-    def vis_dataset(self, ax, dataset, type, linestyle='-'):
-        # plot initial position
-        if type == 'push':
-            self.plot_block(ax, (0,0), 'm')
-        for x, y in dataset:
-            color = 'r' if y == 0 else 'g'
-            self.plot_block(ax, x, color, linestyle=linestyle)
 
 
     def plot_block(self, ax, pos, color, linestyle='-'):

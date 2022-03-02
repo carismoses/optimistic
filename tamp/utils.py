@@ -18,7 +18,7 @@ from pddlstream.utils import read
 
 class Contact(object):
     # rel_pose is the pose from body2 (block) to body1 (tool)
-    # type in domains.tools.world.CONTACT_TYPES
+    # type in domains.tools.world.contact_types
     # tool_in_cont_tform is the pose of the tool in the contact frame
     def __init__(self, body1, body2, rel_pose, type, tool_in_cont_tform):
         self.body1 = body1

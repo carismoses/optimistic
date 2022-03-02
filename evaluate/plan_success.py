@@ -2,7 +2,6 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from experiments.utils import ExperimentLogger
-from domains.tools.world import ToolsWorld
 
 ## Params
 all_model_paths = {#'sequential-goals-val-and-init': ['logs/experiments/sequential-goals-20220216-182615',

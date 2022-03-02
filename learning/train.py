@@ -38,7 +38,7 @@ def evaluate(loader, model, loss_fn, val_metric='f1'):
     return score
 
 
-def train(dataloader, model, val_dataloader=None, n_epochs=20, loss_fn=F.binary_cross_entropy):
+def train(dataloader, model, val_dataloader=None, n_epochs=20, loss_fn=F.binary_cross_entropy, early_stop=False):
     """
     :param val_dataloader: If a validation set is given, will return the model
     with the lowest validation loss.
@@ -50,6 +50,7 @@ def train(dataloader, model, val_dataloader=None, n_epochs=20, loss_fn=F.binary_
     best_loss = 1000
     best_weights = None
     it = 0
+    tol = 0.01
     all_accs = []
     all_losses = []
     for ex in range(n_epochs):
@@ -63,6 +64,8 @@ def train(dataloader, model, val_dataloader=None, n_epochs=20, loss_fn=F.binary_
 
             pred = model.forward(x)
             loss = loss_fn(pred, y)
+            if early_stop and loss < tol:
+                return all_losses
             loss.backward()
             #print('grad', [p.grad.sum() for p in list(model.parameters())])
 

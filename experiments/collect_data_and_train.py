@@ -3,8 +3,8 @@ import argparse
 
 from experiments.utils import ExperimentLogger
 from experiments.strategies import collect_trajectory_wrapper
-from domains.tools.world import MODEL_INPUT_DIMS, CONTACT_TYPES
-from learning.utils import initialize_model, train_model
+from domains.tools.world import MODEL_INPUT_DIMS
+from learning.utils import initialize_model, initialize_dataset, train_model
 
 
 def train_class(args, logger, n_actions):
@@ -17,7 +17,9 @@ def train_class(args, logger, n_actions):
 
     # if new exp, save a randomly initialized model
     if n_actions == 0:
-        model = initialize_model(args, base_args, types=CONTACT_TYPES)
+        dataset = initialize_dataset(args, types=args.contact_types)
+        logger.save_trans_dataset(dataset, '', i=n_actions)
+        model = initialize_model(args, base_args, types=args.contact_types)
         logger.save_trans_model(model, i=n_actions)
 
     while n_actions < args.max_actions:
@@ -27,8 +29,8 @@ def train_class(args, logger, n_actions):
 
         # train at training freq
         if not n_dataset_actions % args.train_freq:
-            model = initialize_model(args, base_args, types=CONTACT_TYPES)
-            train_model(model, dataset, args, types=CONTACT_TYPES)
+            model = initialize_model(args, base_args, types=args.contact_types)
+            train_model(model, dataset, args, types=args.contact_types)
 
             # save model and accuracy plots
             logger.save_trans_model(model, i=n_actions)
@@ -134,14 +136,21 @@ if __name__ == '__main__':
                         type=int,
                         default=5,
                         help='number of models in ensemble')
-    parser.add_argument('--val-ratio',
-                        type=float,
-                        default=.2,
-                        help='ratio of aquired data to save to validation dataset')
+    parser.add_argument('--early-stop',
+                        type=str,
+                        default='False',
+                        choices=['True', 'False'],
+                        help='stop training models when training loss below a threshold')
+    parser.add_argument('--contact-types',
+                        type=str,
+                        nargs='+',
+                        default=['poke', 'push_pull'])
     args = parser.parse_args()
 
     if args.debug:
         import pdb; pdb.set_trace()
+
+    args.early_stop = args.early_stop == 'True'
 
     if args.restart:
         assert args.exp_path, 'Must set the --exp-path to restart experiment'

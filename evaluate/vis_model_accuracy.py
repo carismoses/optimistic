@@ -3,7 +3,6 @@ import argparse
 import matplotlib.pyplot as plt
 
 from experiments.utils import ExperimentLogger
-from domains.utils import init_world
 from domains.tools.world import CONTACT_TYPES
 from evaluate.plot_value_fns import get_model_accuracy_fn, get_seq_fn
 from domains.tools.primitives import get_contact_gen
@@ -12,10 +11,7 @@ test_dataset_path = 'logs/experiments/90_random_goals_balanced-20220219-170056'
 
 def gen_plots(args):
     dir = 'accuracy'
-    world = init_world('tools',
-                        None,
-                        False,
-                        None)
+    world = TooldWorld(False, None, ['poke', 'push_pull'])
 
     model_logger = ExperimentLogger(args.model_exp_path)
     ensembles, mi = model_logger.load_trans_model(ret_i=True)

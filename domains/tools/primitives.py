@@ -14,7 +14,7 @@ from tamp.utils import pause, Contact, vis_frame
 DEBUG_FAILURE = False
 
 
-def get_contact_gen(robot):
+def get_contact_gen(robot, contact_types):
     def gen(obj1, obj2, shuffle=True):
         # for now this only handles the case where obj1 is a tool and obj2 is a block
         block_dim = obj2.get_dimensions()[0] # block is a cuboid
@@ -30,72 +30,39 @@ def get_contact_gen(robot):
         # not the block frame. Then can handle blocks at any orientation I think...
         # should make the rel_pose arg of Contact the pose of the contact frame
         # in the tool frame
-        rel_z = 0
-        '''
-        # for now defining 4 contact points (pose from obj2 to obj1)
-        rel_points_xy = [(-(half_length+half_b), 0),                                # long end poke
-                        ((half_length-tool_thickness-half_b), -(half_tool+half_b)), # corner hook
-                        ((half_length+half_b), -(half_width)),                      # outside short end push
-                        ((half_length-half_tool), -(tool_width-half_tool+half_b))]  # short end poke
 
-        contact_types = ['poke', 'hook', 'push_pull', 'poke']
+        # contact are (contact type, rel point block to tool, rel_angle (about z)
+        # block to tool, rel point cont to tool, rel angle cont to tool)
+        poke = ('poke',                         # long end poke
+                (-(half_length+half_b), 0, 0),
+                0.0,
+                (-(half_length+half_b), 0, 0),
+                0.0)
 
-        tool_in_cont_points = [(-(half_length+half_b), 0, 0),
-                        ((half_length-tool_thickness-half_b), -(half_tool+half_b), 0),
-                        (-(half_length+half_b), (half_width), 0),
-                        (-(tool_width-half_tool+half_b), -(half_length-half_tool), 0)]
+        pull = ('push_pull',                    # pull close block outside of tool short side
+                ((half_length+half_b), -(half_width), 0),
+                0.0,
+                (-(half_length+half_b), (half_width), 0),
+                np.pi)
+        contacts = [poke, pull]
 
-        tool_in_cont_z_angle = [0, 0, np.pi, -np.pi/2]
-        tool_in_cont_tforms = []
-        for point, angle in zip(tool_in_cont_points, tool_in_cont_z_angle):
-            M = rotation_matrix(angle, (0,0,1))
-            M[:3,3] = point
-            tool_in_cont_tforms.append(M)
-        '''
-        '''
-        # for now defining 3 contact points (pose from block to tool)
-        rel_points_xy = [(-(half_length+half_b), 0),                                # long end poke
-                        ((half_length+half_b), -(half_width)),                      # outside short end push
-                        ((half_length-half_b-tool_thickness), \
-                                    -(tool_inside_half_width+half_tool))]           # outside short end pull
+        gen_contacts = []
+        for contact in contacts:
+            if contact[0] in contact_types:
+                # calculate tool in block tform
+                tool_in_block_tform = rotation_matrix(contact[2], (0,0,1))
+                tool_in_block_tform[:3,3] = contact[1]
 
-        contact_types = ['poke', 'push_pull', 'push_pull']
+                # calculate tool in contact tform
+                tool_in_cont_tform = rotation_matrix(contact[4], (0,0,1))
+                tool_in_cont_tform[:3,3] = contact[3]
 
-        tool_in_cont_points = [(-(half_length+half_b), 0, 0),
-                        (-(half_length+half_b), (half_width), 0),
-                        ((half_length-half_b-tool_thickness), \
-                                    -(tool_inside_half_width+half_tool),
-                                    0)]
+                gen_contact = Contact(obj1, obj2, tool_in_block_tform, contact[0], tool_in_cont_tform)
+                gen_contacts.append((gen_contact,))
 
-        tool_in_cont_z_angle = [0, np.pi, 0]
-        '''
-        rel_points_xy = [(-(half_length+half_b), 0, 0),            # long end poke
-                        ((half_length+half_b), -(half_width), 0)]   # pull closer
-        rel_points_z_angle = [0.0, 0.0]
-        contact_types = ['poke', 'push_pull']
-        tool_in_cont_points = [(-(half_length+half_b), 0, 0),
-                            (-(half_length+half_b), (half_width), 0)]
-        tool_in_cont_z_angle = [0.0, np.pi]
-
-        tool_in_cont_tforms = []
-        for point, angle in zip(tool_in_cont_points, tool_in_cont_z_angle):
-            M = rotation_matrix(angle, (0,0,1))
-            M[:3,3] = point
-            tool_in_cont_tforms.append(M)
-
-        rel_tool_block_tforms = []
-        for point, angle in zip(rel_points_xy, rel_points_z_angle):
-            M = rotation_matrix(angle, (0,0,1))
-            M[:3,3] = point
-            rel_tool_block_tforms.append(M)
-
-        contacts = []
-        for rel_pose_tform, type, tool_in_cont_tform in zip(rel_tool_block_tforms, contact_types, tool_in_cont_tforms):
-            contact = Contact(obj1, obj2, rel_pose_tform, type, tool_in_cont_tform)
-            contacts.append((contact,))
         if shuffle:
-            random.shuffle(contacts)
-        return contacts
+            random.shuffle(gen_contacts)
+        return gen_contacts
     return gen
 
 
