@@ -36,11 +36,9 @@ def train_class(args, logger, n_actions):
             logger.save_trans_model(model, i=n_actions)
             print('Saved model to %s' % logger.exp_path)
 
-        progress = None
         trajectory = collect_trajectory_wrapper(args,
                                                 pddl_model_type,
                                                 logger,
-                                                progress,
                                                 separate_process = not args.single_process)
         n_actions += len(trajectory)
 
@@ -65,37 +63,41 @@ if __name__ == '__main__':
                         type=str,
                         help='the exp-path to restart from')
 
-    # Data collection args
-    parser.add_argument('--debug',
-                        action='store_true',
-                        help='use to run in debug mode')
+    # World args
     parser.add_argument('--domain',
                         type=str,
                         choices=['ordered_blocks', 'tools'],
                         default='tools',
                         help='domain to generate data from')
-    parser.add_argument('--domain-args',
+    parser.add_argument('--vis',
+                        action='store_true',
+                        help='use to visualize robot executions.')
+    parser.add_argument('--contact-types',
+                        type=str,
                         nargs='+',
-                        help='arguments to pass into desired domain')
+                        default=['poke', 'push_pull'])
+    parser.add_argument('--goal-obj',
+                        required=True,
+                        type=str,
+                        choices=['yellow_block', 'blue_block'])
+    parser.add_argument('--goal-type',
+                        required=True,
+                        type=str,
+                        choices=['push', 'pick'])
+                        
+    # Data collection args
+    parser.add_argument('--exp-name',
+                        type=str,
+                        help='path to save datasets and models to (unless a restart, then use exp-path)')
     parser.add_argument('--max-actions',
                         type=int,
                         default=400,
                         help='max number of (ALL) actions for the robot to attempt')
-    parser.add_argument('--exp-name',
-                        type=str,
-                        help='path to save datasets and models to (unless a restart, then use exp-path)')
     parser.add_argument('--data-collection-mode',
                         type=str,
                         choices=['random-actions', 'random-goals-opt', 'random-goals-learned', \
                                 'sequential-plans', 'sequential-goals'],
                         help='method of data collection')
-    parser.add_argument('--train-freq',
-                        type=int,
-                        default=10,
-                        help='number of actions (IN DATASET) between model training')
-    parser.add_argument('--vis',
-                        action='store_true',
-                        help='use to visualize robot executions.')
     parser.add_argument('--n-seq-plans',
                         type=int,
                         default=100,
@@ -106,16 +108,12 @@ if __name__ == '__main__':
     parser.add_argument('--initial-dataset-path',
                         type=str,
                         help='path to initial dataset to start with')
-    parser.add_argument('--goal-obj',
-                        required=True,
-                        type=str,
-                        choices=['yellow_block', 'blue_block'])
-    parser.add_argument('--goal-type',
-                        required=True,
-                        type=str,
-                        choices=['push', 'pick'])
 
     # Training args
+    parser.add_argument('--train-freq',
+                        type=int,
+                        default=1,
+                        help='number of actions (IN DATASET) between model training')
     parser.add_argument('--batch-size',
                         type=int,
                         default=8,
@@ -141,10 +139,10 @@ if __name__ == '__main__':
                         default='False',
                         choices=['True', 'False'],
                         help='stop training models when training loss below a threshold')
-    parser.add_argument('--contact-types',
-                        type=str,
-                        nargs='+',
-                        default=['poke', 'push_pull'])
+
+    parser.add_argument('--debug',
+                        action='store_true',
+                        help='use to run in debug mode')
     args = parser.parse_args()
 
     if args.debug:
@@ -156,8 +154,6 @@ if __name__ == '__main__':
         assert args.exp_path, 'Must set the --exp-path to restart experiment'
         logger = ExperimentLogger(args.exp_path)
         _, n_actions = logger.load_trans_dataset('', ret_i=True)
-        #_, n_curr_actions = logger.load_trans_dataset('', ret_i=True)
-        #n_actions = n_trained_actions + n_curr_actions
         args = logger.args
     else:
         assert args.exp_name, 'Must set the --exp-name to start a new experiments'

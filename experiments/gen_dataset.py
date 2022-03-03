@@ -15,10 +15,10 @@ expert_feasible_goals = []
 
 # first try to get through expert goals (should be feasible)
 def gen_dataset(args, n_actions, dataset_logger, model_logger):
-    try:
-        dataset = dataset.logger.load_trans_dataset('')
-    except:
+    if n_actions == 0:
         dataset = initialize_dataset(args, args.contact_types)
+    else:
+        dataset = dataset.logger.load_trans_dataset('')
 
     if args.goal_type == 'push':
         types = args.contact_types
@@ -36,15 +36,12 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
         else:
             pddl_model_type = 'learned'
 
-
         trajectory = collect_trajectory_wrapper(args,
                                                 pddl_model_type,
                                                 dataset_logger,
-                                                args.goal_progress,
                                                 separate_process=not args.single_process,
                                                 model_logger=model_logger,
-                                                save_to_dataset=True)#,
-                                                #goal_xy=goal_xy)
+                                                save_to_dataset=True)
         if len(trajectory) > 0:
             n_actions += len(trajectory)
             dataset = dataset_logger.load_trans_dataset('')
@@ -94,41 +91,38 @@ if __name__ == '__main__':
                         type=str,
                         help='the exp-path to restart from')
 
-
-    parser.add_argument('--debug',
+    # World args
+    parser.add_argument('--domain',
+                        type=str,
+                        choices=['ordered_blocks', 'tools'],
+                        default='tools',
+                        help='domain to generate data from')
+    parser.add_argument('--vis',
                         action='store_true',
-                        help='use to run in debug mode')
+                        help='use to visualize robot executions.')
+    parser.add_argument('--contact-types',
+                        type=str,
+                        nargs='+',
+                        default=['poke', 'push_pull'])
+    parser.add_argument('--goal-obj',
+                        required=True,
+                        type=str,
+                        choices=['yellow_block', 'blue_block'])
+    parser.add_argument('--goal-type',
+                        required=True,
+                        type=str,
+                        choices=['push', 'pick'])
+
+    # Data collection args
+    parser.add_argument('--exp-name',
+                        type=str,
+                        help='path to save datasets and models to (unless a restart, then use exp-path)')
     parser.add_argument('--max-type-size',
                         type=int,
                         help='max number of actions IN DATASET for each class in balanced case')
     parser.add_argument('--max-actions',
                         type=int,
                         help='max number of ALL actions total for unbalanced case')
-    parser.add_argument('--balanced',
-                        type=str,
-                        default='False',
-                        choices=['False', 'True'],
-                        help='use if want balanced feasible/infeasible dataset')
-    parser.add_argument('--exp-name',
-                        type=str,
-                        help='path to save datasets and models to (unless a restart, then use exp-path)')
-    parser.add_argument('--goal-progress',
-                        type=float,
-                        help='what fraction of the maximum goal region is acceptable')
-    parser.add_argument('--vis-performance',
-                        action='store_true',
-                        help='use to visualize success/failure of robot executions and optionally replay with pyBullet.')
-    parser.add_argument('--vis',
-                        action='store_true',
-                        help='use to visualize robot executions.')
-    parser.add_argument('--domain',
-                        type=str,
-                        choices=['ordered_blocks', 'tools'],
-                        default='tools',
-                        help='domain to generate data from')
-    parser.add_argument('--domain-args',
-                        nargs='+',
-                        help='arguments to pass into desired domain')
     # random-actions: sample random rollouts
     # random-goals-opt: plan to achieve random goals with the optimistic model
     # random-goals-learned: plan to achieve random goals from a learned model
@@ -138,30 +132,27 @@ if __name__ == '__main__':
                         default='random-goals-opt',
                         choices=['random-actions', 'random-goals-opt', 'random-goals-learned'],
                         help='method of data collection')
+    parser.add_argument('--single-process',
+                        action='store_true')
+    parser.add_argument('--balanced',
+                        type=str,
+                        default='False',
+                        choices=['False', 'True'],
+                        help='use if want balanced feasible/infeasible dataset')
     parser.add_argument('--n-datasets',
                         type=int,
                         default=1,
                         help='number of datasets to generate')
-    parser.add_argument('--single-process',
-                        action='store_true')
     # for now this assumes that you always want to use the most trained model on the path for planning
     # (as opposed to a different i) -- only needed for data-collection-mode == 'random-goals-learned'
     parser.add_argument('--model-paths',
                         type=str,
                         nargs='+',
                         help='list of model paths to use for planning')
-    parser.add_argument('--goal-obj',
-                        required=True,
-                        type=str,
-                        choices=['yellow_block', 'blue_block'])
-    parser.add_argument('--goal-type',
-                        required=True,
-                        type=str,
-                        choices=['push', 'pick'])
-    parser.add_arguments('--contact-types',
-                        type='str',
-                        nargs='+',
-                        default=['poke', 'push_pull'])
+
+    parser.add_argument('--debug',
+                        action='store_true',
+                        help='use to run in debug mode')
     args = parser.parse_args()
 
     if args.debug:

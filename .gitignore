@@ -30,3 +30,4 @@ gifs/
 env_vars/
 docker/make_datasets_from_models/models
 docker/
+old/

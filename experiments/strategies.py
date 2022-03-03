@@ -23,9 +23,8 @@ MAX_PLAN_LEN = 6           # max num of actions in a randomly generated plan
 EPS = 1e-5
 
 
-def collect_trajectory_wrapper(args, pddl_model_type, dataset_logger, progress, \
-                            goal_xy=None, separate_process=False, model_logger=None, \
-                            save_to_dataset=True):
+def collect_trajectory_wrapper(args, pddl_model_type, dataset_logger, model_logger=None, \
+                            separate_process=False, save_to_dataset=True, goal_xy=None):
     if separate_process:
         # write solver args to file (remove if one is there)
         tmp_dir = 'temp'
@@ -35,7 +34,8 @@ def collect_trajectory_wrapper(args, pddl_model_type, dataset_logger, progress, 
         if os.path.exists(in_pkl):
             os.remove(in_pkl)
         with open(in_pkl, 'wb') as handle:
-            pickle.dump([args, pddl_model_type, dataset_logger, progress, model_logger, save_to_dataset, goal_xy], handle)
+            pickle.dump([args, pddl_model_type, dataset_logger, model_logger, \
+                            save_to_dataset, goal_xy], handle)
 
         # call planner with pickle file
         print('Collecting trajectory.')
@@ -48,20 +48,21 @@ def collect_trajectory_wrapper(args, pddl_model_type, dataset_logger, progress, 
             trajectory = pickle.load(handle)
     else:
         # call planner
-        trajectory = collect_trajectory(args, pddl_model_type, \
-                                    dataset_logger, progress, model_logger, save_to_dataset, goal_xy)
+        trajectory = collect_trajectory(args, pddl_model_type, dataset_logger, \
+                                        model_logger, save_to_dataset, goal_xy)
     return trajectory
 
 
-def collect_trajectory(args, pddl_model_type, dataset_logger, progress, model_logger, save_to_dataset, goal_xy):
+def collect_trajectory(args, pddl_model_type, dataset_logger, model_logger, \
+                            save_to_dataset, goal_xy):
     # in sequential and learned methods data collection and training happen simultaneously
-    if args.data_collection_mode in ['sequential-plans', 'sequential-goals', 'random-goals-learned']:
+    if args.data_collection_mode == random-goals-learned' and not model_logger:
+        model_logger = dataset_logger
+    elif args.data_collection_mode in ['sequential-plans', 'sequential-goals', 'random-goals-learned']:
         model_logger = dataset_logger
     world = ToolsWorld(args.vis,
                         model_logger,
-                        contact_types=args.contact_types,
-                        goal_type=args.goal_type,
-                        goal_obj=args.goal_obj)
+                        contact_types=args.contact_types)
 
     if args.data_collection_mode == 'random-actions':
         pddl_plan, problem, init_expanded = random_plan(world, 'optimistic')

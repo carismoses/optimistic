@@ -37,22 +37,19 @@ def train_from_data(args, logger, start_i):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # Data collection args
-    parser.add_argument('--debug',
-                        action='store_true',
-                        help='use to run in debug mode')
     parser.add_argument('--dataset-exp-paths',
                         type=str,
                         nargs='+',
                         help='paths to datasets that need to be trained')
+
+    # Training args
+    parser.add_argument('--single-train-step',
+                        action='store_true',
+                        help='use when just want to train a single model from the last dataset step')
     parser.add_argument('--train-freq',
                         type=int,
                         default=10,
                         help='number of actions between model training')
-    parser.add_argument('--single-train-step',
-                        action='store_true',
-                        help='use when just want to train a single model from the last dataset step')
-
-    # Training args
     parser.add_argument('--batch-size',
                         type=int,
                         default=8,
@@ -73,7 +70,15 @@ if __name__ == '__main__':
                         type=int,
                         default=1,
                         help='number of models in ensemble')
-
+    parser.add_argument('--early-stop',
+                        type=str,
+                        default='False',
+                        choices=['True', 'False'],
+                        help='stop training models when training loss below a threshold')
+                        
+    parser.add_argument('--debug',
+                        action='store_true',
+                        help='use to run in debug mode')
     args = parser.parse_args()
 
     if args.debug:

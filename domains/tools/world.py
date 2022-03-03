@@ -28,33 +28,24 @@ MODEL_INPUT_DIMS = {'push': 2, 'pick': 2}
 
 # TODO: make parent world template class
 class ToolsWorld:
-    def __init__(self, vis, logger, contact_types, init_objs_pos_xy={}, goal_type=None, goal_obj=None):
-        if len(init_objs_pos_xy) == 0:
-            init_objs_pos_xy = {'yellow_block': (0.4, -0.3),
+    def __init__(self, vis, logger, contact_types):
+        self.init_objs_pos_xy = {'yellow_block': (0.4, -0.3),
                                 'blue_block': (0.3, 0.3),
                                 'tool': (0.3, -0.45),
                                 'tunnel': (0.3, 0.3)}
-        self.init_objs_pos_xy = init_objs_pos_xy
-        self.random_blue_pos = True if goal_obj == 'blue_block' and goal_type == 'pick' else False
-        self.blue_pos_xy = None
-
-        self.random_yellow_pos = True if goal_obj == 'yellow_block' and goal_type == 'pick' else False
-        self.yellow_pos_xy = None
-        self.place_tool = True if goal_type == 'push' else False
         self.contact_types = contact_types
 
         # goal sampling properties
         self.goal_limits = {'yellow_block': {'min_x': 0.05,
-                                                'max_x': 0.85,
-                                                'min_y': 0.0,
-                                                'max_y':-0.5},
+                                            'max_x': 0.85,
+                                            'min_y': 0.0,
+                                            'max_y':-0.5},
                             'blue_block': {'min_x': 0.05,
-                                                'max_x': 0.75,
-                                                'min_y': 0.5,
-                                                'max_y':0.0}}
+                                            'max_x': 0.75,
+                                            'min_y': 0.5,
+                                            'max_y':0.0}}
         self.max_x_pick = 0.55
-        self.goal_type = goal_type
-        self.goal_obj = goal_obj
+
         self.use_panda = True
         self.panda = PandaAgent(vis)
         self.panda.plan()
@@ -84,18 +75,6 @@ class ToolsWorld:
         return pddl_state
 
 
-    # NOTE: this reset looks like it works but then planning fails
-    def reset(self):
-        def reset_objects():
-            for pb_object, object_pose in self.orig_poses.items():
-                pb_object.set_base_link_pose(object_pose)
-        self.panda.plan()
-        reset_blocks()
-        self.panda.execute()
-        reset_blocks()
-        self.panda.reset()
-
-
     def disconnect(self):
         self.panda.plan()
         pb_robot.utils.disconnect()
@@ -120,79 +99,55 @@ class ToolsWorld:
         init_state = []
         self.obj_init_poses = {}
 
-        if self.place_tool:
-            # tool
-            tool_name = 'tool'
-            orn = (0,0,0,1)
-            #orn_90 = (0,0,1,0)
-            #r = np.random.rand()
-            #orn = orn if r < .5 else orn_90  # place it randomly at an orientation
-            tool, pb_pose = self.place_object(tool_name,
-                                                'tamp/urdf_models/%s.urdf' % tool_name,
-                                                self.init_objs_pos_xy['tool'],
-                                                orn)
-            pb_objects[tool_name] = tool
-            orig_poses[tool_name] = pb_pose
-            self.obj_init_poses[tool_name] = pb_pose
-            init_state += [('tool', tool),
-                            ('on', tool, self.panda.table),
-                            ('clear', tool), \
-                            ('atpose', tool, pb_pose),
-                            ('pose', tool, pb_pose),
-                            ('freeobj', tool)]
-
+        # tool
+        tool_name = 'tool'
+        orn = (0,0,0,1)
+        tool, pb_pose = self.place_object(tool_name,
+                                            'tamp/urdf_models/%s.urdf' % tool_name,
+                                            self.init_objs_pos_xy['tool'],
+                                            orn)
+        pb_objects[tool_name] = tool
+        orig_poses[tool_name] = pb_pose
+        self.obj_init_poses[tool_name] = pb_pose
+        init_state += [('tool', tool),
+                        ('on', tool, self.panda.table),
+                        ('atpose', tool, pb_pose),
+                        ('pose', tool, pb_pose),
+                        ('freeobj', tool)]
 
         name = 'blue_block'
         color = (0.0, 0.0, 1.0, 1.0)
-        r = np.random.rand()
-        if self.random_blue_pos and (self.blue_pos_xy is None):
-            # blue_block (initially constrained by tunnel with 50%)
-            if r < .5:
-                self.blue_pos_xy = self.init_objs_pos_xy[name]
-            else:
-                limits = self.goal_limits[name]
-                self.blue_pos_xy = np.array([np.random.uniform(limits['min_x'], self.max_x_pick),
-                                            np.random.uniform(limits['min_y'], limits['max_y'])])
-        elif not self.random_blue_pos:
-            self.blue_pos_xy = self.init_objs_pos_xy[name]
-        print('Initial blue block pose', self.blue_pos_xy)
-        urdf_path = 'tamp/urdf_models/%s.urdf' % name
-        block_to_urdf(name, urdf_path, color)
-        orn = (0,0,0,1)
-        block, pb_pose = self.place_object(name, urdf_path, self.blue_pos_xy, orn)
-        pb_objects[name] = block
-        orig_poses[name] = pb_pose
-        self.obj_init_poses[name] = pb_pose
-        init_state += [('block', block),
-                        ('on', block, self.panda.table),
-                        ('clear', block), \
-                        ('atpose', block, pb_pose),
-                        ('pose', block, pb_pose),
-                        ('freeobj', block)]
-
-        # yellow block (heavy --> must be pushed when outside specified region)
-        name = 'yellow_block'
-        color = (1.0, 1.0, 0.0, 1.0)
-        if self.random_yellow_pos and (self.yellow_pos_xy is None):
-            limits = self.goal_limits[name]
-            self.yellow_pos_xy = np.array([np.random.uniform(limits['min_x'], self.max_x_pick),
-                                            np.random.uniform(limits['min_y'], limits['max_y'])])
-        elif not self.random_yellow_pos:
-            self.yellow_pos_xy = self.init_objs_pos_xy[name]
-        print('Initial yellow block pose', self.yellow_pos_xy)
         urdf_path = 'tamp/urdf_models/%s.urdf' % name
         block_to_urdf(name, urdf_path, color)
         orn = (0,0,0,1)
         block, pb_pose = self.place_object(name,
-                                urdf_path,
-                                self.yellow_pos_xy,
-                                orn)
+                                        urdf_path,
+                                        self.init_objs_pos_xy[name],
+                                        orn)
         pb_objects[name] = block
         orig_poses[name] = pb_pose
         self.obj_init_poses[name] = pb_pose
         init_state += [('block', block),
                         ('on', block, self.panda.table),
-                        ('clear', block), \
+                        ('atpose', block, pb_pose),
+                        ('pose', block, pb_pose),
+                        ('freeobj', block)]
+
+        # yellow block (heavy --> can only be picked with self.valid_pick_yellow_radius)
+        name = 'yellow_block'
+        color = (1.0, 1.0, 0.0, 1.0)
+        urdf_path = 'tamp/urdf_models/%s.urdf' % name
+        block_to_urdf(name, urdf_path, color)
+        orn = (0,0,0,1)
+        block, pb_pose = self.place_object(name,
+                                    urdf_path,
+                                    self.init_objs_pos_xy[name],
+                                    orn)
+        pb_objects[name] = block
+        orig_poses[name] = pb_pose
+        self.obj_init_poses[name] = pb_pose
+        init_state += [('block', block),
+                        ('on', block, self.panda.table),
                         ('atpose', block, pb_pose),
                         ('pose', block, pb_pose),
                         ('freeobj', block)]
@@ -268,7 +223,6 @@ class ToolsWorld:
         object = self.objects[goal_obj]
         init_state = self.get_init_state()
         init_pose = self.get_obj_pose_from_state(object, init_state)
-        init_x, init_y = init_pose[0][:2]
 
         # select random point on table
         limits = self.goal_limits[goal_obj]
@@ -317,11 +271,6 @@ class ToolsWorld:
                     if pred[0] == 'atconf':
                         ee_pose = self.panda.planning_robot.arm.ComputeFK(pred[1].configuration)
                         return pb_robot.geometry.pose_from_tform(ee_pose@np.linalg.inv(grasp_objF))
-
-
-    def goal_to_vec(self, goal):
-        goal_orn = pb_robot.geometry.quat_angle_between(goal[2].pose[1], [0., 0., 0., 1.])
-        return np.array([*goal[2].pose[0][:2], goal_orn])
 
 
     def action_to_vec(self, pddl_action):
@@ -682,8 +631,8 @@ class ToolsWorld:
         ax.set_aspect('equal')
         if frame == 'world':
             limits = self.goal_limits[block_name]
-            ax.set_xlim([limits['x_min'], limits['x_max']])
-            ax.set_ylim([limits['y_min'], limits['y_max']])
+            ax.set_xlim([limits['min_x'], limits['max_x']])
+            ax.set_ylim([limits['min_y'], limits['max_y']])
         elif frame == 'cont':
             ax.set_xlim([-1,1])
             ax.set_ylim([-1,1])
