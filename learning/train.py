@@ -54,8 +54,10 @@ def train(dataloader, model, val_dataloader=None, n_epochs=20, loss_fn=F.binary_
     all_accs = []
     all_losses = []
     for ex in range(n_epochs):
+        print(ex, n_epochs)
         epoch_losses = []
         #print('Epoch', ex)
+        train_loss = 0
         for x, y in dataloader:
             if torch.cuda.is_available():
                 x = x.cuda()
@@ -64,8 +66,7 @@ def train(dataloader, model, val_dataloader=None, n_epochs=20, loss_fn=F.binary_
 
             pred = model.forward(x)
             loss = loss_fn(pred, y)
-            if early_stop and loss < tol:
-                return all_losses
+            train_loss += loss
             loss.backward()
             #print('grad', [p.grad.sum() for p in list(model.parameters())])
 
@@ -78,6 +79,8 @@ def train(dataloader, model, val_dataloader=None, n_epochs=20, loss_fn=F.binary_
             #all_losses.append(loss.item())
             epoch_losses.append(loss.item())
             it += 1
+        if early_stop and (train_loss < tol):
+            break
         if val_dataloader is not None:
             val_loss = evaluate(val_dataloader, model, loss_fn)
             if val_loss < best_loss:
