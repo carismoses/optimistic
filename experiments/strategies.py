@@ -56,7 +56,7 @@ def collect_trajectory_wrapper(args, pddl_model_type, dataset_logger, model_logg
 def collect_trajectory(args, pddl_model_type, dataset_logger, model_logger, \
                             save_to_dataset, goal_xy):
     # in sequential and learned methods data collection and training happen simultaneously
-    if args.data_collection_mode == random-goals-learned' and not model_logger:
+    if args.data_collection_mode == 'random-goals-learned' and not model_logger:
         model_logger = dataset_logger
     elif args.data_collection_mode in ['sequential-plans', 'sequential-goals', 'random-goals-learned']:
         model_logger = dataset_logger

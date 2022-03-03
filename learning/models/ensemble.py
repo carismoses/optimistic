@@ -54,6 +54,8 @@ class Ensemble(nn.Module):
     def reset(self):
         """ Initialize (or re-initialize) all the models in the ensemble."""
         self.models = nn.ModuleList([self.base_model(**self.base_args) for _ in range(self.n_models)])
+        for model in self.models:
+            model.apply(init_weights)
 
     def forward(self, x):
         """ Return a prediction for each model in the ensemble.
@@ -64,10 +66,7 @@ class Ensemble(nn.Module):
         return torch.cat(preds)
 
 
-class OptimisticEnsemble(Ensemble):
-    """ Just predicts 1 for all inputs """
-    def __init__(self, base_model, base_args, n_models):
-        super(OptimisticEnsemble, self).__init__(base_model, base_args, n_models)
-
-    def forward(self, x):
-        return torch.ones(self.n_models)
+def init_weights(m):
+    if isinstance(m, torch.nn.Linear):
+        m.weight.data.uniform_(-1,1)#normal_(0,100)
+        m.bias.data.uniform_(-1,1)#normal_(0,100)
