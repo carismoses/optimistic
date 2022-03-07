@@ -707,6 +707,15 @@ class ToolsWorld:
                                 fill = False))
 
 
+    def vis_dataset(self, ax, dataset, type, linestyle='-'):
+        # plot initial position
+        if type == 'push':
+            self.plot_block(ax, (0,0), 'm')
+        for x, y in dataset:
+            color = 'r' if y == 0 else 'g'
+            ax.plot(*x, color+'.')
+
+
     def get_model_inputs(self, tool_approach_pose, goal_pose):
         # for now assume all other blocks are at their initial poses
         num_objects = len(self.objects)

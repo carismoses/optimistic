@@ -2,16 +2,15 @@ import time
 import argparse
 import matplotlib.pyplot as plt
 
+from domains.tools.world import ToolsWorld
 from experiments.utils import ExperimentLogger
-from domains.tools.world import CONTACT_TYPES
 from evaluate.plot_value_fns import get_model_accuracy_fn, get_seq_fn
 from domains.tools.primitives import get_contact_gen
 
-test_dataset_path = 'logs/experiments/90_random_goals_balanced-20220219-170056'
 
 def gen_plots(args):
     dir = 'accuracy'
-    world = TooldWorld(False, None, ['poke', 'push_pull'])
+    world = ToolsWorld(False, None, ['poke', 'push_pull'])
 
     model_logger = ExperimentLogger(args.model_exp_path)
     ensembles, mi = model_logger.load_trans_model(ret_i=True)
@@ -23,19 +22,19 @@ def gen_plots(args):
     dataset, di = dataset_logger.load_trans_dataset('', ret_i=True)
 
     print('Generating figures for models on path %s step %i' % (args.model_exp_path, mi))
-    print('Plotting dataset on path %s step %i' % (args.dataset_exp_path, di))
+    print('Plotting dataset on path %s step %i' % (dataset_logger.exp_path, di))
 
     ts = time.strftime('%Y%m%d-%H%M%S')
 
     # make a plot for each contact type (subplot for mean, std, and tool vis)
-    contacts_fn = get_contact_gen(world.panda.planning_robot)
+    contacts_fn = get_contact_gen(world.panda.planning_robot, model_logger.args.contact_types)
     contacts = contacts_fn(world.objects['tool'], world.objects['yellow_block'], shuffle=False)
 
     mean_fn = get_model_accuracy_fn(ensembles, 'mean')
     std_fn = get_model_accuracy_fn(ensembles, 'std')
     #seq_fn = get_seq_fn(ensembles)
 
-    for type in CONTACT_TYPES:
+    for type in model_logger.args.contact_types:
         if model_logger.args.n_models == 1:
             n_axes = 2
         else:

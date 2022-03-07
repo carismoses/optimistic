@@ -8,13 +8,11 @@ from domains.tools.world import ToolsWorld
 from evaluate.plot_value_fns import get_model_accuracy_fn, get_seq_fn
 from domains.tools.primitives import get_contact_gen
 
-types=['push_pull']
-
 def gen_plots(args):
     dir = 'bald'
-    world = ToolsWorld(False, None, types)
 
     model_logger = ExperimentLogger(args.model_exp_path)
+    world = ToolsWorld(False, None, model_logger.args.contact_types)
     dataset_lens = {}
     dataset_lens_set = False
     for dataset, di in model_logger.get_dataset_iterator(''):
@@ -23,7 +21,7 @@ def gen_plots(args):
         except:
             continue
         if not dataset_lens_set:
-            for type in types:
+            for type in model_logger.args.contact_types:
                 dataset_lens[type] = len(dataset.datasets[type])
             dataset_lens_set = True
         print('Generating figures for models on path %s step %i' % (args.model_exp_path, di))
@@ -37,7 +35,7 @@ def gen_plots(args):
         std_fn = get_model_accuracy_fn(ensembles, 'std')
         seq_fn = get_seq_fn(ensembles)
 
-        for type in types:
+        for type in model_logger.args.contact_types:
             fig, axes = plt.subplots(4, figsize=(5, 10))
             world.vis_dense_plot(type, axes[0], [-.5, .6], [-.25, .45], 0, 1, value_fn=mean_fn)
             world.vis_dense_plot(type, axes[1], [-.5, .6], [-.25, .45], 0, .4, value_fn=std_fn)
