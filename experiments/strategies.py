@@ -73,9 +73,9 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, model_logger, \
         goal, add_to_state = world.generate_goal(args.goal_obj, args.goal_type, goal_xy=goal_xy)
         pddl_plan, problem, init_expanded = goals(world, 'learned', goal, add_to_state)
     elif args.data_collection_mode == 'sequential-plans':
-        pddl_plan, problem, init_expanded = sequential(args, world, 'plans', args.n_seq_plans)
+        pddl_plan, problem, init_expanded = sequential(args, world, 'plans', args.n_seq_plans, args.samples_from_file)
     elif args.data_collection_mode == 'sequential-goals':
-        pddl_plan, problem, init_expanded =  sequential(args, world, 'goals', args.n_seq_plans)
+        pddl_plan, problem, init_expanded =  sequential(args, world, 'goals', args.n_seq_plans, args.samples_from_file)
     else:
         raise NotImplementedError('Strategy %s is not implemented' % args.data_collection_mode)
 
@@ -215,37 +215,39 @@ def goals(world, pddl_model_type, goal, add_to_state, ret_states=False):
     return pddl_plan, problem, init_expanded
 
 
-def sequential(args, world, mode, n_seq_plans):
+def sequential(args, world, mode, n_seq_plans, samples_from_file=False):
     model = world.logger.load_trans_model()
     best_plan_info = None
     best_bald_score = float('-inf')
     n_plans_searched = 0
-    bald_scores, states = [], []
-    i = 0
+    if samples_from_file:
+        with open('logs/search_space_samples.pkl', 'rb') as handle:
+            samples = pickle.load(handle)
+        n_seq_plans = len(samples)
     while n_plans_searched < n_seq_plans:
-        # need to return states to calculate the sequential score
-        if mode == 'plans':
-            plan_with_states, problem, init_expanded = random_plan(world, 'opt_no_traj', ret_states=True)
-        elif mode == 'goals':
-            goal, add_to_state = world.generate_goal(args.goal_obj, args.goal_type)
-            plan_with_states, problem, init_expanded = goals(world, 'opt_no_traj', goal, add_to_state, ret_states=True)
-        if plan_with_states:
+        if samples_from_file:
+            pddl_plan, problem, init_expanded = samples[n_plans_searched]
+            pddl_info = world.get_pddl_info('opt_no_traj')
+            problem = list(problem[:3])+[pddl_info[3]]+list(problem[3:])  # add back stream map
+        else:
+            if mode == 'plans':
+                pddl_plan, problem, init_expanded = random_plan(world, 'opt_no_traj')
+            elif mode == 'goals':
+                goal, add_to_state = world.generate_goal(args.goal_obj, args.goal_type)
+                pddl_plan, problem, init_expanded = goals(world, 'opt_no_traj', goal, add_to_state)
+        if pddl_plan:
             n_plans_searched += 1
-            bald_score, state = sequential_bald(plan_with_states, model, world, ret_states=True)
-            bald_scores.append(bald_score)
-            states.append(state)
+            bald_score = sequential_bald(pddl_plan, model, world)
             if bald_score >= best_bald_score:
-                best_i = i
-                best_plan_info = plan_with_states, problem, init_expanded
+                best_plan_info = pddl_plan, problem, init_expanded
                 best_bald_score = bald_score
-            i += 1
-    return [pa for ps, pa in best_plan_info[0]], best_plan_info[1], best_plan_info[2]
+    return best_plan_info
 
 
 def sequential_bald(plan, model, world, ret_states=False):
     score = 0
     x = None
-    for pddl_state, pddl_action in plan:
+    for pddl_action in plan:
         if pddl_action.name == 'move_contact':
             x = world.action_to_vec(pddl_action)
             contact_type = pddl_action.args[5].type

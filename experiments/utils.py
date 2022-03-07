@@ -100,7 +100,7 @@ class ExperimentLogger:
             else:
                 print('No NUMBERED datasets on path %s/datasets/%s. Returning new empty dataset.' % (self.exp_path, dir))
                 print('All datasets must be numbered')
-                assert False, 'No models found on path %s' % os.path.join(self.exp_path, 'datasets')
+                assert False, 'No datasets found on path %s' % os.path.join(self.exp_path, 'datasets')
         if ret_i:
             return dataset, i
         return dataset

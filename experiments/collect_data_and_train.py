@@ -84,7 +84,7 @@ if __name__ == '__main__':
                         required=True,
                         type=str,
                         choices=['push', 'pick'])
-                        
+
     # Data collection args
     parser.add_argument('--exp-name',
                         type=str,
@@ -98,6 +98,9 @@ if __name__ == '__main__':
                         choices=['random-actions', 'random-goals-opt', 'random-goals-learned', \
                                 'sequential-plans', 'sequential-goals'],
                         help='method of data collection')
+    parser.add_argument('--samples-from-file',
+                        action='store_true',
+                        help='set if want to use pre-generated samples for BALD search')
     parser.add_argument('--n-seq-plans',
                         type=int,
                         default=100,

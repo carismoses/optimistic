@@ -54,7 +54,7 @@ def train(dataloader, model, val_dataloader=None, n_epochs=20, loss_fn=F.binary_
     all_accs = []
     all_losses = []
     for ex in range(n_epochs):
-        print(ex, n_epochs)
+        #print(ex, n_epochs)
         epoch_losses = []
         #print('Epoch', ex)
         train_loss = 0

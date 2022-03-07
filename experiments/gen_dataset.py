@@ -17,6 +17,7 @@ expert_feasible_goals = []
 def gen_dataset(args, n_actions, dataset_logger, model_logger):
     if n_actions == 0:
         dataset = initialize_dataset(args, args.contact_types)
+        dataset_logger.save_trans_dataset(dataset, '', i=n_actions)
     else:
         dataset = dataset.logger.load_trans_dataset('')
 
