@@ -79,6 +79,7 @@ def train(dataloader, model, val_dataloader=None, n_epochs=20, loss_fn=F.binary_
             #all_losses.append(loss.item())
             epoch_losses.append(loss.item())
             it += 1
+        all_losses.append(np.mean(epoch_losses))
         if early_stop and (train_loss < tol):
             break
         if val_dataloader is not None:
@@ -87,7 +88,6 @@ def train(dataloader, model, val_dataloader=None, n_epochs=20, loss_fn=F.binary_
                 best_loss = val_loss
                 best_weights = copy.deepcopy(model.state_dict())
                 #print('Saved')
-        all_losses.append(np.mean(epoch_losses))
     if val_dataloader is not None:
         model.load_state_dict(best_weights)
 

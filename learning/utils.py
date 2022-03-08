@@ -4,6 +4,8 @@ from torch.utils.data import random_split, ConcatDataset
 from learning.datasets import MoveContactDataset, OptDataset
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
+import matplotlib.pyplot as plt
+import numpy as np
 
 import pb_robot
 
@@ -74,7 +76,7 @@ def make_layers(n_input, n_output, n_hidden, n_layers):
         modules = [nn.Linear(n_input, n_hidden)]
         n_units = (n_layers-1)*[n_hidden] + [n_output]
         for n_in, n_out in zip(n_units[:-1], n_units[1:]):
-            modules.append(nn.ReLU())
+            modules.append(nn.Sigmoid())
             modules.append(nn.Linear(n_in, n_out))
     return nn.Sequential(*modules)
 
@@ -104,20 +106,27 @@ def train_model(model, dataset, args, types=None, plot=False):
                             n_epochs=args.n_epochs,
                             loss_fn=F.binary_cross_entropy,
                             early_stop=args.early_stop)
-            all_losses.append([losses])
+            all_losses.append(losses)
         if plot:
             fig, ax = plt.subplots()
-            ax.plot(np.array(all_losses).mean(axis=0).squeeze())
+            for losses in all_losses:
+                ax.plot(losses)
+            return ax
+        return None
 
     if args.goal_type == 'push':
         for type in types:
             if len(dataset[type]) > 0:
                 print('Training %s ensemble with |dataset| = %i' % (type, len(dataset)))
-                inner_loop(dataset[type], model.ensembles[type])
+                ax = inner_loop(dataset[type], model.ensembles[type])
                 if plot:
                     ax.set_title('Training Loss for %s' % type)
+                    plt.show()
+                    plt.close()
     elif args.goal_type == 'pick':
         if len(dataset) > 0:
-            inner_loop(dataset, model)
+            ax = inner_loop(dataset, model)
             if plot:
                 ax.set_title('Training Loss')
+                plt.show()
+                plt.close()
