@@ -1,3 +1,4 @@
+import os
 import time
 import argparse
 import matplotlib.pyplot as plt
@@ -25,7 +26,6 @@ def gen_plots(args):
                 dataset_lens[type] = len(dataset.datasets[type])
             dataset_lens_set = True
         print('Generating figures for models on path %s step %i' % (args.model_exp_path, di))
-        ts = time.strftime('%Y%m%d-%H%M%S')
 
         # make a plot for each contact type (subplot for mean, std, and tool vis)
         contacts_fn = get_contact_gen(world.panda.planning_robot, world.contact_types)
@@ -36,10 +36,13 @@ def gen_plots(args):
         seq_fn = get_seq_fn(ensembles)
 
         for type in model_logger.args.contact_types:
+            fname = 'acc_%s_%i.png' % (type, di)
+            if os.path.exists(os.path.join(model_logger.exp_path, 'figures', dir, fname)):
+                continue
             fig, axes = plt.subplots(4, figsize=(5, 10))
-            world.vis_dense_plot(type, axes[0], [-.5, .6], [-.25, .45], 0, 1, value_fn=mean_fn)
-            world.vis_dense_plot(type, axes[1], [-.5, .6], [-.25, .45], 0, .4, value_fn=std_fn)
-            world.vis_dense_plot(type, axes[2], [-.5, .6], [-.25, .45], 0, .4, value_fn=seq_fn)
+            world.vis_dense_plot(type, axes[0], [-.5, .6], [-.25, .45], 0, 1, value_fn=mean_fn, cell_width=.02)
+            world.vis_dense_plot(type, axes[1], [-.5, .6], [-.25, .45], 0, .4, value_fn=std_fn, cell_width=.02)
+            world.vis_dense_plot(type, axes[2], [-.5, .6], [-.25, .45], 0, .4, value_fn=seq_fn, cell_width=.02)
             dlen = len(dataset.datasets[type])
             for ai in range(3):
                 for dj, (x, y) in enumerate(dataset.datasets[type]):
@@ -68,8 +71,6 @@ def gen_plots(args):
             axes[1].set_title('Std Ensemble Predictions')
             axes[2].set_title('BALD Score')
 
-            #if type == 'poke':
-            fname = 'acc_%s_%s_%i.png' % (ts, type, di)
             model_logger.save_figure(fname, dir=dir)
             plt.close()
 
