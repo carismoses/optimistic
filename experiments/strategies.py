@@ -150,12 +150,18 @@ def random_plan(world, pddl_model_type, ret_states=False):
     all_expanded_states = []
     problem = None
     pddl_info = world.get_pddl_info(pddl_model_type)
+    _, _, _, streams_map = pddl_info
     while len(pddl_plan) < MAX_PLAN_LEN:
         # get random actions
         pddl_state = get_simple_state(pddl_state)
-        pddl_actions, expanded_states, actions_found = world.random_actions(pddl_state, pddl_model_type)
-        if not actions_found:
+        action_info = random_actions(world, streams_map)
+        if action_info is None:
             break
+        else:
+            pddl_actions, expanded_states = action_info
+        #pddl_actions, expanded_states, actions_found = world.random_actions(pddl_state, pddl_model_type)
+        #if not actions_found:
+        #    break
         all_expanded_states += expanded_states
 
         # apply logical state transitions

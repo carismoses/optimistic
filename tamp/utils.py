@@ -41,6 +41,38 @@ def pause(client=0):
         pass
 
 
+def random_actions(world, streams_map, action_name=None, action_kwargs={}, actions=[], all_expanded_states=[]):
+    attempts = 50
+    attempt = 0
+    while attempt < attempts:
+        if action_name is None:
+            random_action_fn = np.random.choice(world.action_fns.items())
+        else:
+            random_action_fn = world.action_fns[action_name]
+        action_info = random_action_fn(streams_map, **action_kwargs)
+        if action_info is not None:
+            action, expanded_states, pre_action_name, pre_action_kwargs = action_info
+            if pre_action_name is not None:
+                random_actions(world,
+                                action_name=pre_action_name,
+                                action_kwargs=pre_action_kwargs,
+                                actions=actions.append(action),
+                                all_expanded_states=all_expanded_states.append(expanded_states))
+            else:
+                return actions.append(action), all_expanded_states.append(expanded_states)
+        attempt += 1
+    return None
+
+'''
+def plan_from_skeleton(skeleton, world):
+    grounded_plan = []
+    for action in skeleton:
+        gound_fn = world.ground_fns[action.name]
+        grounded_action = ground_fn(action)
+        grounded_plan.append(grounded_action)
+    return grounded_plan
+'''
+
 def postprocess_plan(problem, plan, init_facts_expanded):
     # replace init in problem with init_expanded
     full_init_state = init_facts_expanded.all_facts+init_facts_expanded.preimage_facts
