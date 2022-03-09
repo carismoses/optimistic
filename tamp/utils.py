@@ -234,6 +234,9 @@ def block_to_urdf(obj_name, urdf_path, color):
     side = 0.05
     mass = 0.1
     link_urdf = odio_urdf.Link(obj_name,
+                  odio_urdf.Contact(
+                      odio_urdf.Lateral_Friction(value=0.1)
+                  ),
                   odio_urdf.Inertial(
                       odio_urdf.Origin(xyz=(0, 0, 0), rpy=(0, 0, 0)),
                       odio_urdf.Mass(mass),
