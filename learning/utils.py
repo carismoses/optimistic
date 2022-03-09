@@ -9,7 +9,7 @@ import numpy as np
 
 import pb_robot
 
-from learning.models.ensemble import Ensemble, Ensembles
+from learning.models.ensemble import Ensemble, Ensembles, init_weights
 from learning.train import train
 
 
@@ -30,6 +30,9 @@ class MLP(nn.Module):
         N, n_in = input.shape
         out = self.N(input).view(N)
         return torch.sigmoid(out)
+
+    def reset(self):
+        self.apply(init_weights)
 
 
 def model_forward(contact_type, model, inputs, single_batch=False):
@@ -111,22 +114,26 @@ def train_model(model, dataset, args, types=None, plot=False):
             fig, ax = plt.subplots()
             for losses in all_losses:
                 ax.plot(losses)
-            return ax
-        return None
+            return all_losses, ax
+        return all_losses, None
 
+    all_losses = {}
     if args.goal_type == 'push':
         for type in types:
             if len(dataset[type]) > 0:
                 print('Training %s ensemble with |dataset| = %i' % (type, len(dataset)))
-                ax = inner_loop(dataset[type], model.ensembles[type])
+                losses, ax = inner_loop(dataset[type], model.ensembles[type])
+                all_losses[type] = losses
                 if plot:
                     ax.set_title('Training Loss for %s' % type)
                     plt.show()
                     plt.close()
     elif args.goal_type == 'pick':
         if len(dataset) > 0:
-            ax = inner_loop(dataset, model)
+            losses, ax = inner_loop(dataset, model)
+            all_losses[type] = losses
             if plot:
                 ax.set_title('Training Loss')
                 plt.show()
                 plt.close()
+    return all_losses

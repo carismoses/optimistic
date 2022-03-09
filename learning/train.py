@@ -38,7 +38,7 @@ def evaluate(loader, model, loss_fn, val_metric='f1'):
     return score
 
 
-def train(dataloader, model, val_dataloader=None, n_epochs=20, loss_fn=F.binary_cross_entropy, early_stop=False):
+def train(dataloader, model, val_dataloader=None, n_epochs=20, loss_fn=F.binary_cross_entropy, early_stop=False, n_restart=0):
     """
     :param val_dataloader: If a validation set is given, will return the model
     with the lowest validation loss.
@@ -50,7 +50,9 @@ def train(dataloader, model, val_dataloader=None, n_epochs=20, loss_fn=F.binary_
     best_loss = 1000
     best_weights = None
     it = 0
-    tol = 0.01
+    early_stop_tol = 0.01
+    final_loss_tol = 1
+    max_restarts = 5
     all_accs = []
     all_losses = []
     for ex in range(n_epochs):
@@ -80,7 +82,7 @@ def train(dataloader, model, val_dataloader=None, n_epochs=20, loss_fn=F.binary_
             epoch_losses.append(loss.item())
             it += 1
         all_losses.append(np.mean(epoch_losses))
-        if early_stop and (train_loss < tol):
+        if early_stop and (train_loss < early_stop_tol):
             break
         if val_dataloader is not None:
             val_loss = evaluate(val_dataloader, model, loss_fn)
@@ -88,6 +90,18 @@ def train(dataloader, model, val_dataloader=None, n_epochs=20, loss_fn=F.binary_
                 best_loss = val_loss
                 best_weights = copy.deepcopy(model.state_dict())
                 #print('Saved')
+
+    # reinitialize model weights and train again if didn't converge
+    if all_losses[-1] > final_loss_tol and n_restart < max_restarts:
+        model.reset()
+        print('reset weights %i'%n_restart)
+        return train(dataloader,
+                        model,
+                        val_dataloader=val_dataloader,
+                        n_epochs=n_epochs,
+                        loss_fn=loss_fn,
+                        early_stop=early_stop,
+                        n_restart=n_restart+1)
     if val_dataloader is not None:
         model.load_state_dict(best_weights)
 

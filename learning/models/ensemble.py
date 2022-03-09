@@ -68,5 +68,5 @@ class Ensemble(nn.Module):
 
 def init_weights(m):
     if isinstance(m, torch.nn.Linear):
-        m.weight.data.normal_(0,5)#uniform_(-1,1)#normal_(0,100)
-        m.bias.data.normal_(0,5)#uniform_(-1,1)#normal_(0,100)
+        m.weight.data.normal_(0,7)#uniform_(-1,1)#normal_(0,100)
+        m.bias.data.normal_(0,7)#uniform_(-1,1)#normal_(0,100)
