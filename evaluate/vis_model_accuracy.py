@@ -1,6 +1,9 @@
 import time
 import argparse
 import matplotlib.pyplot as plt
+import numpy as np
+
+import pb_robot
 
 from domains.tools.world import ToolsWorld
 from experiments.utils import ExperimentLogger
@@ -29,6 +32,10 @@ def gen_plots(args):
     # make a plot for each contact type (subplot for mean, std, and tool vis)
     contacts_fn = get_contact_gen(world.panda.planning_robot, model_logger.args.contact_types)
     contacts = contacts_fn(world.objects['tool'], world.objects['yellow_block'], shuffle=False)
+    contact_info = {}
+    for contact in contacts:
+        contact_info[contact[0].type] = contact[0]
+
 
     mean_fn = get_model_accuracy_fn(ensembles, 'mean')
     std_fn = get_model_accuracy_fn(ensembles, 'std')
@@ -40,9 +47,13 @@ def gen_plots(args):
         else:
             n_axes = 3
         fig, axes = plt.subplots(n_axes, figsize=(5, 10))
-        world.vis_dense_plot(type, axes[0], [-1, 1], [-1, 1], 0, 1, value_fn=mean_fn)
+
+        x_axes, y_axes = world.get_cont_frame_limits(model_logger.args.goal_obj,
+                                                    contact_info[type])
+
+        world.vis_dense_plot(type, axes[0], x_axes, y_axes, 0, 1, value_fn=mean_fn, cell_width=0.01)
         if n_axes == 3:
-            world.vis_dense_plot(type, axes[1], [-1, 1], [-1, 1], None, None, value_fn=std_fn)
+            world.vis_dense_plot(type, axes[1], x_axes, y_axes, None, None, value_fn=std_fn, cell_width=0.01)
         #world.vis_dense_plot(type, axes[2], [-1, 1], [-1, 1], None, None, value_fn=seq_fn)
         for ai in range(n_axes):
             world.vis_dataset(axes[ai], dataset.datasets[type], model_logger.args.goal_type, linestyle='-')
@@ -58,10 +69,7 @@ def gen_plots(args):
                     world.plot_block(axes[1], x, 'b')
 
 
-        for contact in contacts:
-            cont = contact[0]
-            if cont.type == type:
-                world.vis_tool_ax(cont, axes[n_axes-1], frame='cont')
+        world.vis_tool_ax(contact_info[type], axes[n_axes-1], frame='cont')
 
         axes[0].set_title('Mean Ensemble Predictions')
         if n_axes == 3:

@@ -273,6 +273,10 @@ class ToolsWorld:
                         return pb_robot.geometry.pose_from_tform(ee_pose@np.linalg.inv(grasp_objF))
 
 
+    def point_from_world_to_cont(self, point_world, cont_w_tform):
+        return np.dot(np.linalg.inv(cont_w_tform), point_world)
+
+
     def action_to_vec(self, pddl_action):
         if pddl_action.name == 'move_contact':
             x = np.zeros(MODEL_INPUT_DIMS['push'])
@@ -287,7 +291,7 @@ class ToolsWorld:
             # contact frame in the world
             cont_w_tform = np.dot(tool_w_tform, np.linalg.inv(cont.tool_in_cont_tform))
             goal_world_point = (*pddl_action.args[4].pose[0], 1)
-            goal_cont = np.dot(np.linalg.inv(cont_w_tform), goal_world_point)
+            goal_cont = self.point_from_world_to_cont(goal_world_point, cont_w_tform)
             x[:] = goal_cont[:2]
             return x
         elif pddl_action.name == 'pick':
@@ -615,6 +619,26 @@ class ToolsWorld:
             return ar, extent
 
 
+    def get_cont_frame_limits(self, goal_obj, contact):
+        minx_w = self.goal_limits[goal_obj]['min_x']
+        maxx_w = self.goal_limits[goal_obj]['max_x']
+        miny_w = self.goal_limits[goal_obj]['min_y']
+        maxy_w = self.goal_limits[goal_obj]['max_y']
+
+        # calc contact frame in world frame (assumes block always starts from same pose)
+        block_world = pb_robot.geometry.tform_from_pose(self.obj_init_poses[goal_obj].pose)
+        tool_w_tform = block_world@contact.rel_pose
+        cont_w_tform = np.dot(tool_w_tform, np.linalg.inv(contact.tool_in_cont_tform))
+
+        # convert world goal sampling limits to the contact frame
+        minxminy_c = self.point_from_world_to_cont((minx_w, miny_w, 0, 1), cont_w_tform)
+        maxxmaxy_c = self.point_from_world_to_cont((maxx_w, maxy_w, 0, 1), cont_w_tform)
+
+        x_axes = [minxminy_c[0], maxxmaxy_c[0]]
+        y_axes = [minxminy_c[1], maxxmaxy_c[1]]
+        return x_axes, y_axes
+
+
     # can visualize tool in world or contact frame
     def vis_tool_ax(self, cont, ax, block_name='yellow_block', frame='world', color='k'):
         if frame == 'world':
@@ -634,8 +658,9 @@ class ToolsWorld:
             ax.set_xlim([limits['min_x'], limits['max_x']])
             ax.set_ylim([limits['min_y'], limits['max_y']])
         elif frame == 'cont':
-            ax.set_xlim([-1,1])
-            ax.set_ylim([-1,1])
+            xlimits, ylimits = self.get_cont_frame_limits(block_name, cont)
+            ax.set_xlim(xlimits)
+            ax.set_ylim(ylimits)
 
 
     def vis_dense_plot(self, type, ax, x_range, y_range, vmin, vmax, value_fn=None, cell_width=0.05):
