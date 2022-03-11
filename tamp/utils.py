@@ -41,25 +41,32 @@ def pause(client=0):
         pass
 
 
-def random_actions(world, streams_map, action_name=None, action_kwargs={}, actions=[], all_expanded_states=[]):
+def random_actions(state, world, streams_map, action_name=None, action_kwargs={}, actions=[], all_expanded_states=[]):
     attempts = 50
     attempt = 0
+    actions = copy(actions)
     while attempt < attempts:
         if action_name is None:
-            random_action_fn = np.random.choice(world.action_fns.items())
+            random_action_i = np.random.choice(len(world.action_fns))
+            random_action_name = list(world.action_fns.keys())[random_action_i]
+            random_action_fn = world.action_fns[random_action_name]
         else:
             random_action_fn = world.action_fns[action_name]
-        action_info = random_action_fn(streams_map, **action_kwargs)
+        action_info = random_action_fn(state, streams_map, **action_kwargs)
         if action_info is not None:
             action, expanded_states, pre_action_name, pre_action_kwargs = action_info
+            actions.insert(0, action)
+            all_expanded_states.append(*expanded_states)
             if pre_action_name is not None:
-                random_actions(world,
+                return random_actions(state,
+                                world,
+                                streams_map,
                                 action_name=pre_action_name,
                                 action_kwargs=pre_action_kwargs,
-                                actions=actions.append(action),
-                                all_expanded_states=all_expanded_states.append(expanded_states))
+                                actions=actions,
+                                all_expanded_states=all_expanded_states)
             else:
-                return actions.append(action), all_expanded_states.append(expanded_states)
+                return actions, all_expanded_states
         attempt += 1
     return None
 

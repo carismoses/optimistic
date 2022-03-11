@@ -12,8 +12,9 @@ from pddlstream.algorithms.focused import solve_focused
 from pddlstream.algorithms.downward import fact_from_fd, apply_action
 from pddlstream.language.constants import Certificate, Action
 
-from tamp.utils import execute_plan, get_simple_state, task_from_problem,   \
-                        get_fd_action, postprocess_plan, failed_abstract_plan_to_traj
+from tamp.utils import execute_plan, get_simple_state, task_from_problem, \
+                        get_fd_action, postprocess_plan, failed_abstract_plan_to_traj, \
+                        random_actions
 from learning.utils import model_forward, add_trajectory_to_dataset
 from domains.tools.primitives import get_traj
 from domains.tools.world import ToolsWorld
@@ -142,7 +143,7 @@ def random_plan(world, pddl_model_type, ret_states=False):
         world.panda.add_text('Planning random actions.',
                             position=(0, -1, 1),
                             size=1.5)
-    goal, _ = world.generate_dummy_goal() # dummy variable (TODO: can be None??)
+    goal = world.generate_dummy_goal() # dummy variable (TODO: can be None??)
     states = []
     pddl_plan = []
     pddl_state = world.get_init_state()
@@ -154,20 +155,18 @@ def random_plan(world, pddl_model_type, ret_states=False):
     while len(pddl_plan) < MAX_PLAN_LEN:
         # get random actions
         pddl_state = get_simple_state(pddl_state)
-        action_info = random_actions(world, streams_map)
+        action_info = random_actions(pddl_state, world, streams_map)
         if action_info is None:
             break
         else:
             pddl_actions, expanded_states = action_info
-        #pddl_actions, expanded_states, actions_found = world.random_actions(pddl_state, pddl_model_type)
-        #if not actions_found:
-        #    break
         all_expanded_states += expanded_states
 
         # apply logical state transitions
         problem = tuple([*pddl_info, pddl_state+expanded_states, goal])
         task = task_from_problem(problem)
         fd_state = set(task.init)
+        print('Random actions:', pddl_actions)
         for pddl_action in pddl_actions:
             if ret_states:
                 pddl_plan += [(pddl_state, pddl_action)]

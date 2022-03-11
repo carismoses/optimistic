@@ -373,208 +373,269 @@ class ToolsWorld:
     '''
     # they return an action and the predicates to add to the state if a valid
     # action is found, else returns None
-    def get_pick_action(self, streams_map, top_obj=None, top_pose=None, bot_obj=None, \
+    def get_pick_action(self, state, streams_map, top_obj=None, top_pose=None, bot_obj=None, \
                         grasp=None, conf1=None, conf2=None, traj=None):
-                            shuffled_objects = list(self.objects.values())
-                            random.shuffle(shuffled_objects)
+        # check that hand is empty
+        if ('handempty',) not in state:
+            return None
+
+        # check that obj to be picked is a freeObj and is on another obj and
+        # TODO: we should check if bot_obj is None
         if top_obj is None:
             shuffled_objects = list(self.objects.values())
             random.shuffle(shuffled_objects)
-            obj_picked = False
             for obj in shuffled_objects:
                 if ('freeobj', obj) in state:
                     for pred in state:
                         if pred[0] == 'on' and pred[1] == obj:
                             bot_obj = pred[2]
                             top_obj = obj
-                            obj_picked = True
-        if not top_obj:
+                            break
+        if top_obj is None or bot_obj is None:
             return None
-        for pred in state:
-            if pred[0] == 'atpose' and pred[1] == top_obj:
-                pose = pred[2]
-        if ('block', top_obj) in state:
-            grasps = block_grasp_fn(top_obj)
-        elif ('tool', top_obj) in state:
-            grasps = tool_grasp_fn(top_obj)
-        grasp_i = np.random.randint(len(grasps))
-        grasp = grasps[grasp_i][0]
-        pick_params = pick_fn(top_obj, pose, grasp)
-        if pick_params:
-            approach_conf, backoff_conf, traj = pick_params
-            # first have to move to initial pick conf
-            actions, expanded_states, actions_found = get_move_free_action(final_conf=approach_conf)
-            if actions_found:
-                return actions+[Action(name='pick',
-                                args=(top_obj, pose, bot_obj, grasp, *pick_params))], \
-                        [('pickkin', top_obj, pose, grasp, *pick_params)]+expanded_states, \
-                        True
-        else:
-            return None, [], False
+
+        # ground top pose
+        if top_pose is None:
+            for pred in state:
+                if pred[0] == 'atpose' and pred[1] == top_obj:
+                    top_pose = pred[2]
+        if top_pose is None:
+            return None
+
+        # select a random grasp
+        if grasp is None:
+            if ('block', top_obj) in state:
+                grasp = streams_map['sample-block-grasp'](top_obj).next()[0][0]
+            elif ('tool', top_obj) in state:
+                grasp = streams_map['sample-tool-grasp'](top_obj).next()[0][0]
+        if grasp is None:
+            return None
+
+        # solve for pick configurations and trajectory
+        if conf1 is None or conf2 is None or traj is None:
+            pick_params = streams_map['pick-inverse-kinematics'](top_obj, top_pose, grasp).next()
+            if len(pick_params) == 0:
+                return None
+            pick_params = pick_params[0]
+        if pick_params is None:
+            return None
+
+        conf1, conf2, traj = pick_params
+        action = Action(name='pick',
+                        args=(top_obj, top_pose, bot_obj, grasp, *pick_params))
+        expanded_states = [('pickkin', top_obj, top_pose, grasp, *pick_params)]
+
+        # first have to move to initial pick conf
+        pre_action_name = 'move_free'
+        pre_action_kwargs = {'conf2': conf1}
+        return action, expanded_states, pre_action_name, pre_action_kwargs
 
 
-    def get_place_action(self, streams_map, top_obj=None, top_pose=None, bot_obj=None, \
+    def get_place_action(self, state, streams_map, top_obj=None, top_pose=None, bot_obj=None, \
                         bot_pose=None, grasp=None, conf1=None, conf2=None, traj=None):
-        obj_held = False
-        for pred in state:
-            if pred[0] == 'atgrasp':
-                holding_obj = pred[1]
-                holding_grasp = pred[2]
-                obj_held = True
-        if not obj_held:
-            return None, [], False
-        if ('block', holding_obj) not in state: # for now can only place blocks on blocks
-            return None, [], False
-        bot_obj_set = False
-        for obj in shuffled_objects:
-            if obj != obj_held and \
-                ('clear', obj) in state and \
-                ('block', obj) in state: # for now can only place blocks on blocks
-                bot_obj = obj
-                for pred in state:
-                    if pred[0] == 'atpose' and pred[1] == bot_obj:
-                        bot_obj_pose = pred[2]
-                bot_obj_set = True
-        if not bot_obj_set:
-            return None, [], False
-        pose = get_pose_gen_block(holding_obj, bot_obj, bot_obj_pose)
-        place_params = place_fn(top_obj, pose, grasp)
-        if place_params:
-            approach_conf, backoff_conf, traj = place_params
-            # first have to move to initial pick conf
-            actions, expanded_states, actions_found = get_move_holding_action(final_conf=approach_conf)
-            if actions_found:
-                return actions+[Action(name='place',
-                            args=(top_obj, pose, bot_obj, bot_pose, \
-                                holding_grasp, *place_params))], \
-                        expanded_states+[('placekin', top_obj, pose, holding_grasp, *place_params)], \
-                        True
-        else:
-            return None, [], False
-
-
-    def get_move_free_action(self, streams_map, conf1=None, conf2=None, traj=None):
-        if ('handempty',) not in state:
-            return None, [], False
-        for pred in state:
-            if pred[0] == 'atconf':
-                init_conf = pred[1]
-        init_pose = self.panda.planning_robot.arm.ComputeFK(init_conf.configuration)
-        init_orn = init_pose[1]
-        if final_conf is None:
-            n_attempts = 50
-            a = 0
-            random_conf = None
-            while random_conf is None and a < n_attempts:
-                random_pos = np.array([np.random.uniform(0.05,0.85),
-                                    np.random.uniform(0.2,-0.5),
-                                    np.random.uniform(0.01, 0.8)])
-                random_conf = self.panda.planning_robot.arm.ComputeIK(pb_robot.geometry.tform_from_pose((random_pos, init_orn)))
-                if random_conf is None:
-                    continue
-                if self.panda.planning_robot.arm.IsCollisionFree(random_conf, obstacles=self.fixed):
-                    break
-                else:
-                    random_conf = None
-            if not random_conf:
-                return None, [], False
-            final_conf = pb_robot.vobj.BodyConf(self.panda.planning_robot, random_conf)
-        traj = move_free_fn(init_conf, final_conf)
-        if traj:
-            return [Action(name='move_free',
-                            args=(init_conf, final_conf, *traj))], \
-                            [('freemotion', init_conf, final_conf, *traj)], \
-                            True
-        else:
-            return None, [], False
-
-    def get_move_holding_action(self, streams_map, final_conf=None):
-        if ('handempty',) in state:
-            return None, [], False
-        else:
+        # check that object is being held
+        if top_obj is None:
             for pred in state:
                 if pred[0] == 'atgrasp':
-                    held_obj = pred[1]
+                    top_obj = pred[1]
+                    grasp = pred[2]
+        if top_obj is None or grasp is None:
+            return None
+
+        # ground bottom object
+        # TODO: we should check if bot_obj is not None
+        shuffled_objects = list(self.objects.values())
+        random.shuffle(shuffled_objects)
+        for obj in shuffled_objects:
+            if obj != top_obj:
+                for pred in state:
+                    if pred[0] == 'supported' and pred[1] == top_obj:
+                        bot_obj = pred[3]
+                        bot_pose = pred[4]
+        if bot_obj is None or bot_pose is None:
+            return None
+
+        # ground placement pose
+        if top_pose is None:
+            top_pose = streams_map['sample-pose-block'](top_obj, bot_obj, bot_pose).next()[0][0]
+        if top_pose is None:
+            return None
+
+        # ground traj parameters
+        if conf1 is None or conf2 is None or traj is None:
+            place_params = streams_map['place-inverse-kinematics'](top_obj, top_pose, grasp).next()[0]
+        if place_params is None:
+            return None
+
+        conf1, conf2, traj = place_params
+        action = Action(name='place',
+                        args=(top_obj, top_pose, bot_obj, bot_pose, holding_grasp,
+                                *place_params))
+        expanded_states = [('placekin', top_obj, top_pose, grasp, *place_params)]
+
+        # first have to move to initial pick conf
+        pre_action_name = 'move_holding'
+        pre_action_kwargs = {'conf2': conf1}
+        return action, expanded_states, pre_action_name, pre_action_kwargs
+
+
+    def get_move_free_action(self, state, streams_map, conf1=None, conf2=None, traj=None):
+        # check that hand is empty
+        if ('handempty',) not in state:
+            return None
+
+        # get current robot config
+        if conf1 is None:
+            for pred in state:
+                if pred[0] == 'atconf':
+                    conf1 = pred[1]
+        if conf1 is None:
+            return None
+
+        # get a end config
+        if conf2 is None:
+            init_ee_orn = self.panda.planning_robot.arm.ComputeFK(conf1.configuration)[1]
+            conf2 = self.get_random_conf(init_ee_orn)
+        if conf2 is None:
+            return None
+
+        # solve for traj
+        if traj is None:
+            traj = streams_map['plan-free-motion'](conf1, conf2).next()[0]
+        if traj is None:
+            return None
+
+        action = Action(name='move_free', args=(conf1, conf2, *traj))
+        expanded_states = [('freemotion', conf1, conf2, *traj)]
+        return action, expanded_states, None, None
+
+
+    def get_move_holding_action(self, state, streams_map, obj=None, grasp=None, conf1=None, \
+                                conf2=None, traj=None):
+        # check if holding something
+        if ('handempty',) in state:
+            return None
+
+        # get object being held
+        if obj is None:
+            for pred in state:
+                if pred[0] == 'atgrasp':
+                    obj = pred[1]
                     grasp = pred[2]
                 if pred[0] == 'atconf':
-                    init_conf = pred[1]
-        init_pose = self.panda.planning_robot.arm.ComputeFK(init_conf.configuration)
-        init_orn = init_pose[1]
-        if final_conf is None:
-            orig_pose = held_obj.get_base_link_pose()
-            self.panda.planning_robot.arm.Grab(held_obj, grasp.grasp_objF)
-            n_attempts = 50
-            a = 0
-            random_conf = None
-            while random_conf is None and a < n_attempts:
-                random_pos = np.array([np.random.uniform(0.05,0.85),
-                                    np.random.uniform(0.2,-0.5),
-                                    np.random.uniform(0.01, 0.8)])
-                random_conf = self.panda.planning_robot.arm.ComputeIK(pb_robot.geometry.tform_from_pose((random_pos, init_orn)))
-                if random_conf is None:
-                    continue
-                if self.panda.planning_robot.arm.IsCollisionFree(random_conf, obstacles=self.fixed):
-                    break
-                else:
-                    random_conf = None
-            self.panda.planning_robot.arm.Release(held_obj)
-            held_obj.set_base_link_pose(orig_pose)
-            if not random_conf:
-                return None, [], False
-            final_conf = pb_robot.vobj.BodyConf(self.panda.planning_robot, random_conf)
-        traj = move_holding_fn(held_obj, grasp, init_conf, final_conf)
-        if traj:
-            return [Action(name='move_holding', args=(held_obj, grasp, init_conf, final_conf, *traj))], \
-                    [('holdingmotion', held_obj, grasp, init_conf, final_conf, *traj)], \
-                    True
-        else:
-            return None, [], False
+                    conf1 = pred[1]
+        if obj is None or grasp is None or conf1 is None:
+            return None
+
+        # get final config
+        if conf2 is None:
+            init_orn = self.panda.planning_robot.arm.ComputeFK(conf1.configuration)[1]
+            conf2 = self.get_random_conf(init_orn)
+        if conf2 is None:
+            return None
+
+        if traj is None:
+            traj = streams_map['plan-holding-motion'](obj, grasp, conf1, conf2).next()[0]
+        if traj is None:
+            return None
+
+        action = Action(name='move_holding', args=(obj, grasp, conf1, conf2, *traj))
+        expanded_states = [('holdingmotion', obj, grasp, conf1, conf2, *traj)]
+        return action, expanded_states, None, None
 
 
-    def get_move_contact_action(self, streams_map, tool=None, grasp=None, pushed_obj=None, \
+    def get_move_contact_action(self, state, streams_map, tool=None, grasp=None, pushed_obj=None, \
                             pose1=None, pose2=None, cont=None, conf1=None, conf2=None, \
                             conf3=None, traj=None):
-        held_obj = None
-        for pred in state:
-            if pred[0] == 'held':
-                held_obj = pred[1]
-            if pred[0] == 'atgrasp':
-                grasp = pred[2]
-        if held_obj is None:
-            return None, [], False
-        pushed_obj = None
-        for obj in shuffled_objects:
-            if ('freeobj', obj) in state and \
-                ('block', obj) in state and \
-                ('tool', held_obj) in state: # can only push blocks with tool right now
-                pushed_obj = obj
+        # must be holding something
+        if ('handempty',) in state:
+            return None
+
+        # get held object/tool
+        if tool is None:
+            for pred in state:
+                if pred[0] == 'held':
+                    tool = pred[1]
+                if pred[0] == 'atgrasp':
+                    grasp = pred[2]
+        if tool is None or grasp is None:
+            return None
+
+        # can only push with the tool
+        if ('tool', tool) not in state:
+            return None
+
+        # get pushed object
         if pushed_obj is None:
-            return None, [], False
-        contacts = contacts_fn(held_obj, pushed_obj)
-        contact_i = np.random.randint(len(contacts))
-        cont = contacts[contact_i][0]
-        for pred in state:
-            if pred[0] == 'atpose' and pred[1] == pushed_obj:
-                pushed_obj_pose = pred[2]
-        final_pos_xy = np.array([np.random.uniform(0.05,0.85),
-                            np.random.uniform(0.2,-0.5)])
-        final_pose = pb_robot.vobj.BodyPose(pushed_obj,
-                            ((*final_pos_xy, pushed_obj_pose.pose[0][2]),
-                            pushed_obj_pose.pose[1]))
-        move_params = move_contact_fn(held_obj, grasp, pushed_obj, pushed_obj_pose, \
-                                        final_pose, cont)
-        if move_params:
-            init_conf, pose1_conf, final_conf, traj = move_params
-            # first have to move to initial pick conf
-            actions, expanded_states, actions_found = get_move_holding_action(final_conf=init_conf)
-            if actions_found:
-                return actions+[Action(name='move_contact',
-                            args=(held_obj, grasp, pushed_obj, pushed_obj_pose, final_pose, \
-                                cont, *move_params))], \
-                    expanded_states+[('contactmotion', held_obj, grasp, pushed_obj, pushed_obj_pose, final_pose, \
-                        cont, *move_params)], \
-                    True
-        return None, [], False
+            shuffled_objects = list(self.objects.values())
+            random.shuffle(shuffled_objects)
+            for obj in shuffled_objects:
+                if ('freeobj', obj) in state and \
+                    ('block', obj) in state: # can only push blocks
+                    pushed_obj = obj
+        if pushed_obj is None:
+            return None
+
+        # solve for contact
+        if cont is None:
+            cont = streams_map['sample-contact'](tool, pushed_obj).next()[0][0]
+        if cont is None:
+            return None
+
+        # get initial block pose
+        if pose1 is None:
+            for pred in state:
+                if pred[0] == 'atpose' and pred[1] == pushed_obj:
+                    pose1 = pred[2]
+        if pose1 is None:
+            return None
+
+        # get final block pose
+        if pose2 is None:
+            block_name = pushed_obj.readableName
+            limits = self.goal_limits[block_name]
+            pose2_pos_xy = np.array([np.random.uniform([limits['min_x'], limits['max_x']]),
+                                    np.random.uniform([limits['min_y'], limits['max_y']])])
+            pose2 = pb_robot.vobj.BodyPose(pushed_obj,
+                                ((*pose2_pos_xy, pose1.pose[0][2]),
+                                pushed_obj_pose.pose[1]))
+        if pose2 is None:
+            return None
+
+        if conf1 is None or conf2 is None or conf3 is None or traj is None:
+            move_params = streams_map['plan-contact-motion'](tool, grasp, pushed_obj, pose1, pose2, cont).next()[0][0]
+        if move_params is None:
+            return None
+        conf1, conf2, conf3, traj = move_params
+
+        # first have to move to initial pick conf
+        action = Action(name='move_contact',
+                    args=(tool, grasp, pushed_obj, pose1, pose2, cont, *move_params))
+        expanded_states = [('contactmotion', tool, grasp, pushed_obj, pose1, pose2, \
+            cont, *move_params)]
+        pre_action_name = 'move_holding'
+        pre_action_kwargs = {'conf2': conf1}
+        return action, expanded_states, pre_action_name, pre_action_kwargs
+
+
+    def get_random_conf(self, ee_orn, n_attempts=50):
+        ai = 0
+        random_conf = None
+        while random_conf is None and ai < n_attempts:
+            # TODO: make sure this spans the full space
+            random_pos = np.array([np.random.uniform(0.05,0.85),
+                                np.random.uniform(0.2,-0.5),
+                                np.random.uniform(0.01, 0.8)])
+            random_conf = self.panda.planning_robot.arm.ComputeIK(pb_robot.geometry.tform_from_pose((random_pos, ee_orn)))
+            if random_conf is None:
+                continue
+            if self.panda.planning_robot.arm.IsCollisionFree(random_conf, obstacles=self.fixed):
+                break
+            else:
+                random_conf = None
+        if not random_conf:
+            return None
+        return pb_robot.vobj.BodyConf(self.panda.planning_robot, random_conf)
 
 
     '''

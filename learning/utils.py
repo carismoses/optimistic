@@ -62,10 +62,10 @@ def add_trajectory_to_dataset(domain, dataset_logger, trajectory, world):
                 if pddl_action.name == 'pick' and pddl_action.args[0].readableName == 'tool':
                     continue
                 x = world.action_to_vec(pddl_action)
-                if dataset_logger.args.goal_type == 'push':
+                if pddl_action.name == 'move_contact':
                     contact_type = pddl_action.args[5].type
                     dataset[contact_type].add_to_dataset(x, opt_accuracy)
-                elif dataset_logger.args.goal_type == 'pick':
+                elif pddl_action.name == 'pick':
                     dataset.add_to_dataset(x, opt_accuracy)
                 dataset_logger.save_trans_dataset(dataset, '', n_actions)
                 datapoints.append((pddl_action.name, x, opt_accuracy))
