@@ -9,7 +9,7 @@ goals_path = 'logs/experiments/bald-goals-20220302-095132'
 goals_logger = ExperimentLogger(goals_path)
 goals = goals_logger.load_goals()
 
-world = ToolsWorld(False, None, ['poke', 'push_pull'])
+world = ToolsWorld(False, None, ['move_contact-poke', 'move_contact-push_pull'], ['yellow_block'])
 contacts_fn = get_contact_gen(world.panda.planning_robot, world.contact_types)
 contacts = contacts_fn(world.objects['tool'], world.objects['yellow_block'], shuffle=False)
 

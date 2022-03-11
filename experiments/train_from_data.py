@@ -3,14 +3,15 @@ import argparse
 import matplotlib.pyplot as plt
 
 from experiments.utils import ExperimentLogger
-from learning.utils import initialize_model, train_model
+from learning.utils import MLP, train_model
+from learning.models.ensemble import Ensembles
+from domains.tools.world import MODEL_INPUT_DIMS
 
 
 def train_step(args, base_args, i):
     dataset, i = logger.load_trans_dataset('', i=i, ret_i=True)
     print('Training for action step %i' % i)
-    types = logger.args.contact_types
-    model = initialize_model(args, base_args, types=types)
+    model = Ensembles(MLP, base_args, args.n_models, logger.args.actions, logger.args.objects)
     train_model(model, dataset, args, types=types)
 
     # save model and accuracy plots
@@ -19,7 +20,7 @@ def train_step(args, base_args, i):
 
 def train_from_data(args, logger, start_i):
     # get model params
-    base_args = {'n_in': MODEL_INPUT_DIMS[args.goal_type],
+    base_args = {'n_in': MODEL_INPUT_DIMS,
                 'n_hidden': args.n_hidden,
                 'n_layers': args.n_layers}
 
@@ -75,7 +76,7 @@ if __name__ == '__main__':
                         default='False',
                         choices=['True', 'False'],
                         help='stop training models when training loss below a threshold')
-                        
+
     parser.add_argument('--debug',
                         action='store_true',
                         help='use to run in debug mode')

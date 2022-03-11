@@ -1,7 +1,7 @@
 from torch import nn
 import torch
 from torch.utils.data import random_split, ConcatDataset
-from learning.datasets import MoveContactDataset, OptDataset
+from learning.datasets import OptDataset
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
@@ -35,16 +35,16 @@ class MLP(nn.Module):
         self.apply(init_weights)
 
 
-def model_forward(contact_type, model, inputs, single_batch=False):
+def model_forward(model, inputs, action, obj_name, single_batch=False):
     if single_batch:
         single_inputs = inputs
         inputs = torch.tensor(inputs, dtype=torch.float64).unsqueeze(0)
 
     if torch.cuda.is_available():
-        model.ensembles[contact_type].cuda()
+        model.ensembles[action][obj_name].cuda()
         inputs = inputs.cuda()
 
-    output = model.ensembles[contact_type].forward(inputs)
+    output = model.ensembles[action][obj_name].forward(inputs)
     if torch.cuda.is_available():
         output = output.cpu()
     return output.detach().numpy()
@@ -64,9 +64,12 @@ def add_trajectory_to_dataset(domain, dataset_logger, trajectory, world):
                 x = world.action_to_vec(pddl_action)
                 if pddl_action.name == 'move_contact':
                     contact_type = pddl_action.args[5].type
-                    dataset[contact_type].add_to_dataset(x, opt_accuracy)
+                    action = '%s-%s' % ('push', contact_type)
+                    obj = pddl_action.args[2].readableName
                 elif pddl_action.name == 'pick':
-                    dataset.add_to_dataset(x, opt_accuracy)
+                    action = pddl_action.name
+                    obj = pddl_action.args[0].readableName
+                dataset.add_to_dataset(action, obj, x, opt_accuracy)
                 dataset_logger.save_trans_dataset(dataset, '', n_actions)
                 datapoints.append((pddl_action.name, x, opt_accuracy))
     return datapoints
@@ -84,24 +87,9 @@ def make_layers(n_input, n_output, n_hidden, n_layers):
     return nn.Sequential(*modules)
 
 
-def initialize_dataset(args, types=None):
-    if args.goal_type == 'push':
-        dataset = MoveContactDataset(types)
-    elif args.goal_type == 'pick':
-        dataset = OptDataset()
-    return dataset
-
-
-def initialize_model(args, base_args, types=None):
-    if args.goal_type == 'push':
-        model = Ensembles(MLP, base_args, args.n_models, types)
-    elif args.goal_type == 'pick':
-        model = Ensemble(MLP, base_args, args.n_models)
-    return model
-
-def train_model(model, dataset, args, types=None, plot=False):
-    def inner_loop(type_dataset, ensemble):
-        dataloader = DataLoader(type_dataset, batch_size=args.batch_size, shuffle=True)
+def train_model(model, dataset, args, plot=False):
+    def inner_loop(dataset, ensemble):
+        dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=True)
         all_losses = []
         for model_e in ensemble.models:
             losses = train(dataloader,
@@ -114,26 +102,11 @@ def train_model(model, dataset, args, types=None, plot=False):
             fig, ax = plt.subplots()
             for losses in all_losses:
                 ax.plot(losses)
-            return all_losses, ax
-        return all_losses, None
+            #plt.show()
+        return all_losses
 
-    all_losses = {}
-    if args.goal_type == 'push':
-        for type in types:
-            if len(dataset[type]) > 0:
-                print('Training %s ensemble with |dataset| = %i' % (type, len(dataset)))
-                losses, ax = inner_loop(dataset[type], model.ensembles[type])
-                all_losses[type] = losses
-                if plot:
-                    ax.set_title('Training Loss for %s' % type)
-                    plt.show()
-                    plt.close()
-    elif args.goal_type == 'pick':
-        if len(dataset) > 0:
-            losses, ax = inner_loop(dataset, model)
-            all_losses[type] = losses
-            if plot:
-                ax.set_title('Training Loss')
-                plt.show()
-                plt.close()
-    return all_losses
+    for action, action_dict in dataset.datasets.items():
+        for obj, action_object_dataset in action_dict.items():
+            if len(action_object_dataset) > 0:
+                print('Training %s %s ensemble with |dataset| = %i' % (action, obj, len(dataset)))
+                losses = inner_loop(action_object_dataset, model.ensembles[action][obj])

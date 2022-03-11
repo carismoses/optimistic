@@ -25,7 +25,7 @@ EPS = 1e-5
 
 
 def collect_trajectory_wrapper(args, pddl_model_type, dataset_logger, model_logger=None, \
-                            separate_process=False, save_to_dataset=True, goal_xy=None):
+                            separate_process=False, save_to_dataset=True, goal=None):
     if separate_process:
         # write solver args to file (remove if one is there)
         tmp_dir = 'temp'
@@ -36,7 +36,7 @@ def collect_trajectory_wrapper(args, pddl_model_type, dataset_logger, model_logg
             os.remove(in_pkl)
         with open(in_pkl, 'wb') as handle:
             pickle.dump([args, pddl_model_type, dataset_logger, model_logger, \
-                            save_to_dataset, goal_xy], handle)
+                            save_to_dataset, goal], handle)
 
         # call planner with pickle file
         print('Collecting trajectory.')
@@ -50,12 +50,12 @@ def collect_trajectory_wrapper(args, pddl_model_type, dataset_logger, model_logg
     else:
         # call planner
         trajectory = collect_trajectory(args, pddl_model_type, dataset_logger, \
-                                        model_logger, save_to_dataset, goal_xy)
+                                        model_logger, save_to_dataset, goal)
     return trajectory
 
 
 def collect_trajectory(args, pddl_model_type, dataset_logger, model_logger, \
-                            save_to_dataset, goal_xy):
+                            save_to_dataset, goal):
     # in sequential and learned methods data collection and training happen simultaneously
     if args.data_collection_mode == 'random-goals-learned' and not model_logger:
         model_logger = dataset_logger
@@ -63,15 +63,16 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, model_logger, \
         model_logger = dataset_logger
     world = ToolsWorld(args.vis,
                         model_logger,
-                        contact_types=args.contact_types)
+                        args.actions,
+                        args.objects)
 
     if args.data_collection_mode == 'random-actions':
         pddl_plan, problem, init_expanded = random_plan(world, 'optimistic')
     elif args.data_collection_mode == 'random-goals-opt':
-        goal, add_to_state = world.generate_goal(args.goal_obj, args.goal_type, goal_xy=goal_xy)
+        goal, add_to_state = world.generate_goal(goal=goal)
         pddl_plan, problem, init_expanded = goals(world, 'optimistic', goal, add_to_state)
     elif args.data_collection_mode == 'random-goals-learned':
-        goal, add_to_state = world.generate_goal(args.goal_obj, args.goal_type, goal_xy=goal_xy)
+        goal, add_to_state = world.generate_goal(goal=goal)
         pddl_plan, problem, init_expanded = goals(world, 'learned', goal, add_to_state)
     elif args.data_collection_mode == 'sequential-plans':
         pddl_plan, problem, init_expanded = sequential(args, world, 'plans', args.n_seq_plans, args.samples_from_file)
@@ -184,7 +185,7 @@ def random_plan(world, pddl_model_type, ret_states=False):
 
 # plans to achieve a random goal under the given (optimistic or learned) model
 def goals(world, pddl_model_type, goal, add_to_state, ret_states=False):
-    print('Goal: ', goal[2].pose[0][:2])
+    print('Goal: ', *goal[:2], goal[2].pose[0][:2])
     print('Planning with %s model'%pddl_model_type)
     if world.use_panda:
         world.panda.add_text('Planning with %s model'%pddl_model_type,
@@ -238,7 +239,7 @@ def sequential(args, world, mode, n_seq_plans, samples_from_file=False):
             if mode == 'plans':
                 pddl_plan, problem, init_expanded = random_plan(world, 'opt_no_traj')
             elif mode == 'goals':
-                goal, add_to_state = world.generate_goal(args.goal_obj, args.goal_type)
+                goal, add_to_state = world.generate_goal()
                 pddl_plan, problem, init_expanded = goals(world, 'opt_no_traj', goal, add_to_state)
         if pddl_plan:
             n_plans_searched += 1
@@ -256,9 +257,12 @@ def sequential_bald(plan, model, world, ret_states=False):
         if pddl_action.name == 'move_contact':
             x = world.action_to_vec(pddl_action)
             contact_type = pddl_action.args[5].type
-            predictions = model_forward(contact_type, model, x, single_batch=True)
+            action = '%s-%s' % ('push', contact_type)
+            obj_name = pddl_action.args[2].readableName
+            predictions = model_forward(model, x, action, obj_name, single_batch=True)
             mean_prediction = predictions.mean()
             score += mean_prediction*bald(predictions)
+        # TODO add 'pick' option
     if ret_states:
         return score, x
     else:

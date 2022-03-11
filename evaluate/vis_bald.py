@@ -13,7 +13,7 @@ def gen_plots(args):
     dir = 'bald'
 
     model_logger = ExperimentLogger(args.model_exp_path)
-    world = ToolsWorld(False, None, model_logger.args.contact_types)
+    world = ToolsWorld(False, None, model_logger.args.actions, model_logger.args.objects)
     dataset_lens = {}
     dataset_lens_set = False
     for dataset, di in model_logger.get_dataset_iterator(''):

@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from experiments.utils import ExperimentLogger
 from tamp.utils import execute_plan
 from experiments.strategies import collect_trajectory_wrapper
-from learning.utils import initialize_dataset
+from learning.datasets import OptDictDataset
 
 
 expert_feasible_goals = []
@@ -16,7 +16,7 @@ expert_feasible_goals = []
 # first try to get through expert goals (should be feasible)
 def gen_dataset(args, n_actions, dataset_logger, model_logger):
     if n_actions == 0:
-        dataset = initialize_dataset(args, args.contact_types)
+        dataset = OptDictDataset(args.actions, args.objects)
         dataset_logger.save_trans_dataset(dataset, '', i=n_actions)
     else:
         dataset = dataset.logger.load_trans_dataset('')
@@ -101,18 +101,14 @@ if __name__ == '__main__':
     parser.add_argument('--vis',
                         action='store_true',
                         help='use to visualize robot executions.')
-    parser.add_argument('--contact-types',
+    parser.add_argument('--actions',
                         type=str,
                         nargs='+',
-                        default=['poke', 'push_pull'])
-    parser.add_argument('--goal-obj',
-                        required=True,
+                        default=['pick', 'push-poke', 'push-push_pull'])
+    parser.add_argument('--objects',
                         type=str,
-                        choices=['yellow_block', 'blue_block'])
-    parser.add_argument('--goal-type',
-                        required=True,
-                        type=str,
-                        choices=['push', 'pick'])
+                        nargs='+',
+                        default=['yellow_block', 'blue_block'])
 
     # Data collection args
     parser.add_argument('--exp-name',

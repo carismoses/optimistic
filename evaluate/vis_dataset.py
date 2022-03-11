@@ -22,13 +22,13 @@ if __name__ == '__main__':
         import pdb; pdb.set_trace()
 
     logger = ExperimentLogger(args.exp_path)
-    world = ToolsWorld(False, None, goal_type=logger.args.goal_type, goal_obj=logger.args.goal_obj)
+    world = ToolsWorld(False, None, logger.args.actions, logger.args.objects)
     dir = 'dataset'
     dataset = logger.load_trans_dataset('')
     all_axes = {}
     ts = time.strftime('%Y%m%d-%H%M%S')
     if logger.args.goal_type == 'push':
-        contacts_fn = get_contact_gen(world.panda.planning_robot)
+        contacts_fn = get_contact_gen(world.panda.planning_robot, world.contact_types)
         contacts = contacts_fn(world.objects['tool'], world.objects['yellow_block'], shuffle=False)
 
         all_axes = {}

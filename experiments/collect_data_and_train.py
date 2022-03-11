@@ -4,22 +4,24 @@ import argparse
 from experiments.utils import ExperimentLogger
 from experiments.strategies import collect_trajectory_wrapper
 from domains.tools.world import MODEL_INPUT_DIMS
-from learning.utils import initialize_model, initialize_dataset, train_model
+from learning.utils import MLP, train_model
+from learning.models.ensemble import Ensembles
+from learning.datasets import OptDictDataset
 
 
 def train_class(args, logger, n_actions):
     pddl_model_type = 'learned' if 'learned' in args.data_collection_mode else 'optimistic'
 
     # get model params
-    base_args = {'n_in': MODEL_INPUT_DIMS[args.goal_type],
+    base_args = {'n_in': MODEL_INPUT_DIMS,
                 'n_hidden': args.n_hidden,
                 'n_layers': args.n_layers}
 
     # if new exp, save a randomly initialized model
     if n_actions == 0:
-        dataset = initialize_dataset(args, types=args.contact_types)
+        dataset = OptDictDataset(args.actions, args.objects)
         logger.save_trans_dataset(dataset, '', i=n_actions)
-        model = initialize_model(args, base_args, types=args.contact_types)
+        model = Ensembles(MLP, base_args, args.n_models, args.actions, args.objects)
         logger.save_trans_model(model, i=n_actions)
 
     while n_actions < args.max_actions:
@@ -29,8 +31,8 @@ def train_class(args, logger, n_actions):
 
         # train at training freq
         if not n_dataset_actions % args.train_freq:
-            model = initialize_model(args, base_args, types=args.contact_types)
-            train_model(model, dataset, args, types=args.contact_types)
+            model = Ensembles(MLP, base_args, args.n_models, args.actions, args.objects)
+            train_model(model, dataset, args)
 
             # save model and accuracy plots
             logger.save_trans_model(model, i=n_actions)
@@ -72,18 +74,14 @@ if __name__ == '__main__':
     parser.add_argument('--vis',
                         action='store_true',
                         help='use to visualize robot executions.')
-    parser.add_argument('--contact-types',
+    parser.add_argument('--actions',
                         type=str,
                         nargs='+',
-                        default=['poke', 'push_pull'])
-    parser.add_argument('--goal-obj',
-                        required=True,
+                        default=['pick', 'move_contact-poke', 'move_contact-push_pull'])
+    parser.add_argument('--objects',
                         type=str,
-                        choices=['yellow_block', 'blue_block'])
-    parser.add_argument('--goal-type',
-                        required=True,
-                        type=str,
-                        choices=['push', 'pick'])
+                        nargs='+',
+                        default=['yellow_block', 'blue_block'])
 
     # Data collection args
     parser.add_argument('--exp-name',

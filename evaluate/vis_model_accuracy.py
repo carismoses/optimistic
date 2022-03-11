@@ -10,9 +10,9 @@ from domains.tools.primitives import get_contact_gen
 
 def gen_plots(args):
     dir = 'accuracy'
-    world = ToolsWorld(False, None, ['poke', 'push_pull'])
 
     model_logger = ExperimentLogger(args.model_exp_path)
+    world = ToolsWorld(False, None, model_logger.args.actions, model_logger.args.objects)
     ensembles, mi = model_logger.load_trans_model(ret_i=True)
 
     if args.dataset_exp_path:
@@ -27,7 +27,7 @@ def gen_plots(args):
     ts = time.strftime('%Y%m%d-%H%M%S')
 
     # make a plot for each contact type (subplot for mean, std, and tool vis)
-    contacts_fn = get_contact_gen(world.panda.planning_robot, model_logger.args.contact_types)
+    contacts_fn = get_contact_gen(world.panda.planning_robot, world.contact_types)
     contacts = contacts_fn(world.objects['tool'], world.objects['yellow_block'], shuffle=False)
 
     mean_fn = get_model_accuracy_fn(ensembles, 'mean')

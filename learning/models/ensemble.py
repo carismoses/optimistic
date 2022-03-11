@@ -1,27 +1,39 @@
+from copy import copy
 import torch
 import torch.nn as nn
 
 
 class Ensembles(nn.Module):
-    def __init__(self, base_model, base_args, n_models, classes):
+    def __init__(self, base_model, base_args, n_models, actions, objects):
+        # actions_and_objects is a list of (action, object) tuples
+        # where action in {pick, push-poke, push-push_pull}
+        # object in {yellow_block, blue_block}
         super(Ensembles, self).__init__()
         self.base_model = base_model
-        self.base_args = base_args
+        self.all_n_in = copy(base_args['n_in'])
+        self.base_args = copy(base_args)
         self.n_models = n_models
-        self.classes = classes
+        self.actions = actions
+        self.objects = objects
         self.reset()
+
 
     def reset(self):
         self.ensembles = nn.ModuleDict()
-        for class_name in self.classes:
-            ensemble = Ensemble(self.base_model,
-                                self.base_args,
-                                self.n_models)
-            ensemble.reset()
-            self.ensembles[class_name] = ensemble
+        for action in self.actions:
+            for obj in self.objects:
+                if action not in self.ensembles:
+                    self.ensembles[action] = nn.ModuleDict()
+                self.base_args['n_in'] = self.all_n_in[action]
+                ensemble = Ensemble(self.base_model,
+                                    self.base_args,
+                                    self.n_models)
+                ensemble.reset()
+                self.ensembles[action][obj] = ensemble
 
-    def forward(self, x, class_name):
-        self.ensembles[class_name].forward()
+
+    def forward(self, x, action, obj):
+        self.ensembles[action][obj].forward()
 
 
 class Ensemble(nn.Module):

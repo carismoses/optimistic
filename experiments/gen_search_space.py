@@ -13,14 +13,13 @@ from tamp.utils import get_simple_state
 n_plans = 300       # number of plans per contact type
 save_path = 'logs/search_space_samples.pkl'
 fig_dir = 'logs/search_space_figs/'
-goal_obj='yellow_block'
-goal_type='push'
-contact_types=['push_pull', 'poke']
+actions = ['push-push_pull', 'push-poke', 'pick']
+objects = ['yellow_block', 'blue_block']
 restart = True
 #import pdb; pdb.set_trace()
 ##
 
-world = ToolsWorld(False, None, contact_types=contact_types)
+world = ToolsWorld(False, None, actions, objects)
 contacts_fn = get_contact_gen(world.panda.planning_robot, world.contact_types)
 contacts = contacts_fn(world.objects['tool'], world.objects['yellow_block'], shuffle=False)
 contact_preds = {}
@@ -46,7 +45,7 @@ print(counts)
 for ctype in contact_types:
     pi = counts[ctype]
     while pi < n_plans:
-        world = ToolsWorld(False, None, contact_types=[ctype])
+        world = ToolsWorld(False, None, actions, objects)
         goal, add_to_state = world.generate_goal(goal_obj, goal_type)
         pddl_plan, problem, init_expanded = goals(world, 'opt_no_traj', goal, add_to_state)
 
@@ -69,4 +68,3 @@ for ctype in contact_types:
             plt.savefig(fig_dir+ctype+'.png')
             plt.close()
         world.disconnect()
-

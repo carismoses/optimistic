@@ -94,7 +94,6 @@ def train(dataloader, model, val_dataloader=None, n_epochs=20, loss_fn=F.binary_
     # reinitialize model weights and train again if didn't converge
     if all_losses[-1] > final_loss_tol and n_restart < max_restarts:
         model.reset()
-        print('reset weights %i'%n_restart)
         return train(dataloader,
                         model,
                         val_dataloader=val_dataloader,

@@ -24,16 +24,18 @@ from domains.tools.primitives import get_free_motion_gen, \
     get_block_grasp_gen, get_contact_motion_gen, get_contact_gen, contact_approach_fn, ee_ik
 
 
-MODEL_INPUT_DIMS = {'push': 2, 'pick': 2}
+MODEL_INPUT_DIMS = {'push-poke': 2, 'push-push_pull': 2, 'pick': 2}
 
 # TODO: make parent world template class
 class ToolsWorld:
-    def __init__(self, vis, logger, contact_types):
+    def __init__(self, vis, logger, actions, objects):
         self.init_objs_pos_xy = {'yellow_block': (0.4, -0.3),
                                 'blue_block': (0.3, 0.3),
                                 'tool': (0.3, -0.45),
                                 'tunnel': (0.3, 0.3)}
-        self.contact_types = contact_types
+        self.contact_types = self.contact_types_from_actions(actions)
+        self.blocks = objects
+        self.actions = self.get_action_types_from_actions(actions)
 
         # goal sampling properties
         self.goal_limits = {'yellow_block': {'min_x': 0.05,
@@ -73,6 +75,22 @@ class ToolsWorld:
                             'move_free': self.get_move_free_action,
                             'move_contact': self.get_move_contact_action,
                             'move_holding': self.get_move_holding_action}
+
+
+    def contact_types_from_actions(self, actions):
+        types = []
+        for action in actions:
+            if 'push' in action:
+                types.append(action[5:])
+        return types
+
+
+    def get_action_types_from_actions(self, actions):
+        types = []
+        for action in actions:
+            hyphen_i = action.index('-')
+            types.append(action[:hyphen_i])
+        return types
 
 
     def get_init_state(self):
@@ -226,20 +244,28 @@ class ToolsWorld:
                     pb_robot.vobj.BodyPose(self.objects['yellow_block'], ((0,0,0),(0,0,0,1))))
 
 
-    def generate_goal(self, goal_obj, goal_type, show_goal=False, goal_xy=None):
+    # TODO: reimplement way to pass in a goal: object, action, and xy_pos
+    def generate_goal(self, goal=None):
+        random_block_i = np.random.randint(len(self.blocks))
+        goal_obj = self.blocks[random_block_i]
+
         object = self.objects[goal_obj]
         init_state = self.get_init_state()
         init_pose = self.get_obj_pose_from_state(object, init_state)
 
+        # select a random action
+        random_action_i = np.random.randint(len(self.actions))
+        action = self.actions[random_action_i]
+
         # select random point on table
         limits = self.goal_limits[goal_obj]
-        if goal_type == 'pick':
+        if action == 'pick':
             max_x = self.max_x_pick
         else:
             max_x = limits['max_x']
-        if not goal_xy:
-            goal_xy = np.array([np.random.uniform(limits['min_x'], max_x),
-                                np.random.uniform(limits['min_y'], limits['max_y'])])
+        #if not goal:
+        goal_xy = np.array([np.random.uniform(limits['min_x'], max_x),
+                            np.random.uniform(limits['min_y'], limits['max_y'])])
 
         # add desired pose to state
         goal_pose = ((goal_xy[0], goal_xy[1], init_pose[0][2]), init_pose[1])
@@ -252,7 +278,7 @@ class ToolsWorld:
         # visualize goal patch in pyBullet
         # WARNING: SHOWING THE GOAL MESSES UP THE ROBOT INTERACTIONS AND CAUSES COLLISIONS!
         # Do not use if trying to collect accurate data !!
-        if show_goal:
+        if False:
             name = 'goal_patch'
             color = (0.0, 1.0, 0.0, 1.0)
             urdf_path = 'tamp/urdf_models/%s.urdf' % name
@@ -263,8 +289,9 @@ class ToolsWorld:
             self.place_object(name, urdf_path, goal_xy, (0,0,0,1))
 
         # return goal
-        fluent = 'push' if goal_type=='push' else 'place'
-        self.goal = ('at%spose'%fluent, object, final_pose)
+        #if action == 'move_contact':
+        #    action = 'push'
+        self.goal = ('at%spose'%action, object, final_pose)
         return self.goal, add_to_state
 
 
@@ -282,11 +309,11 @@ class ToolsWorld:
 
     def action_to_vec(self, pddl_action):
         if pddl_action.name == 'move_contact':
-            x = np.zeros(MODEL_INPUT_DIMS['push'])
+
             # calculate the pose of the push goal in the contact frame
             cont = pddl_action.args[5]
             pose1 = pddl_action.args[3]
-
+            x = np.zeros(MODEL_INPUT_DIMS['push'+'-'+cont.type])
             # tool pose at contact
             block_world = pb_robot.geometry.tform_from_pose(pose1.pose)
             tool_w_tform = block_world@cont.rel_pose
@@ -298,7 +325,7 @@ class ToolsWorld:
             x[:] = goal_cont[:2]
             return x
         elif pddl_action.name == 'pick':
-            x = np.zeros(MODEL_INPUT_DIMS['pick'])
+            x = np.zeros(MODEL_INPUT_DIMS[pddl_action.name])
             pick_pose = pddl_action.args[1]
             pick_xy = pick_pose.pose[0][:2]
             x[:] = pick_xy
@@ -746,8 +773,8 @@ class ToolsWorld:
 
     def vis_dataset(self, ax, dataset, type, linestyle='-'):
         # plot initial position
-        if type == 'push':
-            self.plot_block(ax, (0,0), 'm')
+        #if type == 'push':
+        #    self.plot_block(ax, (0,0), 'm')
         for x, y in dataset:
             color = 'r' if y == 0 else 'g'
             ax.plot(*x, color+'.')

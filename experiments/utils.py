@@ -8,7 +8,8 @@ from argparse import Namespace
 import torch
 
 from domains.tools.world import MODEL_INPUT_DIMS
-from learning.utils import initialize_model
+from learning.utils import MLP
+from learning.models.ensemble import Ensembles
 
 
 class ExperimentLogger:
@@ -170,11 +171,11 @@ class ExperimentLogger:
                 fname = 'trans_model_%i.pt' % i
                 #print('Loading model %s.' % fname)
 
-        base_args = {'n_in': MODEL_INPUT_DIMS[self.args.goal_type],
+        base_args = {'n_in': MODEL_INPUT_DIMS,
                     'n_hidden': self.args.n_hidden,
                     'n_layers': self.args.n_layers}
         assert fname, 'No models found on path' % os.path.join(self.exp_path, 'models')
-        model = initialize_model(self.args, base_args, types=self.args.contact_types)
+        model = model = Ensembles(MLP, base_args, self.args.n_models, self.args.actions, self.args.objects)
         loc = 'cuda:0' if torch.cuda.is_available() else 'cpu'
         model.load_state_dict(torch.load(os.path.join(self.exp_path, 'models', fname), map_location=loc))
         if ret_i:
