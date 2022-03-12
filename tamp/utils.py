@@ -41,33 +41,15 @@ def pause(client=0):
         pass
 
 
-def random_actions(state, world, streams_map, action_name=None, action_kwargs={}, actions=[], all_expanded_states=[]):
+def random_action(state, world, streams_map):
     attempts = 50
-    attempt = 0
-    actions = copy(actions)
-    while attempt < attempts:
-        if action_name is None:
-            random_action_i = np.random.choice(len(world.action_fns))
-            random_action_name = list(world.action_fns.keys())[random_action_i]
-            random_action_fn = world.action_fns[random_action_name]
-        else:
-            random_action_fn = world.action_fns[action_name]
-        action_info = random_action_fn(state, streams_map, **action_kwargs)
+    for _ in range(attempts):
+        random_action_i = np.random.choice(len(world.action_fns))
+        random_action_name = list(world.action_fns.keys())[random_action_i]
+        random_action_fn = world.action_fns[random_action_name]
+        action_info = random_action_fn(state, streams_map)
         if action_info is not None:
-            action, expanded_states, pre_action_name, pre_action_kwargs = action_info
-            actions.insert(0, action)
-            all_expanded_states.append(*expanded_states)
-            if pre_action_name is not None:
-                return random_actions(state,
-                                world,
-                                streams_map,
-                                action_name=pre_action_name,
-                                action_kwargs=pre_action_kwargs,
-                                actions=actions,
-                                all_expanded_states=all_expanded_states)
-            else:
-                return actions, all_expanded_states
-        attempt += 1
+            return action_info
     return None
 
 '''

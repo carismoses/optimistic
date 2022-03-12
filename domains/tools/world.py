@@ -51,7 +51,7 @@ class ToolsWorld:
         self.use_panda = True
         self.panda = PandaAgent(vis)
         self.panda.plan()
-        self.objects, self.orig_poses, self.obj_init_state = self.place_objects(place_tunnel=False)
+        self.objects, self.obj_init_poses, self.obj_init_state = self.place_objects(place_tunnel=False)
         self.panda_init_state = self.panda.get_init_state()
         self.panda.execute()
         self.place_objects(place_tunnel=True)
@@ -88,8 +88,11 @@ class ToolsWorld:
     def get_action_types_from_actions(self, actions):
         types = []
         for action in actions:
-            hyphen_i = action.index('-')
-            types.append(action[:hyphen_i])
+            if '-' in action:
+                hyphen_i = action.index('-')
+                types.append(action[:hyphen_i])
+            else:
+                types.append(action)
         return types
 
 
@@ -122,7 +125,6 @@ class ToolsWorld:
     def place_objects(self, place_tunnel=True):
         pb_objects, orig_poses = {}, {}
         init_state = []
-        self.obj_init_poses = {}
 
         # tool
         tool_name = 'tool'
@@ -133,7 +135,6 @@ class ToolsWorld:
                                             orn)
         pb_objects[tool_name] = tool
         orig_poses[tool_name] = pb_pose
-        self.obj_init_poses[tool_name] = pb_pose
         init_state += [('tool', tool),
                         ('on', tool, self.panda.table),
                         ('atpose', tool, pb_pose),
@@ -151,7 +152,6 @@ class ToolsWorld:
                                         orn)
         pb_objects[name] = block
         orig_poses[name] = pb_pose
-        self.obj_init_poses[name] = pb_pose
         init_state += [('block', block),
                         ('on', block, self.panda.table),
                         ('atpose', block, pb_pose),
@@ -170,7 +170,6 @@ class ToolsWorld:
                                     orn)
         pb_objects[name] = block
         orig_poses[name] = pb_pose
-        self.obj_init_poses[name] = pb_pose
         init_state += [('block', block),
                         ('on', block, self.panda.table),
                         ('atpose', block, pb_pose),
@@ -448,14 +447,14 @@ class ToolsWorld:
             return None
 
         conf1, conf2, traj = pick_params
-        action = Action(name='pick',
+        pick_action = Action(name='pick',
                         args=(top_obj, top_pose, bot_obj, grasp, *pick_params))
-        expanded_states = [('pickkin', top_obj, top_pose, grasp, *pick_params)]
+        pick_expanded_states = [('pickkin', top_obj, top_pose, grasp, *pick_params)]
 
         # first have to move to initial pick conf
-        pre_action_name = 'move_free'
-        pre_action_kwargs = {'conf2': conf1}
-        return action, expanded_states, pre_action_name, pre_action_kwargs
+        move_free_action, move_free_expanded_states = self.get_move_free_action(state, streams_map, conf2=conf1)
+
+        return [move_free_action[0], pick_action], pick_expanded_states+move_free_expanded_states
 
 
     def get_place_action(self, state, streams_map, top_obj=None, top_pose=None, bot_obj=None, \
@@ -495,15 +494,14 @@ class ToolsWorld:
             return None
 
         conf1, conf2, traj = place_params
-        action = Action(name='place',
+        place_action = Action(name='place',
                         args=(top_obj, top_pose, bot_obj, bot_pose, holding_grasp,
                                 *place_params))
-        expanded_states = [('placekin', top_obj, top_pose, grasp, *place_params)]
+        place_expanded_states = [('placekin', top_obj, top_pose, grasp, *place_params)]
 
-        # first have to move to initial pick conf
-        pre_action_name = 'move_holding'
-        pre_action_kwargs = {'conf2': conf1}
-        return action, expanded_states, pre_action_name, pre_action_kwargs
+        # first have to move to initial place conf
+        move_holding_action, move_holding_expanded_states = self.get_move_holding_action(state, streams_map, conf2=conf1)
+        return [move_holding_action[0], place_action], place_expanded_states+move_holding_expanded_states
 
 
     def get_move_free_action(self, state, streams_map, conf1=None, conf2=None, traj=None):
@@ -534,7 +532,7 @@ class ToolsWorld:
 
         action = Action(name='move_free', args=(conf1, conf2, *traj))
         expanded_states = [('freemotion', conf1, conf2, *traj)]
-        return action, expanded_states, None, None
+        return [action], expanded_states
 
 
     def get_move_holding_action(self, state, streams_map, obj=None, grasp=None, conf1=None, \
@@ -568,7 +566,7 @@ class ToolsWorld:
 
         action = Action(name='move_holding', args=(obj, grasp, conf1, conf2, *traj))
         expanded_states = [('holdingmotion', obj, grasp, conf1, conf2, *traj)]
-        return action, expanded_states, None, None
+        return [action], expanded_states
 
 
     def get_move_contact_action(self, state, streams_map, tool=None, grasp=None, pushed_obj=None, \
@@ -621,28 +619,29 @@ class ToolsWorld:
         if pose2 is None:
             block_name = pushed_obj.readableName
             limits = self.goal_limits[block_name]
-            pose2_pos_xy = np.array([np.random.uniform([limits['min_x'], limits['max_x']]),
-                                    np.random.uniform([limits['min_y'], limits['max_y']])])
+            pose2_pos_xy = np.array([np.random.uniform(limits['min_x'], limits['max_x']),
+                                    np.random.uniform(limits['min_y'], limits['max_y'])])
             pose2 = pb_robot.vobj.BodyPose(pushed_obj,
                                 ((*pose2_pos_xy, pose1.pose[0][2]),
-                                pushed_obj_pose.pose[1]))
+                                pose1.pose[1]))
         if pose2 is None:
             return None
 
         if conf1 is None or conf2 is None or conf3 is None or traj is None:
-            move_params = streams_map['plan-contact-motion'](tool, grasp, pushed_obj, pose1, pose2, cont).next()[0][0]
+            move_params = streams_map['plan-contact-motion'](tool, grasp, pushed_obj, pose1, pose2, cont).next()[0]
         if move_params is None:
             return None
         conf1, conf2, conf3, traj = move_params
 
         # first have to move to initial pick conf
-        action = Action(name='move_contact',
+        move_contact_action = Action(name='move_contact',
                     args=(tool, grasp, pushed_obj, pose1, pose2, cont, *move_params))
-        expanded_states = [('contactmotion', tool, grasp, pushed_obj, pose1, pose2, \
+        move_contact_expanded_states = [('contactmotion', tool, grasp, pushed_obj, pose1, pose2, \
             cont, *move_params)]
-        pre_action_name = 'move_holding'
-        pre_action_kwargs = {'conf2': conf1}
-        return action, expanded_states, pre_action_name, pre_action_kwargs
+
+        # first have to move to initial place conf
+        move_holding_action, move_holding_expanded_states = self.get_move_holding_action(state, streams_map, conf2=conf1)
+        return [move_holding_action[0], move_contact_action], move_holding_expanded_states+move_contact_expanded_states
 
 
     def get_random_conf(self, ee_orn, n_attempts=50):
@@ -684,7 +683,7 @@ class ToolsWorld:
         if frame == 'world':
             init_block_pos = self.init_objs_pos_xy[block_name]
             # TODO: this assumes that the block is always aligned with the world frame
-            block_world = pb_robot.geometry.tform_from_pose(self.orig_poses[block_name].pose)
+            block_world = pb_robot.geometry.tform_from_pose(self.obj_init_poses[block_name].pose)
             tool_tform = block_world@cont.rel_pose
         elif frame == 'cont':
             init_block_pos = (0., 0.)

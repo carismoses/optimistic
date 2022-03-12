@@ -77,7 +77,7 @@ if __name__ == '__main__':
     parser.add_argument('--actions',
                         type=str,
                         nargs='+',
-                        default=['pick', 'move_contact-poke', 'move_contact-push_pull'])
+                        default=['pick', 'push-poke', 'push-push_pull'])
     parser.add_argument('--objects',
                         type=str,
                         nargs='+',

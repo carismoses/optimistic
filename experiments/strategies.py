@@ -14,7 +14,7 @@ from pddlstream.language.constants import Certificate, Action
 
 from tamp.utils import execute_plan, get_simple_state, task_from_problem, \
                         get_fd_action, postprocess_plan, failed_abstract_plan_to_traj, \
-                        random_actions
+                        random_action
 from learning.utils import model_forward, add_trajectory_to_dataset
 from domains.tools.primitives import get_traj
 from domains.tools.world import ToolsWorld
@@ -156,7 +156,7 @@ def random_plan(world, pddl_model_type, ret_states=False):
     while len(pddl_plan) < MAX_PLAN_LEN:
         # get random actions
         pddl_state = get_simple_state(pddl_state)
-        action_info = random_actions(pddl_state, world, streams_map)
+        action_info = random_action(pddl_state, world, streams_map)
         if action_info is None:
             break
         else:
