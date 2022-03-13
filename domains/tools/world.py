@@ -489,15 +489,15 @@ class ToolsWorld:
 
         # ground traj parameters
         if conf1 is None or conf2 is None or traj is None:
-            place_params = streams_map['place-inverse-kinematics'](top_obj, top_pose, grasp).next()[0]
-        if place_params is None:
-            return None
+            stream_result = streams_map['place-inverse-kinematics'](top_obj, top_pose, grasp).next()
+            if len(stream_result) == 0:
+                return None
+        conf1, conf2, traj = stram_result[0]
 
-        conf1, conf2, traj = place_params
         place_action = Action(name='place',
                         args=(top_obj, top_pose, bot_obj, bot_pose, holding_grasp,
-                                *place_params))
-        place_expanded_states = [('placekin', top_obj, top_pose, grasp, *place_params)]
+                                conf1, conf2, traj))
+        place_expanded_states = [('placekin', top_obj, top_pose, grasp, conf1, conf2, traj)]
 
         # first have to move to initial place conf
         move_holding_action, move_holding_expanded_states = self.get_move_holding_action(state, streams_map, conf2=conf1)
@@ -526,12 +526,13 @@ class ToolsWorld:
 
         # solve for traj
         if traj is None:
-            traj = streams_map['plan-free-motion'](conf1, conf2).next()[0]
-        if traj is None:
-            return None
+            stream_result = streams_map['plan-free-motion'](conf1, conf2).next()
+            if len(stream_result) == 0:
+                return None
+        traj = stream_result[0][0]
 
-        action = Action(name='move_free', args=(conf1, conf2, *traj))
-        expanded_states = [('freemotion', conf1, conf2, *traj)]
+        action = Action(name='move_free', args=(conf1, conf2, traj))
+        expanded_states = [('freemotion', conf1, conf2, traj)]
         return [action], expanded_states
 
 
@@ -628,16 +629,17 @@ class ToolsWorld:
             return None
 
         if conf1 is None or conf2 is None or conf3 is None or traj is None:
-            move_params = streams_map['plan-contact-motion'](tool, grasp, pushed_obj, pose1, pose2, cont).next()[0]
-        if move_params is None:
-            return None
-        conf1, conf2, conf3, traj = move_params
+            stream_result = streams_map['plan-contact-motion'](tool, grasp, pushed_obj, pose1, pose2, cont).next()
+            if len(stream_result) == 0:
+                return None
+        conf1, conf2, conf3, traj = stream_result[0]
 
         # first have to move to initial pick conf
         move_contact_action = Action(name='move_contact',
-                    args=(tool, grasp, pushed_obj, pose1, pose2, cont, *move_params))
+                    args=(tool, grasp, pushed_obj, pose1, pose2, cont, conf1, \
+                            conf2, conf3, traj))
         move_contact_expanded_states = [('contactmotion', tool, grasp, pushed_obj, pose1, pose2, \
-            cont, *move_params)]
+            cont, conf1, conf2, conf3, traj)]
 
         # first have to move to initial place conf
         move_holding_action, move_holding_expanded_states = self.get_move_holding_action(state, streams_map, conf2=conf1)
