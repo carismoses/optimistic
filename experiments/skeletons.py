@@ -1,7 +1,9 @@
 from copy import copy
 
-from tamp.utils import get_simple_state, task_from_problem, get_fd_action
+from pddlstream.language.constants import Certificate
 from pddlstream.algorithms.downward import fact_from_fd, apply_action
+
+from tamp.utils import get_simple_state, task_from_problem, get_fd_action, execute_plan
 
 
 n_attempts = 50  # number of attempts to ground each action in skeleton
@@ -97,18 +99,20 @@ def plan_from_skeleton(skeleton, world):
                 if hash_args[skeleton_arg] is None:
                     hash_args[skeleton_arg] = grounded_action_arg
 
-        pddl_plan.append(pddl_actions)
+        pddl_plan += pddl_actions
 
-    return pddl_plan
+    init_expanded = Certificate(world.get_init_state()+all_expanded_states, [])
+    return pddl_plan, problem, init_expanded
 
 
 if __name__ == '__main__':
     from domains.tools.world import ToolsWorld
 
-    import pdb; pdb.set_trace()
+    #import pdb; pdb.set_trace()
     actions = ['push-push_pull', 'push-poke', 'pick']
     objects = ['yellow_block', 'blue_block']
     world = ToolsWorld(False, None, actions, objects)
 
     push_skeleton = get_skeletons(world)
-    plan = plan_from_skeleton(push_skeleton, world)
+    pddl_plan, problem, init_expanded = plan_from_skeleton(push_skeleton, world)
+    execute_plan(world, problem, pddl_plan, init_expanded)
