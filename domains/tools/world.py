@@ -290,8 +290,8 @@ class ToolsWorld:
         # return goal
         #if action == 'move_contact':
         #    action = 'push'
-        self.goal = ('at%spose'%action, object, final_pose)
-        return self.goal, add_to_state
+        goal = ('at%spose'%action, object, final_pose)
+        return goal, add_to_state
 
 
     def get_obj_pose_from_state(self, object, state):
@@ -312,7 +312,7 @@ class ToolsWorld:
             # calculate the pose of the push goal in the contact frame
             cont = pddl_action.args[5]
             pose1 = pddl_action.args[3]
-            x = np.zeros(MODEL_INPUT_DIMS['push'+'-'+cont.type])
+            x = np.zeros(MODEL_INPUT_DIMS['push-'+cont.type])
             # tool pose at contact
             block_world = pb_robot.geometry.tform_from_pose(pose1.pose)
             tool_w_tform = block_world@cont.rel_pose
@@ -408,7 +408,7 @@ class ToolsWorld:
         # check that obj to be picked is a freeObj and is on another obj and
         # TODO: we should check if bot_obj is None
         if top_obj is None:
-            shuffled_objects = list(self.objects.values())
+            shuffled_objects = self.blocks + self.objects['tool']
             random.shuffle(shuffled_objects)
             for obj in shuffled_objects:
                 if ('freeobj', obj) in state:
@@ -593,7 +593,7 @@ class ToolsWorld:
 
         # get pushed object
         if pushed_obj is None:
-            shuffled_objects = list(self.objects.values())
+            shuffled_objects = self.blocks
             random.shuffle(shuffled_objects)
             for obj in shuffled_objects:
                 if ('freeobj', obj) in state and \
