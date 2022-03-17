@@ -6,9 +6,11 @@ from pddlstream.algorithms.downward import fact_from_fd, apply_action
 from tamp.utils import get_simple_state, task_from_problem, get_fd_action, execute_plan
 
 
-n_attempts = 50  # number of attempts to ground each action in skeleton
+n_attempts = 30  # number of attempts to ground each action in skeleton
 
-def get_skeletons(world):
+def get_skeletons(world, goal_pred):
+    goal_obj = goal_pred[1]
+    goal_pose = goal_pred[2]
     # move_free is generated before picks and move_holdings are generated before places and move_contacts
     # and move_contacts
     push_skeleton = [
@@ -22,9 +24,9 @@ def get_skeletons(world):
                     None)),
         ('move_contact', (world.objects['tool'],
                     '#g1',
+                    goal_obj,
                     None,
-                    None,
-                    None,
+                    goal_pose,
                     None,
                     None,
                     None,
@@ -41,9 +43,9 @@ def get_skeletons(world):
     return push_skeleton
 
 
-def plan_from_skeleton(skeleton, world):
+def plan_from_skeleton(skeleton, world, pddl_model_type):
     pddl_state = world.get_init_state()
-    pddl_info = world.get_pddl_info('optimistic')
+    pddl_info = world.get_pddl_info(pddl_model_type)
     streams_map = pddl_info[3]
     dummy_goal = world.generate_dummy_goal()
     all_expanded_states = []
@@ -114,5 +116,5 @@ if __name__ == '__main__':
     world = ToolsWorld(False, None, actions, objects)
 
     push_skeleton = get_skeletons(world)
-    pddl_plan, problem, init_expanded = plan_from_skeleton(push_skeleton, world)
+    pddl_plan, problem, init_expanded = plan_from_skeleton(push_skeleton, world, 'optimistic')
     execute_plan(world, problem, pddl_plan, init_expanded)
