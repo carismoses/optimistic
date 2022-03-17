@@ -246,7 +246,7 @@ class ToolsWorld:
 
 
     # TODO: reimplement way to pass in a goal: object, action, and xy_pos
-    def generate_goal(self, goal=None):
+    def generate_goal(self):
         random_block_i = np.random.randint(len(self.blocks))
         goal_obj = self.blocks[random_block_i]
 
@@ -254,18 +254,10 @@ class ToolsWorld:
         init_state = self.get_init_state()
         init_pose = self.get_obj_pose_from_state(object, init_state)
 
-        # select a random action
-        random_action_i = np.random.randint(len(self.actions))
-        action = self.actions[random_action_i]
-
         # select random point on table
         limits = self.goal_limits[goal_obj]
-        if action == 'pick':
-            max_x = self.max_x_pick
-        else:
-            max_x = limits['max_x']
-        #if not goal:
-        goal_xy = np.array([np.random.uniform(limits['min_x'], max_x),
+
+        goal_xy = np.array([np.random.uniform(limits['min_x'], limits['max_x']),
                             np.random.uniform(limits['min_y'], limits['max_y'])])
 
         # add desired pose to state
@@ -288,10 +280,7 @@ class ToolsWorld:
             self.panda.plan()
             self.place_object(name, urdf_path, goal_xy, (0,0,0,1))
 
-        # return goal
-        #if action == 'move_contact':
-        #    action = 'push'
-        goal = ('at%spose'%action, object, final_pose)
+        goal = ('atpose', object, final_pose)
         return goal, add_to_state
 
 
