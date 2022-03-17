@@ -115,8 +115,85 @@ def get_skeleton_fns():
                     None))
         ]
     # push block twice
-    #move_free, pick_tool, move_holding, move_contact, move_holding, move_contact
-    return [push_skeleton, pick_skeleton, push_pick_skeleton]
+    push_push_skeleton = lambda world, goal_pred : \
+        [
+        # pick tool
+        ('pick', (world.objects['tool'],
+                    world.obj_init_poses['tool'],
+                    world.panda.table,
+                    '#g1',
+                    None,
+                    None,
+                    None)),
+
+        # push block
+        ('move_contact', (world.objects['tool'],
+                    '#g1',
+                    goal_pred[1],
+                    world.obj_init_poses[goal_pred[1].readableName],
+                    '#p1',
+                    None,
+                    None,
+                    None,
+                    None,
+                    None)),
+
+        # push block
+        ('move_contact', (world.objects['tool'],
+                    '#g1',
+                    goal_pred[1],
+                    '#p1',
+                    goal_pred[2],
+                    None,
+                    None,
+                    None,
+                    None,
+                    None))
+    ]
+
+    # pick and place block twice
+    pick_pick_skeleton = lambda world, goal_pred : \
+        [
+        # pick block
+        ('pick', (goal_pred[1],
+                    world.obj_init_poses[goal_pred[1].readableName],
+                    world.panda.table,
+                    '#g1',
+                    None,
+                    None,
+                    None)),
+
+        # place block
+        ('place', (goal_pred[1],
+                    '#p1',
+                    world.panda.table,
+                    world.panda.table_pose,
+                    '#g1',
+                    None,
+                    None,
+                    None)),
+
+        # pick block
+        ('pick', (goal_pred[1],
+                    '#p1',
+                    world.panda.table,
+                    '#g2',
+                    None,
+                    None,
+                    None)),
+
+        # place block
+        ('place', (goal_pred[1],
+                    goal_pred[2],
+                    world.panda.table,
+                    world.panda.table_pose,
+                    '#g2',
+                    None,
+                    None,
+                    None))
+        ]
+    return [push_skeleton, pick_skeleton, push_pick_skeleton, push_push_skeleton, \
+            pick_pick_skeleton]
 
 
 def plan_from_skeleton(skeleton, world, pddl_model_type, add_to_state):

@@ -51,7 +51,6 @@ class ToolsWorld:
                                             'max_x': 0.85,
                                             'min_y': 0.5,
                                             'max_y':-0.5}}
-        self.max_x_pick = 0.55
 
         self.use_panda = True
         self.panda = PandaAgent(vis)
@@ -72,7 +71,7 @@ class ToolsWorld:
 
         # parameters that will be learned
         self.push_goal_radius = 0.05
-        self.valid_pick_yellow_radius = 0.4
+        self.valid_pick_yellow_radius = 0.51
         self.approx_valid_push_angle = np.pi/32
 
         # action functions
@@ -225,7 +224,7 @@ class ToolsWorld:
                                                             self.fixed,
                                                             approach_frame='global',
                                                             backoff_frame='gripper')),
-            'sample-pose-block': from_fn(get_pose_gen_block(self.fixed)),
+            'sample-pose-block': from_fn(get_pose_gen_block(self, self.fixed)),
             'sample-pose-tool': from_fn(get_pose_gen_tool(self, self.fixed)),
             'sample-block-grasp': from_list_fn(get_block_grasp_gen(robot)),
             'sample-tool-grasp': from_list_fn(get_tool_grasp_gen(robot)),

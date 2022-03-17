@@ -457,21 +457,33 @@ def get_ik_fn(world, robot, fixed=[], num_attempts=4, approach_frame='gripper', 
     return fn
 
 
-# placement pose for a block
-def get_pose_gen_block(fixed=[]):
-    def fn(top_block, bottom_block, bottom_block_pose):
-        # NOTE: this assumes we want all blocks at the same orientation always (when not held)
-        # and that all blocks start off at orn (0,0,0,1)
-        bottom_block_tform = pb_robot.geometry.tform_from_pose(bottom_block_pose.pose)
-        rel_z_pose = bottom_block.get_dimensions()[2]/2+top_block.get_dimensions()[2]/2
-        rel_tform = np.array([[1.  , 0.  , 0.  , 0.  ],
-                            [0.  , 1.  , 0.  , 0.  ],
-                            [0.  , 0.  , 1.  , rel_z_pose],
-                            [0.  , 0.  , 0.  , 1.  ]])
-        top_block_tform = bottom_block_tform@rel_tform
-        top_block_pose = pb_robot.geometry.pose_from_tform(top_block_tform)
-        top_block_pose  = pb_robot.vobj.BodyPose(top_block, top_block_pose)
-        return (top_block_pose,)
+# placement pose for a block on table or another block
+def get_pose_gen_block(world, fixed=[]):
+    def fn(top_block, bottom_obj, bottom_obj_pose):
+        # for placing block randomly on table
+        if 'table' in bottom_obj.readableName:
+            limits = world.goal_limits[top_block.readableName]
+            pos_z = world.obj_init_poses[top_block.readableName].pose[0][2]
+            orn = world.obj_init_poses[top_block.readableName].pose[1]
+            pos_xy = np.array([np.random.uniform(limits['min_x'], limits['max_x']),
+                                np.random.uniform(limits['min_y'], limits['max_y'])])
+            pose = ((*pos_xy, pos_z), orn)
+            block_pose = pb_robot.vobj.BodyPose(top_block, pose)
+            return (block_pose,)
+        # for placing blocks axis-aligned on top of eachother
+        else:
+            # NOTE: this assumes we want all blocks at the same orientation always (when not held)
+            # and that all blocks start off at orn (0,0,0,1)
+            bottom_block_tform = pb_robot.geometry.tform_from_pose(bottom_obj_pose.pose)
+            rel_z_pose = bottom_obj.get_dimensions()[2]/2+top_block.get_dimensions()[2]/2
+            rel_tform = np.array([[1.  , 0.  , 0.  , 0.  ],
+                                [0.  , 1.  , 0.  , 0.  ],
+                                [0.  , 0.  , 1.  , rel_z_pose],
+                                [0.  , 0.  , 0.  , 1.  ]])
+            top_block_tform = bottom_block_tform@rel_tform
+            top_block_pose = pb_robot.geometry.pose_from_tform(top_block_tform)
+            top_block_pose  = pb_robot.vobj.BodyPose(top_block, top_block_pose)
+            return (top_block_pose,)
     return fn
 
 # placement pose for tool
