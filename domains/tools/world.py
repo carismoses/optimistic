@@ -57,6 +57,8 @@ class ToolsWorld:
         self.place_objects(place_tunnel=True)
         self.panda.plan()
         self.fixed = [self.panda.table]
+        self.table_pose = pb_robot.vobj.BodyPose(self.panda.table, self.panda.table.get_base_link_pose())
+        self.obj_init_poses['table'] = self.table_pose
 
         # TODO: test without gravity?? maybe will stop robot from jumping around so much
         p.setGravity(0, 0, -9.81, physicsClientId=self.panda._execution_client_id)
@@ -269,10 +271,9 @@ class ToolsWorld:
         # add desired pose to state
         goal_pose = ((goal_xy[0], goal_xy[1], init_pose[0][2]), init_pose[1])
         final_pose = pb_robot.vobj.BodyPose(object, goal_pose)
-        table_pose = pb_robot.vobj.BodyPose(self.panda.table, self.panda.table.get_base_link_pose())
         add_to_state = [('pose', object, final_pose),
-                        ('supported', object, final_pose, self.panda.table, table_pose),
-                        ('atpose', self.panda.table, table_pose)]
+                        ('supported', object, final_pose, self.panda.table, self.table_pose),
+                        ('atpose', self.panda.table, self.table_pose)]
 
         # visualize goal patch in pyBullet
         # WARNING: SHOWING THE GOAL MESSES UP THE ROBOT INTERACTIONS AND CAUSES COLLISIONS!
@@ -443,17 +444,15 @@ class ToolsWorld:
 
         # solve for pick configurations and trajectory
         if conf1 is None or conf2 is None or traj is None:
-            pick_params = streams_map['pick-inverse-kinematics'](top_obj, top_pose, grasp).next()
-            if len(pick_params) == 0:
+            stream_result = streams_map['pick-inverse-kinematics'](top_obj, top_pose, grasp).next()
+            if len(stream_result) == 0:
                 return None
-            pick_params = pick_params[0]
-        if pick_params is None:
-            return None
+        conf1, conf2, traj = stream_result[0]
 
-        conf1, conf2, traj = pick_params
+        #conf1, conf2, traj = pick_params
         pick_action = Action(name='pick',
-                        args=(top_obj, top_pose, bot_obj, grasp, *pick_params))
-        pick_expanded_states = [('pickkin', top_obj, top_pose, grasp, *pick_params)]
+                        args=(top_obj, top_pose, bot_obj, grasp, conf1, conf2, traj))
+        pick_expanded_states = [('pickkin', top_obj, top_pose, grasp, conf1, conf2, traj)]
 
         # first have to move to initial pick conf
         move_free_action, move_free_expanded_states = self.get_move_free_action(state, streams_map, conf2=conf1)
@@ -496,10 +495,10 @@ class ToolsWorld:
             stream_result = streams_map['place-inverse-kinematics'](top_obj, top_pose, grasp).next()
             if len(stream_result) == 0:
                 return None
-        conf1, conf2, traj = stram_result[0]
+        conf1, conf2, traj = stream_result[0]
 
         place_action = Action(name='place',
-                        args=(top_obj, top_pose, bot_obj, bot_pose, holding_grasp,
+                        args=(top_obj, top_pose, bot_obj, bot_pose, grasp,
                                 conf1, conf2, traj))
         place_expanded_states = [('placekin', top_obj, top_pose, grasp, conf1, conf2, traj)]
 
@@ -565,9 +564,10 @@ class ToolsWorld:
             return None
 
         if traj is None:
-            traj = streams_map['plan-holding-motion'](obj, grasp, conf1, conf2).next()[0]
-        if traj is None:
-            return None
+            stream_result = streams_map['plan-holding-motion'](obj, grasp, conf1, conf2).next()
+            if len(stream_result) == 0:
+                return None
+        traj = stream_result[0]
 
         action = Action(name='move_holding', args=(obj, grasp, conf1, conf2, *traj))
         expanded_states = [('holdingmotion', obj, grasp, conf1, conf2, *traj)]

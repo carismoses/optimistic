@@ -8,12 +8,13 @@ from tamp.utils import get_simple_state, task_from_problem, get_fd_action, execu
 
 n_attempts = 30  # number of attempts to ground each action in skeleton
 
-def get_skeletons(world, goal_pred):
-    goal_obj = goal_pred[1]
-    goal_pose = goal_pred[2]
+# return a list of skeletons which are functions that take in a goal pose
+# and return a skeleton for reaching that goal
+def get_skeleton_fns():
     # move_free is generated before picks and move_holdings are generated before places and move_contacts
     # and move_contacts
-    push_skeleton = [
+    push_skeleton = lambda world, goal_pred : \
+        [
         # push block
         ('pick', (world.objects['tool'],
                     world.obj_init_poses['tool'],
@@ -24,11 +25,32 @@ def get_skeletons(world, goal_pred):
                     None)),
         ('move_contact', (world.objects['tool'],
                     '#g1',
-                    goal_obj,
+                    goal_pred[1],
                     None,
-                    goal_pose,
+                    goal_pred[2],
                     None,
                     None,
+                    None,
+                    None,
+                    None))
+    ]
+
+    # pick and place block
+    pick_skeleton = lambda world, goal_pred : \
+        [
+        # pick block
+        ('pick', (goal_pred[1],
+                    world.obj_init_poses[goal_pred[1].readableName],
+                    world.panda.table,
+                    '#g1',
+                    None,
+                    None,
+                    None)),
+        ('place', (goal_pred[1],
+                    goal_pred[2],
+                    world.panda.table,
+                    world.obj_init_poses['table'],
+                    '#g1',
                     None,
                     None,
                     None))
@@ -39,12 +61,12 @@ def get_skeletons(world, goal_pred):
     #move_free, pick_tool, move_holding, move_contact, move_holding, place_tool, move_free, pick_block, move_holding, place_block
 
     # push block twice
-    #move_free, pick_tool, move_holding, move_contact, move_holcing, move_contact
-    return push_skeleton
+    #move_free, pick_tool, move_holding, move_contact, move_holding, move_contact
+    return [push_skeleton, pick_skeleton]
 
 
-def plan_from_skeleton(skeleton, world, pddl_model_type):
-    pddl_state = world.get_init_state()
+def plan_from_skeleton(skeleton, world, pddl_model_type, add_to_state):
+    pddl_state = world.get_init_state()+add_to_state
     pddl_info = world.get_pddl_info(pddl_model_type)
     streams_map = pddl_info[3]
     dummy_goal = world.generate_dummy_goal()
