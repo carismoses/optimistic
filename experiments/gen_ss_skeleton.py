@@ -103,7 +103,8 @@ def plot_action(world, action, ax, contact_preds, ctype):
         ax.plot(*goal_xy, 'k.')
         world.vis_tool_ax(contact_preds[ctype], ax, frame='cont')
     elif action.name == 'pick':
-        pass
+        pick_pos_xy = action.args[1].pose[0][:2]
+        ax.plot(*pick_pos_xy, 'k.')
     elif action.name == 'place':
         place_pos_xy = action.args[1].pose[0][:2]
         ax.plot(*place_pos_xy, 'k.')
