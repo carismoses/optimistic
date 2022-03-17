@@ -119,12 +119,12 @@ class PandaAgent:
         Get the PDDL representation of the robot and table.
         """
         conf = pb_robot.vobj.BodyConf(self.planning_robot, self.planning_robot.arm.GetJointValues())
-        table_pose = pb_robot.vobj.BodyPose(self.table, self.table.get_base_link_pose())
+        self.table_pose = pb_robot.vobj.BodyPose(self.table, self.table.get_base_link_pose())
         init = [('conf', conf),
                 ('atconf', conf),
                 ('handempty',),
-                ('pose', self.table, table_pose),
-                ('atpose', self.table, table_pose),
+                ('pose', self.table, self.table_pose),
+                ('atpose', self.table, self.table_pose),
                 ('table', self.table)]
         return init
 

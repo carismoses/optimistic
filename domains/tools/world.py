@@ -20,8 +20,9 @@ from pddlstream.language.generator import from_list_fn, from_fn, from_test
 from panda_wrapper.panda_agent import PandaAgent
 from tamp.utils import get_learned_pddl, block_to_urdf, goal_to_urdf, get_simple_state
 from domains.tools.primitives import get_free_motion_gen, \
-    get_holding_motion_gen, get_ik_fn, get_pose_gen_block, get_tool_grasp_gen, \
-    get_block_grasp_gen, get_contact_motion_gen, get_contact_gen, contact_approach_fn, ee_ik
+    get_holding_motion_gen, get_ik_fn, get_pose_gen_block, get_pose_gen_tool, \
+    get_tool_grasp_gen, get_block_grasp_gen, get_contact_motion_gen, get_contact_gen, \
+    contact_approach_fn, ee_ik
 
 
 MODEL_INPUT_DIMS = {'push-poke': 2, 'push-push_pull': 2, 'pick': 2}
@@ -45,7 +46,11 @@ class ToolsWorld:
                             'blue_block': {'min_x': 0.05,
                                             'max_x': 0.75,
                                             'min_y': 0.5,
-                                            'max_y':0.0}}
+                                            'max_y':0.0},
+                            'tool': {'min_x': 0.05,
+                                            'max_x': 0.85,
+                                            'min_y': 0.5,
+                                            'max_y':-0.5}}
         self.max_x_pick = 0.55
 
         self.use_panda = True
@@ -57,8 +62,7 @@ class ToolsWorld:
         self.place_objects(place_tunnel=True)
         self.panda.plan()
         self.fixed = [self.panda.table]
-        self.table_pose = pb_robot.vobj.BodyPose(self.panda.table, self.panda.table.get_base_link_pose())
-        self.obj_init_poses['table'] = self.table_pose
+        self.obj_init_poses['table'] = self.panda.table_pose
 
         # TODO: test without gravity?? maybe will stop robot from jumping around so much
         p.setGravity(0, 0, -9.81, physicsClientId=self.panda._execution_client_id)
@@ -222,6 +226,7 @@ class ToolsWorld:
                                                             approach_frame='global',
                                                             backoff_frame='gripper')),
             'sample-pose-block': from_fn(get_pose_gen_block(self.fixed)),
+            'sample-pose-tool': from_fn(get_pose_gen_tool(self, self.fixed)),
             'sample-block-grasp': from_list_fn(get_block_grasp_gen(robot)),
             'sample-tool-grasp': from_list_fn(get_tool_grasp_gen(robot)),
             'plan-contact-motion': from_fn(get_contact_motion_gen(self,
@@ -264,8 +269,8 @@ class ToolsWorld:
         goal_pose = ((goal_xy[0], goal_xy[1], init_pose[0][2]), init_pose[1])
         final_pose = pb_robot.vobj.BodyPose(object, goal_pose)
         add_to_state = [('pose', object, final_pose),
-                        ('supported', object, final_pose, self.panda.table, self.table_pose),
-                        ('atpose', self.panda.table, self.table_pose)]
+                        ('supported', object, final_pose, self.panda.table, self.panda.table_pose),
+                        ('atpose', self.panda.table, self.panda.table_pose)]
 
         # visualize goal patch in pyBullet
         # WARNING: SHOWING THE GOAL MESSES UP THE ROBOT INTERACTIONS AND CAUSES COLLISIONS!
@@ -460,22 +465,25 @@ class ToolsWorld:
         if top_obj is None or grasp is None:
             return None
 
-        # ground bottom object
-        # TODO: we should check if bot_obj is not None
-        shuffled_objects = list(self.objects.values())
-        random.shuffle(shuffled_objects)
-        for obj in shuffled_objects:
-            if obj != top_obj:
-                for pred in state:
-                    if pred[0] == 'supported' and pred[1] == top_obj:
-                        bot_obj = pred[3]
-                        bot_pose = pred[4]
-        if bot_obj is None or bot_pose is None:
+        # ground bottom object (if passed in then use that else use the table)
+        if bot_obj is None:
+            bot_obj = self.objects['table']
+        if bot_obj is None:
+            return None
+
+        if bot_pose is None:
+            for pred in state:
+                if pred[0] == 'atpose' and pred[1] == bot_obj:
+                    bot_pose = pred[2]
+        if bot_pose is None:
             return None
 
         # ground placement pose
         if top_pose is None:
-            top_pose = streams_map['sample-pose-block'](top_obj, bot_obj, bot_pose).next()[0][0]
+            if ('block', top_obj) in state:
+                top_pose = streams_map['sample-pose-block'](top_obj, bot_obj, bot_pose).next()[0][0]
+            elif ('tool', top_obj) in state:
+                top_pose = streams_map['sample-pose-tool'](top_obj, bot_obj, bot_pose).next()[0][0]
         if top_pose is None:
             return None
 
@@ -489,7 +497,8 @@ class ToolsWorld:
         place_action = Action(name='place',
                         args=(top_obj, top_pose, bot_obj, bot_pose, grasp,
                                 conf1, conf2, traj))
-        place_expanded_states = [('placekin', top_obj, top_pose, grasp, conf1, conf2, traj)]
+        place_expanded_states = [('placekin', top_obj, top_pose, grasp, conf1, conf2, traj),
+                                    ('supported', top_obj, top_pose, bot_obj, bot_pose)]
 
         # first have to move to initial place conf
         move_holding_action, move_holding_expanded_states = self.get_move_holding_action(state, streams_map, conf2=conf1)

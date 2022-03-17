@@ -474,6 +474,21 @@ def get_pose_gen_block(fixed=[]):
         return (top_block_pose,)
     return fn
 
+# placement pose for tool
+def get_pose_gen_tool(world, fixed=[]):
+    def fn(tool, bottom_obj, bottom_obj_pose):
+        # the bottom_obj is the table for now
+        # find a random placement pose (will collision check when planing placement motion)
+        limits = world.goal_limits['tool']
+        pos_z = world.obj_init_poses['tool'].pose[0][2]
+        orn = world.obj_init_poses['tool'].pose[1]
+        pos_xy = np.array([np.random.uniform(limits['min_x'], limits['max_x']),
+                            np.random.uniform(limits['min_y'], limits['max_y'])])
+        pose = ((*pos_xy, pos_z), orn)
+        tool_pose = pb_robot.vobj.BodyPose(tool, pose)
+        return (tool_pose,)
+    return fn
+
 
 def get_block_grasp_gen(robot, add_slanted_grasps=True, add_orthogonal_grasps=True):
     # add_slanted_grasps = True

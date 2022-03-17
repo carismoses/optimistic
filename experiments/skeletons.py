@@ -15,7 +15,7 @@ def get_skeleton_fns():
     # and move_contacts
     push_skeleton = lambda world, goal_pred : \
         [
-        # push block
+        # pick tool
         ('pick', (world.objects['tool'],
                     world.obj_init_poses['tool'],
                     world.panda.table,
@@ -23,10 +23,12 @@ def get_skeleton_fns():
                     None,
                     None,
                     None)),
+
+        # push block
         ('move_contact', (world.objects['tool'],
                     '#g1',
                     goal_pred[1],
-                    None,
+                    world.obj_init_poses[goal_pred[1].readableName],
                     goal_pred[2],
                     None,
                     None,
@@ -46,10 +48,12 @@ def get_skeleton_fns():
                     None,
                     None,
                     None)),
+
+        # place block
         ('place', (goal_pred[1],
                     goal_pred[2],
                     world.panda.table,
-                    world.obj_init_poses['table'],
+                    world.panda.table_pose,
                     '#g1',
                     None,
                     None,
@@ -58,11 +62,61 @@ def get_skeleton_fns():
 
 
     # push then pick and place block
-    #move_free, pick_tool, move_holding, move_contact, move_holding, place_tool, move_free, pick_block, move_holding, place_block
+    push_pick_skeleton = lambda world, goal_pred : \
+        [
+        # pick tool
+        ('pick', (world.objects['tool'],
+                    world.obj_init_poses['tool'],
+                    world.panda.table,
+                    '#g1',
+                    None,
+                    None,
+                    None)),
 
+        # push block
+        ('move_contact', (world.objects['tool'],
+                    '#g1',
+                    goal_pred[1],
+                    world.obj_init_poses[goal_pred[1].readableName],
+                    '#p1',
+                    None,
+                    None,
+                    None,
+                    None,
+                    None)),
+
+        # place tool
+        ('place', (world.objects['tool'],
+                    None,
+                    world.panda.table,
+                    world.panda.table_pose,
+                    '#g1',
+                    None,
+                    None,
+                    None)),
+
+        # pick block
+        ('pick', (goal_pred[1],
+                    '#p1',
+                    world.panda.table,
+                    '#g2',
+                    None,
+                    None,
+                    None)),
+
+        # place block
+        ('place', (goal_pred[1],
+                    goal_pred[2],
+                    world.panda.table,
+                    world.panda.table_pose,
+                    '#g2',
+                    None,
+                    None,
+                    None))
+        ]
     # push block twice
     #move_free, pick_tool, move_holding, move_contact, move_holding, move_contact
-    return [push_skeleton, pick_skeleton]
+    return [push_skeleton, pick_skeleton, push_pick_skeleton]
 
 
 def plan_from_skeleton(skeleton, world, pddl_model_type, add_to_state):
@@ -131,12 +185,23 @@ def plan_from_skeleton(skeleton, world, pddl_model_type, add_to_state):
 
 if __name__ == '__main__':
     from domains.tools.world import ToolsWorld
+    import pdb; pdb.set_trace()
 
-    #import pdb; pdb.set_trace()
-    actions = ['push-push_pull', 'push-poke', 'pick']
-    objects = ['yellow_block', 'blue_block']
-    world = ToolsWorld(False, None, actions, objects)
+    for _ in range(100):
+        actions = ['push-push_pull', 'push-poke', 'pick']
+        objects = ['yellow_block']#, 'blue_block']
+        world = ToolsWorld(True, None, actions, objects)
 
-    push_skeleton = get_skeletons(world)
-    pddl_plan, problem, init_expanded = plan_from_skeleton(push_skeleton, world, 'optimistic')
-    execute_plan(world, problem, pddl_plan, init_expanded)
+        goal_pred, add_to_state = world.generate_goal()
+
+        skeleton_fns = get_skeleton_fns()
+        push_pick_skeleton = skeleton_fns[-1](world, goal_pred)
+
+        plan_info = plan_from_skeleton(push_pick_skeleton,
+                                        world,
+                                        'optimistic',
+                                        add_to_state)
+        if plan_info:
+            pddl_plan, problem, init_expanded = plan_info
+            execute_plan(world, problem, pddl_plan, init_expanded)
+        world.disconnect()
