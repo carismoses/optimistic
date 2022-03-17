@@ -42,16 +42,17 @@ def gen_ss(args):
             all_plans = pickle.load(handle)
 
     # generate new plans/samples
-    for skeleton_name, skeleton_fn in all_skeletons.items():
-        if 'move_contact' in skeleton_name:
-            for ctype in contact_types:
-                plan_key = '%s-%s'%(skeleton_name, ctype)
-                plans_from_skeleton(args, skeleton_fn, ctype, plan_key, all_plans, contact_preds)
-        else:
-            plans_from_skeleton(args, skeleton_fn, None, skeleton_name, all_plans, contact_preds)
+    for object_name in args.objects:
+        for skeleton_name, skeleton_fn in all_skeletons.items():
+            if 'move_contact' in skeleton_name:
+                for ctype in contact_types:
+                    plan_key = '%s-%s-%s'%(skeleton_name, ctype, object_name)
+                    plans_from_skeleton(args, object_name, skeleton_fn, ctype, plan_key, all_plans, contact_preds)
+            else:
+                plans_from_skeleton(args, object_name, skeleton_fn, None, skeleton_name, all_plans, contact_preds)
 
 
-def plans_from_skeleton(args, skeleton_fn, ctype, plan_key, all_plans, contact_preds):
+def plans_from_skeleton(args, object_name, skeleton_fn, ctype, plan_key, all_plans, contact_preds):
     if plan_key in all_plans:
         pi = len(all_plans[plan_key])
         print('Already have %i plans for %s' % (pi, plan_key))
@@ -67,7 +68,7 @@ def plans_from_skeleton(args, skeleton_fn, ctype, plan_key, all_plans, contact_p
                 world_actions = [action]
 
     while pi < args.n_plans:
-        world = ToolsWorld(False, None, world_actions, args.objects)
+        world = ToolsWorld(False, None, world_actions, [object_name])
         goal_pred, add_to_state = world.generate_goal()
         goal_skeleton = skeleton_fn(world, goal_pred)
         plan_info = plan_from_skeleton(goal_skeleton, world, 'opt_no_traj', add_to_state)
@@ -118,11 +119,13 @@ if __name__ == '__main__':
     parser.add_argument('--actions',
                         nargs='+',
                         type=str,
-                        choices=['push-push_pull', 'push-poke', 'pick'])
+                        choices=['push-push_pull', 'push-poke', 'pick'],
+                        default=['push-push_pull', 'push-poke', 'pick'])
     parser.add_argument('--objects',
                         nargs='+',
                         type=str,
-                        choices=['yellow_block', 'blue_block'])
+                        choices=['yellow_block', 'blue_block'],
+                        default=['yellow_block', 'blue_block'])
     parser.add_argument('--restart',
                         action='store_true',
                         help='use to restart generating samples from a pervious run')
