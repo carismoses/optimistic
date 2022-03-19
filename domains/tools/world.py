@@ -36,7 +36,6 @@ class ToolsWorld:
                                 'tunnel': (0.3, 0.3)}
         self.contact_types = self.contact_types_from_actions(actions)
         self.blocks = objects
-        self.actions = self.get_action_types_from_actions(actions)
 
         # goal sampling properties
         self.goal_limits = {'yellow_block': {'min_x': 0.05,
