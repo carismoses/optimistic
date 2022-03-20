@@ -19,9 +19,9 @@ def train_class(args, logger, n_actions):
 
     # if new exp, save a randomly initialized model
     if n_actions == 0:
-        dataset = OptDictDataset(args.actions, args.objects)
+        dataset = OptDictDataset(args.objects)
         logger.save_trans_dataset(dataset, '', i=n_actions)
-        model = Ensembles(MLP, base_args, args.n_models, args.actions, args.objects)
+        model = Ensembles(MLP, base_args, args.n_models, args.objects)
         logger.save_trans_model(model, i=n_actions)
 
     while n_actions < args.max_actions:
@@ -31,7 +31,7 @@ def train_class(args, logger, n_actions):
 
         # train at training freq
         if not n_dataset_actions % args.train_freq:
-            model = Ensembles(MLP, base_args, args.n_models, args.actions, args.objects)
+            model = Ensembles(MLP, base_args, args.n_models, args.objects)
             train_model(model, dataset, args)
 
             # save model and accuracy plots
@@ -74,13 +74,10 @@ if __name__ == '__main__':
     parser.add_argument('--vis',
                         action='store_true',
                         help='use to visualize robot executions.')
-    parser.add_argument('--actions',
-                        type=str,
-                        nargs='+',
-                        default=['pick', 'push-poke', 'push-push_pull'])
     parser.add_argument('--objects',
-                        type=str,
                         nargs='+',
+                        type=str,
+                        choices=['yellow_block', 'blue_block'],
                         default=['yellow_block', 'blue_block'])
 
     # Data collection args

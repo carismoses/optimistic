@@ -175,7 +175,7 @@ class ExperimentLogger:
                     'n_hidden': self.args.n_hidden,
                     'n_layers': self.args.n_layers}
         assert fname, 'No models found on path' % os.path.join(self.exp_path, 'models')
-        model = model = Ensembles(MLP, base_args, self.args.n_models, self.args.actions, self.args.objects)
+        model = model = Ensembles(MLP, base_args, self.args.n_models, self.args.objects)
         loc = 'cuda:0' if torch.cuda.is_available() else 'cpu'
         model.load_state_dict(torch.load(os.path.join(self.exp_path, 'models', fname), map_location=loc))
         if ret_i:

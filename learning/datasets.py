@@ -5,12 +5,10 @@ from torch.utils.data import Dataset
 
 
 class OptDictDataset:
-    def __init__(self, actions, objects):
-        # actions_and_objects is a list of (action, object) tuples
-        # where action in {pick, push-poke, push-push_pull}
+    def __init__(self, objects):
         # object in {yellow_block, blue_block}
         self.datasets = {}
-        for action in actions:
+        for action in ['pick', 'push-poke', 'push-push_pull']:
             for obj in objects:
                 if action not in self.datasets:
                     self.datasets[action] = {}

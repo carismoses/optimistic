@@ -4,7 +4,7 @@ import torch.nn as nn
 
 
 class Ensembles(nn.Module):
-    def __init__(self, base_model, base_args, n_models, actions, objects):
+    def __init__(self, base_model, base_args, n_models, objects):
         # actions_and_objects is a list of (action, object) tuples
         # where action in {pick, push-poke, push-push_pull}
         # object in {yellow_block, blue_block}
@@ -13,7 +13,7 @@ class Ensembles(nn.Module):
         self.all_n_in = copy(base_args['n_in'])
         self.base_args = copy(base_args)
         self.n_models = n_models
-        self.actions = actions
+        self.actions = ['pick', 'push-poke', 'push-push_pull']
         self.objects = objects
         self.reset()
 

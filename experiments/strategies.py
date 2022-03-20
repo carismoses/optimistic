@@ -63,7 +63,6 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, model_logger, \
         model_logger = dataset_logger
     world = ToolsWorld(args.vis,
                         model_logger,
-                        args.actions,
                         args.objects)
 
     if args.data_collection_mode == 'random-actions':
