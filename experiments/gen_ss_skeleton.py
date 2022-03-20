@@ -55,6 +55,7 @@ def gen_ss(args):
                 all_skeleton_keys.append(SkeletonKey(skeleton_fn, block_name, tuple()))
     #for sk in all_skeleton_keys:
     #    print(sk)
+    #print('There are %s potential skeletons' % len(all_skeleton_keys))
 
     # load pre saved plans if restarting
     all_plans = {}
@@ -63,10 +64,11 @@ def gen_ss(args):
             all_plans = pickle.load(handle)
 
     # generate new plans/samples
-    for skeleton_key in all_skeleton_keys:
-        skeleton_fn, block_name, ctypes = skeleton_key
-        print('Generating plans for skeleton: ', skeleton_key)
-        plans_from_skeleton(args, block_name, skeleton_fn, ctypes, skeleton_key, all_plans, contact_preds)
+    skeleton_key = all_skeleton_keys[args.skel_num]
+    #for skeleton_key in all_skeleton_keys:
+    skeleton_fn, block_name, ctypes = skeleton_key
+    print('Generating plans for skeleton: ', skeleton_key)
+    plans_from_skeleton(args, block_name, skeleton_fn, ctypes, skeleton_key, all_plans, contact_preds)
 
 
 def plans_from_skeleton(args, block_name, skeleton_fn, ctypes, skeleton_key, all_plans, contact_preds):
@@ -148,6 +150,9 @@ if __name__ == '__main__':
     parser.add_argument('--restart',
                         action='store_true',
                         help='use to restart generating samples from a pervious run')
+    parser.add_argument('--skel-num',
+                        type=int,
+                        help='the index into the list of skeletons to generate samples for')
     parser.add_argument('--debug',
                         action='store_true',
                         help='use to run in debug mode')
