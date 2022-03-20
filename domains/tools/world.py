@@ -29,12 +29,11 @@ MODEL_INPUT_DIMS = {'push-poke': 2, 'push-push_pull': 2, 'pick': 2}
 
 # TODO: make parent world template class
 class ToolsWorld:
-    def __init__(self, vis, logger, actions, objects):
+    def __init__(self, vis, logger, objects):
         self.init_objs_pos_xy = {'yellow_block': (0.4, -0.3),
                                 'blue_block': (0.3, 0.3),
                                 'tool': (0.3, -0.45),
                                 'tunnel': (0.3, 0.3)}
-        self.contact_types = self.contact_types_from_actions(actions)
         self.blocks = objects
 
         # goal sampling properties
@@ -79,25 +78,6 @@ class ToolsWorld:
                             'move_free': self.get_move_free_action,
                             'move_contact': self.get_move_contact_action,
                             'move_holding': self.get_move_holding_action}
-
-
-    def contact_types_from_actions(self, actions):
-        types = []
-        for action in actions:
-            if 'push' in action:
-                types.append(action[5:])
-        return types
-
-
-    def get_action_types_from_actions(self, actions):
-        types = []
-        for action in actions:
-            if '-' in action:
-                hyphen_i = action.index('-')
-                types.append(action[:hyphen_i])
-            else:
-                types.append(action)
-        return types
 
 
     def get_init_state(self):
@@ -232,8 +212,7 @@ class ToolsWorld:
                                                                     self.fixed,
                                                                     ret_traj=True,
                                                                     learned=learned)),
-            'sample-contact': from_list_fn(get_contact_gen(robot,
-                                                            self.contact_types))
+            'sample-contact': from_list_fn(get_contact_gen(robot))
             }
 
         streams_pddl = read(streams_pddl_path)

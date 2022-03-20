@@ -13,8 +13,9 @@ n_attempts = 30  # number of attempts to ground each action in skeleton
 def get_skeleton_fns():
     # move_free is generated before picks and move_holdings are generated before places and move_contacts
     # and move_contacts
-    push_skeleton = lambda world, goal_pred : \
-        [
+    def push_skeleton(world, goal_pred, ctypes=[None]):
+        conts = ground_contacts(world, goal_pred[1], ctypes)
+        skeleton = [
         # pick tool
         ('pick', (world.objects['tool'],
                     world.obj_init_poses['tool'],
@@ -30,16 +31,18 @@ def get_skeleton_fns():
                     goal_pred[1],
                     world.obj_init_poses[goal_pred[1].readableName],
                     goal_pred[2],
-                    None,
+                    conts[0],
                     None,
                     None,
                     None,
                     None))
-    ]
+        ]
+        return skeleton
+
 
     # pick and place block
-    pick_skeleton = lambda world, goal_pred : \
-        [
+    def pick_skeleton(world, goal_pred, ctypes=[]):
+        skeleton = [
         # pick block
         ('pick', (goal_pred[1],
                     world.obj_init_poses[goal_pred[1].readableName],
@@ -58,12 +61,14 @@ def get_skeleton_fns():
                     None,
                     None,
                     None))
-    ]
+        ]
+        return skeleton
 
 
     # push then pick and place block
-    push_pick_skeleton = lambda world, goal_pred : \
-        [
+    def push_pick_skeleton(world, goal_pred, ctypes=[None]):
+        conts = ground_contacts(world, goal_pred[1], ctypes)
+        skeleton = [
         # pick tool
         ('pick', (world.objects['tool'],
                     world.obj_init_poses['tool'],
@@ -79,7 +84,7 @@ def get_skeleton_fns():
                     goal_pred[1],
                     world.obj_init_poses[goal_pred[1].readableName],
                     '#p1',
-                    None,
+                    conts[0],
                     None,
                     None,
                     None,
@@ -114,9 +119,13 @@ def get_skeleton_fns():
                     None,
                     None))
         ]
+        return skeleton
+
+
     # push block twice
-    push_push_skeleton = lambda world, goal_pred : \
-        [
+    def push_push_skeleton(world, goal_pred, ctypes=[None, None]):
+        conts = ground_contacts(world, goal_pred[1], ctypes)
+        skeleton = [
         # pick tool
         ('pick', (world.objects['tool'],
                     world.obj_init_poses['tool'],
@@ -132,7 +141,7 @@ def get_skeleton_fns():
                     goal_pred[1],
                     world.obj_init_poses[goal_pred[1].readableName],
                     '#p1',
-                    None,
+                    conts[0],
                     None,
                     None,
                     None,
@@ -144,16 +153,17 @@ def get_skeleton_fns():
                     goal_pred[1],
                     '#p1',
                     goal_pred[2],
-                    None,
+                    conts[1],
                     None,
                     None,
                     None,
                     None))
-    ]
+        ]
+        return skeleton
 
     # pick and place block twice
-    pick_pick_skeleton = lambda world, goal_pred : \
-        [
+    def pick_pick_skeleton(world, goal_pred, ctypes=[]):
+        skeleton = [
         # pick block
         ('pick', (goal_pred[1],
                     world.obj_init_poses[goal_pred[1].readableName],
@@ -192,8 +202,24 @@ def get_skeleton_fns():
                     None,
                     None))
         ]
+        return skeleton
     return [push_skeleton, pick_skeleton, push_pick_skeleton, push_push_skeleton, \
             pick_pick_skeleton]
+
+
+def ground_contacts(world, block, ctypes):
+    pddl_info = world.get_pddl_info('opt_no_traj')
+    streams_map = pddl_info[3]
+    conts = []
+    for ctype in ctypes:
+        if ctype is None:
+            cont = None
+        else:
+            cont = streams_map['sample-contact'](world.objects['tool'],
+                                                    block,
+                                                    contact_types=[ctype]).next()[0][0]
+        conts.append(cont)
+    return conts
 
 
 def plan_from_skeleton(skeleton, world, pddl_model_type, add_to_state):
@@ -265,16 +291,15 @@ if __name__ == '__main__':
     import pdb; pdb.set_trace()
 
     for _ in range(100):
-        actions = ['push-push_pull', 'push-poke', 'pick']
-        objects = ['yellow_block']#, 'blue_block']
-        world = ToolsWorld(True, None, actions, objects)
+        objects = ['yellow_block', 'blue_block']
+        world = ToolsWorld(True, None, objects)
 
         goal_pred, add_to_state = world.generate_goal()
 
         skeleton_fns = get_skeleton_fns()
-        push_pick_skeleton = skeleton_fns[-1](world, goal_pred)
+        push_push_skeleton = skeleton_fns[3](world, goal_pred, ctypes=['poke', 'push_pull'])
 
-        plan_info = plan_from_skeleton(push_pick_skeleton,
+        plan_info = plan_from_skeleton(push_push_skeleton,
                                         world,
                                         'optimistic',
                                         add_to_state)

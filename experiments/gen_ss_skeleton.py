@@ -2,6 +2,7 @@ import dill as pickle
 import matplotlib.pyplot as plt
 import argparse
 import os
+from collections import namedtuple
 
 from pddlstream.language.constants import Certificate
 
@@ -15,25 +16,45 @@ save_path = 'logs/ss_skeleton_samples.pkl'
 fig_dir = 'logs/search_space_figs/'
 ##
 
+SkeletonKey = namedtuple('SkeletonKey', ('skeleton_fn', 'goal_obj', 'ctypes'))
 
 def gen_ss(args):
-    # get all contact info (for plotting later)
-    world = ToolsWorld(False, None, args.actions, args.objects)
-    contacts_fn = get_contact_gen(world.panda.planning_robot, world.contact_types)
+    # get all contact predicates (for plotting later)
+    world = ToolsWorld(False, None, args.objects)
+    contacts_fn = get_contact_gen(world.panda.planning_robot)
     contacts = contacts_fn(world.objects['tool'], world.objects['yellow_block'], shuffle=False)
     contact_preds = {}
     for contact in contacts:
         if contact[0].type not in contact_preds:
             contact_preds[contact[0].type] = contact[0]
-    contact_types = world.contact_types
-    dummy_goal = world.generate_dummy_goal()
 
-    # get all skeleton names and functions
-    all_skeletons = {}
+    # generate a list of all possible skeleton keys
+    all_skeleton_keys = []
     for skeleton_fn in get_skeleton_fns():
-        skeleton_name = '-'.join([a_name for a_name, a_args in skeleton_fn(world, dummy_goal)])
-        all_skeletons[skeleton_name] = skeleton_fn
-    world.disconnect()
+        for block_name in args.objects:
+            # make a world for this block_name
+            dummy_world = ToolsWorld(False, None, [block_name])
+            dummy_goal = dummy_world.generate_dummy_goal()
+            dummy_skeleton = skeleton_fn(dummy_world, dummy_goal)
+            all_ctypes = []
+            for a_name, _ in dummy_skeleton:
+                if a_name == 'move_contact':
+                    if len(all_ctypes) == 0:
+                        all_ctypes = [['poke'], ['push_pull']]
+                    else:
+                        new_all_ctypes = []
+                        for ctype in all_ctypes:
+                            for new_ctype in ['poke', 'push_pull']:
+                                new_all_ctypes.append(ctype+[new_ctype])
+                        all_ctypes = new_all_ctypes
+            dummy_world.disconnect()
+            if len(all_ctypes) > 0:
+                for ctype_list in all_ctypes:
+                    all_skeleton_keys.append(SkeletonKey(skeleton_fn, block_name, tuple(ctype_list)))
+            else:
+                all_skeleton_keys.append(SkeletonKey(skeleton_fn, block_name, tuple()))
+    #for sk in all_skeleton_keys:
+    #    print(sk)
 
     # load pre saved plans if restarting
     all_plans = {}
@@ -42,35 +63,24 @@ def gen_ss(args):
             all_plans = pickle.load(handle)
 
     # generate new plans/samples
-    for object_name in args.objects:
-        for skeleton_name, skeleton_fn in all_skeletons.items():
-            if 'move_contact' in skeleton_name:
-                for ctype in contact_types:
-                    plan_key = '%s-%s-%s'%(skeleton_name, ctype, object_name)
-                    plans_from_skeleton(args, object_name, skeleton_fn, ctype, plan_key, all_plans, contact_preds)
-            else:
-                plans_from_skeleton(args, object_name, skeleton_fn, None, skeleton_name, all_plans, contact_preds)
+    for skeleton_key in all_skeleton_keys:
+        skeleton_fn, block_name, ctypes = skeleton_key
+        print('Generating plans for skeleton: ', skeleton_key)
+        plans_from_skeleton(args, block_name, skeleton_fn, ctypes, skeleton_key, all_plans, contact_preds)
 
 
-def plans_from_skeleton(args, object_name, skeleton_fn, ctype, plan_key, all_plans, contact_preds):
-    if plan_key in all_plans:
-        pi = len(all_plans[plan_key])
-        print('Already have %i plans for %s' % (pi, plan_key))
+def plans_from_skeleton(args, block_name, skeleton_fn, ctypes, skeleton_key, all_plans, contact_preds):
+    if skeleton_key in all_plans:
+        pi = len(all_plans[skeleton_key])
+        print('Already have %i plans for %s' % (pi, skeleton_key))
     else:
         pi = 0
-        all_plans[plan_key] = []
-
-    if ctype is None:
-        world_actions = args.actions
-    else:
-        for action in args.actions:
-            if ctype in action:
-                world_actions = [action]
+        all_plans[skeleton_key] = []
 
     while pi < args.n_plans:
-        world = ToolsWorld(False, None, world_actions, [object_name])
+        world = ToolsWorld(False, None, [block_name])
         goal_pred, add_to_state = world.generate_goal()
-        goal_skeleton = skeleton_fn(world, goal_pred)
+        goal_skeleton = skeleton_fn(world, goal_pred, ctypes)
         plan_info = plan_from_skeleton(goal_skeleton, world, 'opt_no_traj', add_to_state)
 
         if plan_info is not None:
@@ -79,18 +89,24 @@ def plans_from_skeleton(args, object_name, skeleton_fn, ctype, plan_key, all_pla
             init_expanded = Certificate(init_expanded.all_facts, [])
             problem = problem[:3] + problem[4:] # remove stream map (causes pickling issue)
             plan_info = (pddl_plan, problem, init_expanded)
-            all_plans[plan_key].append(plan_info)
+            all_plans[skeleton_key].append(plan_info)
             with open(save_path, 'wb') as handle:
                 pickle.dump(all_plans, handle)
 
             # plot all sampled plans
-            n_actions = len(all_plans[plan_key][0][0]) # all plans in list are the same length
-            fig_path = os.path.join(fig_dir, plan_key)
+            n_actions = len(all_plans[skeleton_key][0][0]) # all plans in list are the same length
+            skeleton_name = get_skeleton_name(pddl_plan, skeleton_key)
+            fig_path = os.path.join(fig_dir, skeleton_name)
             if not os.path.exists(fig_path):
                 os.makedirs(fig_path)
+            mci = 0
             for ai in range(n_actions):
                 fig, ax = plt.subplots()
-                for plan,_,_ in all_plans[plan_key]:
+                ctype = None
+                if all_plans[skeleton_key][0][0][ai].name == 'move_contact':
+                    ctype = ctypes[mci]
+                    mci += 1
+                for plan,_,_ in all_plans[skeleton_key]:
                     plot_action(world, plan[ai], ax, contact_preds, ctype)
                 fname = '%s.png' % plan[ai].name
                 plt.savefig(os.path.join(fig_path, fname))
@@ -111,16 +127,19 @@ def plot_action(world, action, ax, contact_preds, ctype):
         ax.plot(*place_pos_xy, 'k.')
 
 
+def get_skeleton_name(pddl_plan, skeleton_key):
+    ctype_str = '_'.join(skeleton_key.ctypes)
+    actions_str = '_'.join([name for name, args in pddl_plan])
+    if len(ctype_str) > 0:
+        return '%s-%s-%s' % (skeleton_key.goal_obj, actions_str, ctype_str)
+    else:
+        return '%s-%s' % (skeleton_key.goal_obj, actions_str)
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--n-plans',
                         type=int,
                         help='number of plans for generate for each action-object pair')
-    parser.add_argument('--actions',
-                        nargs='+',
-                        type=str,
-                        choices=['push-push_pull', 'push-poke', 'pick'],
-                        default=['push-push_pull', 'push-poke', 'pick'])
     parser.add_argument('--objects',
                         nargs='+',
                         type=str,

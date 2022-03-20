@@ -14,8 +14,8 @@ from tamp.utils import pause, Contact, vis_frame
 DEBUG_FAILURE = False
 
 
-def get_contact_gen(robot, contact_types):
-    def gen(obj1, obj2, shuffle=True):
+def get_contact_gen(robot):
+    def gen(obj1, obj2, contact_types=['poke', 'push_pull'], shuffle=True):
         # for now this only handles the case where obj1 is a tool and obj2 is a block
         block_dim = obj2.get_dimensions()[0] # block is a cuboid
         half_b = block_dim/2
