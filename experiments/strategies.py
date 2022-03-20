@@ -227,7 +227,7 @@ def sequential(args, world, mode, n_seq_plans, samples_from_file=False):
     best_bald_score = float('-inf')
     n_plans_searched = 0
     if samples_from_file:
-        with open('logs/search_space_samples.pkl', 'rb') as handle:
+        with open('logs/ss_skeleton_samples.pkl', 'rb') as handle:
             samples = pickle.load(handle)
         n_seq_plans = len(samples)
     while n_plans_searched < n_seq_plans:
