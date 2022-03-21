@@ -25,7 +25,8 @@ from domains.tools.primitives import get_free_motion_gen, \
     contact_approach_fn, ee_ik
 
 
-MODEL_INPUT_DIMS = {'push-poke': 2, 'push-push_pull': 2, 'pick': 2}
+DEBUG = True
+MODEL_INPUT_DIMS = {'push-poke': 4, 'push-push_pull': 4, 'pick': 2}
 
 # TODO: make parent world template class
 class ToolsWorld:
@@ -228,7 +229,7 @@ class ToolsWorld:
 
 
     # TODO: reimplement way to pass in a goal: object, action, and xy_pos
-    def generate_goal(self):
+    def generate_goal(self, goal_xy=None):
         random_block_i = np.random.randint(len(self.blocks))
         goal_obj = self.blocks[random_block_i]
 
@@ -239,8 +240,9 @@ class ToolsWorld:
         # select random point on table
         limits = self.goal_limits[goal_obj]
 
-        goal_xy = np.array([np.random.uniform(limits['min_x'], limits['max_x']),
-                            np.random.uniform(limits['min_y'], limits['max_y'])])
+        if goal_xy is None:
+            goal_xy = np.array([np.random.uniform(limits['min_x'], limits['max_x']),
+                                np.random.uniform(limits['min_y'], limits['max_y'])])
 
         # add desired pose to state
         goal_pose = ((goal_xy[0], goal_xy[1], init_pose[0][2]), init_pose[1])
@@ -297,7 +299,12 @@ class ToolsWorld:
             cont_w_tform = np.dot(tool_w_tform, np.linalg.inv(cont.tool_in_cont_tform))
             goal_world_point = (*pddl_action.args[4].pose[0], 1)
             goal_cont = self.point_from_world_to_cont(goal_world_point, cont_w_tform)
-            x[:] = goal_cont[:2]
+
+            # the position of the gripper in the tool frame
+            gripper_tool_pos_xy = pddl_action.args[1].grasp_objF[:2,3]
+
+            x[:2] = goal_cont[:2]
+            x[2:] = gripper_tool_pos_xy
             return x
         elif pddl_action.name == 'pick':
             x = np.zeros(MODEL_INPUT_DIMS[pddl_action.name])
@@ -309,16 +316,20 @@ class ToolsWorld:
             raise NotImplementedError('No vectorization method for action %s' % pddl_action.name)
 
 
-    def pred_args_to_vec(self, obj2, pose1, pose2, cont):
-        action = Action(name='move_contact', args=(None,
-                                                    None,
-                                                    obj2,
-                                                    pose1,
-                                                    pose2,
-                                                    cont,
-                                                    None,
-                                                    None,
-                                                    None))
+    def pred_args_to_vec(self, action_name, args):
+        if 'push' in action_name:
+            action = Action(name='move_contact', args=(*args,
+                                                        None,
+                                                        None,
+                                                        None))
+        elif 'pick' in action_name:
+            action = Action(name='pick', args=(args[0],
+                                                args[1],
+                                                None,
+                                                args[2],
+                                                None,
+                                                None,
+                                                None))
         return self.action_to_vec(action)
 
 
@@ -394,6 +405,7 @@ class ToolsWorld:
                             top_obj = obj
                             break
         if top_obj is None or bot_obj is None:
+            if DEBUG: print('failed: pick, top_obj & bot_obj')
             return None
 
         # ground top pose
@@ -402,6 +414,7 @@ class ToolsWorld:
                 if pred[0] == 'atpose' and pred[1] == top_obj:
                     top_pose = pred[2]
         if top_pose is None:
+            if DEBUG: print('failed: pick, top_pose')
             return None
 
         # select a random grasp
@@ -411,12 +424,14 @@ class ToolsWorld:
             elif ('tool', top_obj) in state:
                 grasp = streams_map['sample-tool-grasp'](top_obj).next()[0][0]
         if grasp is None:
+            if DEBUG: print('failed: pick, grasp')
             return None
 
         # solve for pick configurations and trajectory
         if conf1 is None or conf2 is None or traj is None:
             stream_result = streams_map['pick-inverse-kinematics'](top_obj, top_pose, grasp).next()
             if len(stream_result) == 0:
+                if DEBUG: print('failed: pick, traj')
                 return None
         conf1, conf2, traj = stream_result[0]
 
@@ -440,12 +455,14 @@ class ToolsWorld:
                     top_obj = pred[1]
                     grasp = pred[2]
         if top_obj is None or grasp is None:
+            if DEBUG: print('failed: place, top_obj & grasp')
             return None
 
         # ground bottom object (if passed in then use that else use the table)
         if bot_obj is None:
             bot_obj = self.objects['table']
         if bot_obj is None:
+            if DEBUG: print('failed: place, bot_obj')
             return None
 
         if bot_pose is None:
@@ -453,6 +470,7 @@ class ToolsWorld:
                 if pred[0] == 'atpose' and pred[1] == bot_obj:
                     bot_pose = pred[2]
         if bot_pose is None:
+            if DEBUG: print('failed: place, bot_pose')
             return None
 
         # ground placement pose
@@ -462,12 +480,14 @@ class ToolsWorld:
             elif ('tool', top_obj) in state:
                 top_pose = streams_map['sample-pose-tool'](top_obj, bot_obj, bot_pose).next()[0][0]
         if top_pose is None:
+            if DEBUG: print('failed: place, top_pose')
             return None
 
         # ground traj parameters
         if conf1 is None or conf2 is None or traj is None:
             stream_result = streams_map['place-inverse-kinematics'](top_obj, top_pose, grasp).next()
             if len(stream_result) == 0:
+                if DEBUG: print('failed: palce, traj')
                 return None
         conf1, conf2, traj = stream_result[0]
 
@@ -485,6 +505,7 @@ class ToolsWorld:
     def get_move_free_action(self, state, streams_map, conf1=None, conf2=None, traj=None):
         # check that hand is empty
         if ('handempty',) not in state:
+            if DEBUG: print('failed: move_free hand not empty')
             return None
 
         # get current robot config
@@ -493,6 +514,7 @@ class ToolsWorld:
                 if pred[0] == 'atconf':
                     conf1 = pred[1]
         if conf1 is None:
+            if DEBUG: print('failed: move_free, conf1')
             return None
 
         # get a end config
@@ -500,12 +522,14 @@ class ToolsWorld:
             init_ee_orn = self.panda.planning_robot.arm.ComputeFK(conf1.configuration)[1]
             conf2 = self.get_random_conf(init_ee_orn)
         if conf2 is None:
+            if DEBUG: print('failed: move_free, conf2')
             return None
 
         # solve for traj
         if traj is None:
             stream_result = streams_map['plan-free-motion'](conf1, conf2).next()
             if len(stream_result) == 0:
+                if DEBUG: print('failed: move_free, traj')
                 return None
         traj = stream_result[0][0]
 
@@ -529,6 +553,7 @@ class ToolsWorld:
                 if pred[0] == 'atconf':
                     conf1 = pred[1]
         if obj is None or grasp is None or conf1 is None:
+            if DEBUG: print('failed: move_holding, obj, grasp, conf1')
             return None
 
         # get final config
@@ -536,11 +561,13 @@ class ToolsWorld:
             init_orn = self.panda.planning_robot.arm.ComputeFK(conf1.configuration)[1]
             conf2 = self.get_random_conf(init_orn)
         if conf2 is None:
+            if DEBUG: print('failed: move_holding, conf2')
             return None
 
         if traj is None:
             stream_result = streams_map['plan-holding-motion'](obj, grasp, conf1, conf2).next()
             if len(stream_result) == 0:
+                if DEBUG: print('failed: move_holding, traj')
                 return None
         traj = stream_result[0]
 
@@ -564,6 +591,7 @@ class ToolsWorld:
                 if pred[0] == 'atgrasp':
                     grasp = pred[2]
         if tool is None or grasp is None:
+            if DEBUG: print('failed: move_contact, tool, grasp')
             return None
 
         # can only push with the tool
@@ -579,12 +607,14 @@ class ToolsWorld:
                     ('block', obj) in state: # can only push blocks
                     pushed_obj = obj
         if pushed_obj is None:
+            if DEBUG: print('failed: move_contact, pushed_obj')
             return None
 
         # solve for contact
         if cont is None:
             cont = streams_map['sample-contact'](tool, pushed_obj).next()[0][0]
         if cont is None:
+            if DEBUG: print('failed: move_contact, cont')
             return None
 
         # get initial block pose
@@ -593,6 +623,7 @@ class ToolsWorld:
                 if pred[0] == 'atpose' and pred[1] == pushed_obj:
                     pose1 = pred[2]
         if pose1 is None:
+            if DEBUG: print('failed: move_contact, pose1')
             return None
 
         # get final block pose
@@ -605,11 +636,13 @@ class ToolsWorld:
                                 ((*pose2_pos_xy, pose1.pose[0][2]),
                                 pose1.pose[1]))
         if pose2 is None:
+            if DEBUG: print('failed: move_contact, pose2')
             return None
 
         if conf1 is None or conf2 is None or conf3 is None or traj is None:
             stream_result = streams_map['plan-contact-motion'](tool, grasp, pushed_obj, pose1, pose2, cont).next()
             if len(stream_result) == 0:
+                if DEBUG: print('failed: move_contact, traj')
                 return None
         conf1, conf2, conf3, traj = stream_result[0]
 
