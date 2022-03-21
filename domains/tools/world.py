@@ -659,32 +659,35 @@ class ToolsWorld:
             return ar, extent
 
 
-    def get_cont_frame_limits(self, goal_obj, contact):
-        minx_w = self.goal_limits[goal_obj]['min_x']
-        maxx_w = self.goal_limits[goal_obj]['max_x']
-        miny_w = self.goal_limits[goal_obj]['min_y']
-        maxy_w = self.goal_limits[goal_obj]['max_y']
+    def get_cont_frame_limits(self, obj, action, contact=None):
+        if action == 'pick':
+            return [-1, 1], [-1, 1]
+        else:
+            minx_w = self.goal_limits[obj]['min_x']
+            maxx_w = self.goal_limits[obj]['max_x']
+            miny_w = self.goal_limits[obj]['min_y']
+            maxy_w = self.goal_limits[obj]['max_y']
 
-        # calc contact frame in world frame (assumes block always starts from same pose)
-        block_world = pb_robot.geometry.tform_from_pose(self.obj_init_poses[goal_obj].pose)
-        tool_w_tform = block_world@contact.rel_pose
-        cont_w_tform = np.dot(tool_w_tform, np.linalg.inv(contact.tool_in_cont_tform))
+            # calc contact frame in world frame (assumes block always starts from same pose)
+            block_world = pb_robot.geometry.tform_from_pose(self.obj_init_poses[obj].pose)
+            tool_w_tform = block_world@contact.rel_pose
+            cont_w_tform = np.dot(tool_w_tform, np.linalg.inv(contact.tool_in_cont_tform))
 
-        # convert world goal sampling limits to the contact frame
-        minxminy_c = self.point_from_world_to_cont((minx_w, miny_w, 0, 1), cont_w_tform)
-        maxxmaxy_c = self.point_from_world_to_cont((maxx_w, maxy_w, 0, 1), cont_w_tform)
+            # convert world goal sampling limits to the contact frame
+            minxminy_c = self.point_from_world_to_cont((minx_w, miny_w, 0, 1), cont_w_tform)
+            maxxmaxy_c = self.point_from_world_to_cont((maxx_w, maxy_w, 0, 1), cont_w_tform)
 
-        x_axes = [minxminy_c[0], maxxmaxy_c[0]]
-        y_axes = [minxminy_c[1], maxxmaxy_c[1]]
-        return x_axes, y_axes
+            x_axes = [minxminy_c[0], maxxmaxy_c[0]]
+            y_axes = [minxminy_c[1], maxxmaxy_c[1]]
+            return x_axes, y_axes
 
 
     # can visualize tool in world or contact frame
-    def vis_tool_ax(self, cont, ax, block_name='yellow_block', frame='world', color='k'):
+    def vis_tool_ax(self, cont, obj, action, ax, frame='world', color='k'):
         if frame == 'world':
-            init_block_pos = self.init_objs_pos_xy[block_name]
+            init_block_pos = self.init_objs_pos_xy[obj]
             # TODO: this assumes that the block is always aligned with the world frame
-            block_world = pb_robot.geometry.tform_from_pose(self.obj_init_poses[block_name].pose)
+            block_world = pb_robot.geometry.tform_from_pose(self.obj_init_poses[obj].pose)
             tool_tform = block_world@cont.rel_pose
         elif frame == 'cont':
             init_block_pos = (0., 0.)
@@ -694,16 +697,16 @@ class ToolsWorld:
         self.plot_tool(ax, tool_tform, color)
         ax.set_aspect('equal')
         if frame == 'world':
-            limits = self.goal_limits[block_name]
+            limits = self.goal_limits[obj]
             ax.set_xlim([limits['min_x'], limits['max_x']])
             ax.set_ylim([limits['min_y'], limits['max_y']])
         elif frame == 'cont':
-            xlimits, ylimits = self.get_cont_frame_limits(block_name, cont)
+            xlimits, ylimits = self.get_cont_frame_limits(obj, action, cont)
             ax.set_xlim(xlimits)
             ax.set_ylim(ylimits)
 
 
-    def vis_dense_plot(self, type, ax, x_range, y_range, vmin, vmax, value_fn=None, cell_width=0.05):
+    def vis_dense_plot(self, action, obj, ax, x_range, y_range, vmin, vmax, value_fn=None, cell_width=0.05):
         # make 2d arrays of mean and std ensemble predictions
         xs, x_extent = self.make_array(*x_range, cell_width)
         ys, y_extent = self.make_array(*y_range, cell_width)
@@ -711,7 +714,7 @@ class ToolsWorld:
 
         for xi, xv in enumerate(xs):
             for yi, yv in enumerate(ys):
-                values[yi][xi] = value_fn(self, type, xv, yv)
+                values[yi][xi] = value_fn(self, action, obj, xv, yv)
 
         # plot predictions w/ colorbars
         extent = (*x_extent, *y_extent)
@@ -772,10 +775,7 @@ class ToolsWorld:
                                 fill = False))
 
 
-    def vis_dataset(self, ax, dataset, type, linestyle='-'):
-        # plot initial position
-        #if type == 'push':
-        #    self.plot_block(ax, (0,0), 'm')
+    def vis_dataset(self, ax, dataset):
         for x, y in dataset:
             color = 'r' if y == 0 else 'g'
             ax.plot(*x, color+'.')

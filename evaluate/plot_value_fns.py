@@ -8,17 +8,17 @@ from learning.utils import model_forward
 from experiments.strategies import bald
 
 def get_model_accuracy_fn(ensembles, ret):
-    def model_accuracy_fn(world, type, xv, yv):
+    def model_accuracy_fn(world, action, obj, xv, yv):
         if ret == 'mean':
-            return model_forward(type, ensembles, np.array([xv, yv]), single_batch=True).mean().squeeze()
+            return model_forward(ensembles, np.array([xv, yv]), action, obj, single_batch=True).mean().squeeze()
         elif ret == 'std':
-            return model_forward(type, ensembles, np.array([xv, yv]), single_batch=True).std().squeeze()
+            return model_forward(ensembles, np.array([xv, yv]), action, obj, single_batch=True).std().squeeze()
     return model_accuracy_fn
 
 
 def get_seq_fn(ensembles):
-    def seq_fn(world, type, xv, yv):
-        predictions = model_forward(type, ensembles, np.array([xv, yv]), single_batch=True).squeeze()
+    def seq_fn(world, action, obj, xv, yv):
+        predictions = model_forward(ensembles, np.array([xv, yv]), action, obj, single_batch=True).squeeze()
         mean_prediction = predictions.mean()
         return mean_prediction*bald(predictions)
     return seq_fn

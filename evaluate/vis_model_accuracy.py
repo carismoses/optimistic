@@ -15,8 +15,8 @@ def gen_plots(args):
     dir = 'accuracy'
 
     model_logger = ExperimentLogger(args.model_exp_path)
-    world = ToolsWorld(False, None, model_logger.args.actions, model_logger.args.objects)
     ensembles, mi = model_logger.load_trans_model(ret_i=True)
+    world = ToolsWorld(False, None, ensembles.objects)
 
     if args.dataset_exp_path:
         dataset_logger = ExperimentLogger(args.dataset_exp_path)
@@ -30,56 +30,40 @@ def gen_plots(args):
     ts = time.strftime('%Y%m%d-%H%M%S')
 
     # make a plot for each contact type (subplot for mean, std, and tool vis)
-    contacts_fn = get_contact_gen(world.panda.planning_robot, world.contact_types)
+    contacts_fn = get_contact_gen(world.panda.planning_robot)
     contacts = contacts_fn(world.objects['tool'], world.objects['yellow_block'], shuffle=False)
     contact_info = {}
     for contact in contacts:
         contact_info[contact[0].type] = contact[0]
 
-
     mean_fn = get_model_accuracy_fn(ensembles, 'mean')
     std_fn = get_model_accuracy_fn(ensembles, 'std')
-    #seq_fn = get_seq_fn(ensembles)
 
-    for type in model_logger.args.contact_types:
-        if model_logger.args.n_models == 1:
-            n_axes = 2
-        else:
+    for obj in ensembles.objects:
+        for action in ensembles.actions:
             n_axes = 3
-        fig, axes = plt.subplots(n_axes, figsize=(5, 10))
+            fig, axes = plt.subplots(n_axes, figsize=(5, 10))
+            contact = None
+            for ctype in contact_info:
+                if ctype in action:
+                    contact = contact_info[ctype]
+                    # plot the tool
+                    world.vis_tool_ax(contact, obj, action, axes[n_axes-1], frame='cont')
+            x_axes, y_axes = world.get_cont_frame_limits(obj, action, contact)
 
-        x_axes, y_axes = world.get_cont_frame_limits(model_logger.args.goal_obj,
-                                                    contact_info[type])
+            world.vis_dense_plot(action, obj, axes[0], x_axes, y_axes, 0, 1, value_fn=mean_fn, cell_width=0.1)
+            world.vis_dense_plot(action, obj, axes[1], x_axes, y_axes, None, None, value_fn=std_fn, cell_width=0.1)
 
-        world.vis_dense_plot(type, axes[0], x_axes, y_axes, 0, 1, value_fn=mean_fn, cell_width=0.01)
-        if n_axes == 3:
-            world.vis_dense_plot(type, axes[1], x_axes, y_axes, None, None, value_fn=std_fn, cell_width=0.01)
-        #world.vis_dense_plot(type, axes[2], [-1, 1], [-1, 1], None, None, value_fn=seq_fn)
-        for ai in range(n_axes):
-            world.vis_dataset(axes[ai], dataset.datasets[type], model_logger.args.goal_type, linestyle='-')
-            #world.vis_dataset(cont, axes[ai], val_dataset, linestyle='--')
-            #world.vis_dataset(cont, axes[ai], curr_dataset, linestyle=':')
-            #world.vis_failed_trajes(cont, axes[ai], logger)
-        # visualize failed planning goals
-        if args.dataset_exp_path == args.model_exp_path:
-            failed_goals = dataset_logger.load_failed_plans()
-            for _, contact_type, x, _ in failed_goals:
-                if contact_type == type:
-                    world.plot_block(axes[0], x, 'b')
-                    world.plot_block(axes[1], x, 'b')
+            for ai in range(n_axes):
+                world.vis_dataset(axes[ai], dataset.datasets[action][obj])
 
-
-        world.vis_tool_ax(contact_info[type], axes[n_axes-1], frame='cont')
-
-        axes[0].set_title('Mean Ensemble Predictions')
-        if n_axes == 3:
+            axes[0].set_title('Mean Ensemble Predictions')
             axes[1].set_title('Std Ensemble Predictions')
-        #axes[2].set_title('Sequential Score')
-        #all_axes[ci] = axes
+            axes[2].set_title('Tool Contact')
 
-        fname = 'acc_%s_%s_%i.png' % (ts, type, mi)
-        model_logger.save_figure(fname, dir=dir)
-        plt.close()
+            fname = 'acc_%s_%s_%s_%i.png' % (ts, action, obj, mi)
+            model_logger.save_figure(fname, dir=dir)
+            plt.close()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
