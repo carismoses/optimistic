@@ -1,6 +1,6 @@
 import re
 import os
-import pickle
+import dill as pickle
 import time
 import matplotlib.pyplot as plt
 import numpy as np
@@ -51,6 +51,8 @@ class ExperimentLogger:
             os.mkdir(os.path.join(exp_path, 'models'))
             os.mkdir(os.path.join(exp_path, 'figures'))
             os.mkdir(os.path.join(exp_path, 'eval_trajs'))
+            os.mkdir(os.path.join(exp_path, 'trajs'))
+            os.mkdir(os.path.join(exp_path, 'plans'))
             os.mkdir(os.path.join(exp_path, 'goals'))
 
         with open(os.path.join(exp_path, 'args.pkl'), 'wb') as handle:
@@ -201,6 +203,30 @@ class ExperimentLogger:
         with open(os.path.join(path, file_name), 'rb') as handle:
             trajectories = pickle.load(handle)
         return trajectories
+
+
+    # add plans
+    def add_to_plans(self, plan):
+        found_files, txs = self.get_dir_indices('plans')
+        if len(txs) == 0:
+            i = 0
+        else:
+            i = txs[-1]
+        path = os.path.join(self.exp_path, 'plans', 'plan_%i.pkl'%i)
+        with open(os.path.join(path), 'wb') as handle:
+            pickle.dump(plan, handle)
+
+
+    # add executed trajectories
+    def add_to_trajs(self, traj):
+        found_files, txs = self.get_dir_indices('trajs')
+        if len(txs) == 0:
+            i = 0
+        else:
+            i = txs[-1]
+        path = os.path.join(self.exp_path, 'trajs', 'traj_%i.pkl'%i)
+        with open(os.path.join(path), 'wb') as handle:
+            pickle.dump(traj, handle)
 
 
     # info on abstract plans that fail to plan trajectories

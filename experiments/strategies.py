@@ -127,6 +127,8 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, model_logger, \
     if save_to_dataset:
         # add to dataset and save
         added_datapoints = add_trajectory_to_dataset(args.domain, dataset_logger, trajectory, world)
+        dataset_logger.add_to_plans(pddl_plan)
+        dataset_logger.add_to_trajs(trajectory)
 
     if 'sequential' in args.data_collection_mode and failed_pddl_plan:
         dataset_logger.add_to_failed_plans(added_datapoints)
