@@ -174,7 +174,8 @@ def get_contact_motion_gen(world, robot, fixed=[], num_attempts=20, ret_traj=Tru
     # obj1 is tool in grasp, obj2 is at pose1, cont is in obj2 frame
     def fn(obj1, grasp, obj2, pose1, pose2, cont):
         if learned:
-            trust = trust_contact_model(world, obj2, pose1, pose2, cont)
+            action_name = 'push-%s' % cont.type
+            trust = trust_model(world, action_name, (obj1, grasp, obj2, pose1, pose2, cont))
             if not trust:
                 return None
         # ee pose at contact
@@ -332,7 +333,7 @@ def get_holding_motion_gen(robot, fixed=[], ret_traj=True):
 def get_ik_fn(world, robot, fixed=[], num_attempts=4, approach_frame='gripper', backoff_frame='global', learned=False):
     def fn(obj, pose, grasp, return_grasp_q=False, check_robust=False):
         if learned and approach_frame == 'gripper': # learned pick action
-            trust = trust_pick_model(world, obj, pose)
+            trust = trust_model(world, 'pick', (obj, pose, grasp))
             if not trust:
                 return None
         obstacles = copy(fixed) # for some reason  adding to fixed here changes it in other primitives, so use copy of fixed
@@ -597,7 +598,9 @@ def get_tool_grasp_gen(robot, add_slanted_grasps=True, add_orthogonal_grasps=Tru
     return gen
 
 
-def trust_contact_model(world, block, pose1, pose2, cont):
+def trust_model(world, action_name, args):
+    '''
+    # if action_name == 'move_contact'
     ## Calculate angle between contact frame and push direction
     # get cont axis in world
     block_world = pb_robot.geometry.tform_from_pose(pose1.pose)
@@ -629,13 +632,10 @@ def trust_contact_model(world, block, pose1, pose2, cont):
                 cont.type == 'poke':
             return True
         return False
-    #model = world.logger.load_trans_model()
-    #x = world.pred_args_to_vec(block, pose1, pose2, cont)
-    #trust_model = model_forward(cont.type, model, x, single_batch=True).mean().round().squeeze()
-    #return trust_model
+    '''
 
-
-def trust_pick_model(world, obj, pose):
+    '''
+    # if action_name == 'pick'
     if obj == world.objects['yellow_block']:
         if np.linalg.norm(pose.pose[0][:2]) > world.valid_pick_yellow_radius:
             return False
@@ -643,11 +643,12 @@ def trust_pick_model(world, obj, pose):
         if world.block_in_tunnel(pose.pose[0][:2]):
             return False
     return True
+    '''
 
-    #model = world.logger.load_trans_model()
-    #x = world.pred_args_to_vec(obj1, obj2, pose1, pose2, cont)
-    #trust_model = model_forward(cont.type, model, x, single_batch=True).mean().round().squeeze()
-    #return trust_model
+    model = world.logger.load_trans_model()
+    x = world.pred_args_to_vec(action_name, args)
+    trust_model = model_forward(action_name, model, x, single_batch=True).mean().round().squeeze()
+    return trust_model
 
 
 def assign_fluent_state(fluents):
