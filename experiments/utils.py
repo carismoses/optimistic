@@ -139,6 +139,10 @@ class ExperimentLogger:
             file_name = r'trans_model_(.*).pt'
         elif dir == 'eval_trajs':
             file_name = r'trajs_(.*).pkl'
+        elif dir == 'plans':
+            file_name = r'plan_(.*).pkl'
+        elif dir == 'trajs':
+            file_name = r'traj_(.*).pkl'
         txs = []
         found_files = []
         for file in files:
