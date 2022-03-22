@@ -129,6 +129,13 @@ class ExperimentLogger:
         sorted_trajs = [(self.load_trajectories(i=i),i) for fname,i in zip(sorted_file_names, np.sort(txs))]
         return iter(sorted_trajs)
 
+    def get_plan_iterator(self):
+        found_files, txs = self.get_dir_indices('plans')
+        sorted_indices = np.argsort(txs)
+        sorted_file_names = [found_files[idx] for idx in sorted_indices]
+        sorted_plans = [(self.load_plan(i=i),i) for fname,i in zip(sorted_file_names, np.sort(txs))]
+        return iter(sorted_plans)
+
     def get_dir_indices(self, dir):
         files = os.listdir(os.path.join(self.exp_path, dir))
         if len(files) == 0:
@@ -215,10 +222,21 @@ class ExperimentLogger:
         if len(txs) == 0:
             i = 0
         else:
-            i = txs[-1]
+            i = max(txs)+1
         path = os.path.join(self.exp_path, 'plans', 'plan_%i.pkl'%i)
         with open(os.path.join(path), 'wb') as handle:
             pickle.dump(plan, handle)
+
+
+    def load_plan(self, i=None):
+        if i is None:
+            found_files, txs = self.get_dir_indices('plans')
+            assert len(txs) > 0, 'No plans on path %s' % os.path.join(self.exp_path, 'plans')
+            i = max(txs)+1 
+        path = os.path.join(self.exp_path, 'plans', 'plan_%i.pkl'%i)
+        with open(os.path.join(path), 'rb') as handle:
+            plans = pickle.load(handle)
+        return plans
 
 
     # add executed trajectories
