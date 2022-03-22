@@ -739,7 +739,7 @@ class ToolsWorld:
             ax.set_ylim(ylimits)
 
 
-    def vis_dense_plot(self, action, obj, ax, x_range, y_range, vmin, vmax, value_fn=None, cell_width=0.05):
+    def vis_dense_plot(self, action, obj, ax, x_range, y_range, vmin, vmax, value_fn=None, cell_width=0.05, grasp=None):
         # make 2d arrays of mean and std ensemble predictions
         xs, x_extent = self.make_array(*x_range, cell_width)
         ys, y_extent = self.make_array(*y_range, cell_width)
@@ -747,7 +747,7 @@ class ToolsWorld:
 
         for xi, xv in enumerate(xs):
             for yi, yv in enumerate(ys):
-                values[yi][xi] = value_fn(self, action, obj, xv, yv)
+                values[yi][xi] = value_fn(self, action, obj, xv, yv, grasp)
 
         # plot predictions w/ colorbars
         extent = (*x_extent, *y_extent)
@@ -808,10 +808,14 @@ class ToolsWorld:
                                 fill = False))
 
 
-    def vis_dataset(self, ax, dataset):
+    def vis_dataset(self, ax, dataset, grasp=None):
         for x, y in dataset:
             color = 'r' if y == 0 else 'g'
-            ax.plot(*x, color+'.')
+            if grasp is not None:
+                if np.allclose(x[2:], grasp):
+                    ax.plot(*x[:2], color+'.')
+            elif grasp is None:
+                ax.plot(*x, color+'.')
 
 
     def get_model_inputs(self, tool_approach_pose, goal_pose):

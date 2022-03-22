@@ -11,9 +11,39 @@ from evaluate.plot_value_fns import get_model_accuracy_fn, get_seq_fn
 from domains.tools.primitives import get_contact_gen
 
 
-def gen_plots(args):
-    dir = 'accuracy'
+dir = 'accuracy'
 
+def indiv_plot(contact_info, action, obj, world, mean_fn, std_fn, dataset, ts, mi, model_logger, grasp=None):
+    n_axes = 3
+    fig, axes = plt.subplots(n_axes, figsize=(5, 10))
+    contact = None
+    for ctype in contact_info:
+        if ctype in action:
+            contact = contact_info[ctype]
+            # plot the tool
+            world.vis_tool_ax(contact, obj, action, axes[n_axes-1], frame='cont')
+    x_axes, y_axes = world.get_cont_frame_limits(obj, action, contact)
+
+    world.vis_dense_plot(action, obj, axes[0], x_axes, y_axes, 0, 1, value_fn=mean_fn, cell_width=0.1, grasp=grasp)
+    world.vis_dense_plot(action, obj, axes[1], x_axes, y_axes, None, None, value_fn=std_fn, cell_width=0.1, grasp=grasp)
+
+    for ai in range(n_axes):
+        world.vis_dataset(axes[ai], dataset.datasets[action][obj], grasp=grasp)
+
+    axes[0].set_title('Mean Ensemble Predictions')
+    axes[1].set_title('Std Ensemble Predictions')
+    axes[2].set_title('Tool Contact')
+
+    if grasp is not None:
+        grasp_str = 'p1' if grasp == [.1,0] else 'n1'
+        fname = fname = 'acc_%s_%s_g%s_%s_%i.png' % (ts, action, grasp_str, obj, mi)
+    else:
+        fname = 'acc_%s_%s_%s_%i.png' % (ts, action, obj, mi)
+    model_logger.save_figure(fname, dir=dir)
+    plt.close()
+
+
+def gen_plots(args):
     model_logger = ExperimentLogger(args.model_exp_path)
     ensembles, mi = model_logger.load_trans_model(ret_i=True)
     world = ToolsWorld(False, None, ensembles.objects)
@@ -41,29 +71,12 @@ def gen_plots(args):
 
     for obj in ensembles.objects:
         for action in ensembles.actions:
-            n_axes = 3
-            fig, axes = plt.subplots(n_axes, figsize=(5, 10))
-            contact = None
-            for ctype in contact_info:
-                if ctype in action:
-                    contact = contact_info[ctype]
-                    # plot the tool
-                    world.vis_tool_ax(contact, obj, action, axes[n_axes-1], frame='cont')
-            x_axes, y_axes = world.get_cont_frame_limits(obj, action, contact)
+            if 'push' in action:
+                for grasp in [[-.1, 0.], [.1, 0.]]:
+                    indiv_plot(contact_info, action, obj, world, mean_fn, std_fn, dataset, ts, mi, model_logger, grasp=grasp)
+            else:
+                indiv_plot(contact_info, action, obj, world, mean_fn, std_fn, dataset, ts, mi, model_logger)
 
-            world.vis_dense_plot(action, obj, axes[0], x_axes, y_axes, 0, 1, value_fn=mean_fn, cell_width=0.1)
-            world.vis_dense_plot(action, obj, axes[1], x_axes, y_axes, None, None, value_fn=std_fn, cell_width=0.1)
-
-            for ai in range(n_axes):
-                world.vis_dataset(axes[ai], dataset.datasets[action][obj])
-
-            axes[0].set_title('Mean Ensemble Predictions')
-            axes[1].set_title('Std Ensemble Predictions')
-            axes[2].set_title('Tool Contact')
-
-            fname = 'acc_%s_%s_%s_%i.png' % (ts, action, obj, mi)
-            model_logger.save_figure(fname, dir=dir)
-            plt.close()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

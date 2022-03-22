@@ -8,16 +8,20 @@ from learning.utils import model_forward
 from experiments.strategies import bald
 
 def get_model_accuracy_fn(ensembles, ret):
-    def model_accuracy_fn(world, action, obj, xv, yv):
+    def model_accuracy_fn(world, action, obj, xv, yv, grasp=None):
+        if grasp is not None:
+            x = [xv, yv, *grasp]
+        else:
+            x = [xv, yv]
         if ret == 'mean':
-            return model_forward(ensembles, np.array([xv, yv]), action, obj, single_batch=True).mean().squeeze()
+            return model_forward(ensembles, np.array(x), action, obj, single_batch=True).mean().squeeze()
         elif ret == 'std':
-            return model_forward(ensembles, np.array([xv, yv]), action, obj, single_batch=True).std().squeeze()
+            return model_forward(ensembles, np.array(x), action, obj, single_batch=True).std().squeeze()
     return model_accuracy_fn
 
 
 def get_seq_fn(ensembles):
-    def seq_fn(world, action, obj, xv, yv):
+    def seq_fn(world, action, obj, xv, yv, grasp=None):
         predictions = model_forward(ensembles, np.array([xv, yv]), action, obj, single_batch=True).squeeze()
         mean_prediction = predictions.mean()
         return mean_prediction*bald(predictions)
@@ -25,7 +29,7 @@ def get_seq_fn(ensembles):
 
 
 def get_planable_fn(goals, planabilities):
-    def planable_fn(world, cont, xv, yv):
+    def planable_fn(world, cont, xv, yv, grasp=None):
         ## dist parameters ##
         max_n_n = 5 # max number of nearest neighors to use in calculation
         ##
