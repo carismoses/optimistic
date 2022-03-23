@@ -71,13 +71,18 @@ def gen_plots(args):
             else:
                 skel_count[pn] += [0]
 
-    fig, ax = plt.subplots()
-    #print(skel_count.keys())
+    fig, ax = plt.subplots(figsize=(15,5))
     for plan_name, counts in skel_count.items():
         ax.bar(np.arange(len(counts)), counts, width=1.0, label=plan_name)
-    ax.legend()
-    #plt.show()
+
+
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0, box.width * 0.6, box.height])
+
+    # Put a legend to the right of the current axis
+    ax.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
     fname = 'skeletons.png'
+
     logger.save_figure(fname, dir=dir)
     plt.close()
 
