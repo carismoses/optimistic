@@ -25,10 +25,6 @@
     (AtGrasp ?o ?g)
     (AtPose ?o ?p)
     (FreeObj ?o)
-
-    ; Hacks to get the planner to try both place pose goals and push pose goals
-    (AtPlacePose ?o ?p)
-    (AtPushPose ?o ?p)
   )
 
   ; Move in free space while not holing anything
@@ -77,7 +73,6 @@
                        (Supported ?ot ?pt ?ob ?pb)
                        (AtPose ?ob ?pb))
     :effect (and (AtPose ?ot ?pt)
-                 (AtPlacePose ?ot ?pt)
                  (HandEmpty)
                  (AtConf ?q2)
                  (not (AtConf ?q1))
@@ -94,7 +89,6 @@
                        (AtGrasp ?o1 ?g)
                        (FreeObj ?o2))
     :effect (and (AtPose ?o2 ?p2)
-                 (AtPushPose ?o2 ?p2)
                  (AtConf ?q3)
                  (not (AtPose ?o2 ?p1))
                  (not (AtConf ?q1)))

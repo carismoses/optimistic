@@ -21,11 +21,6 @@ def gen_dataset(args, n_actions, dataset_logger, model_logger):
     else:
         dataset = dataset.logger.load_trans_dataset('')
 
-    if args.goal_type == 'push':
-        types = args.contact_types
-    elif args.goal_type == 'pick':
-        types = ['pick']
-
     if args.balanced:
         condition = len(dataset) < len(types)*args.max_type_size
     else:

@@ -82,8 +82,8 @@ def gen_plots(args):
         mi = di
 
     for obj in ['yellow_block', 'blue_block']:
-        for action in ['pick', 'push-push_pull', 'push-poke']:
-            if 'push' in action:
+        for action in ['pick', 'move_contact-push_pull', 'move_contact-poke']:
+            if 'move_contact' in action:
                 for grasp in [[-.1, 0.], [.1, 0.]]:
                     indiv_plot(contact_info, action, obj, world, mean_fn, std_fn, dataset, ts, mi, model_logger, dataset_logger, grasp=grasp)
             else:

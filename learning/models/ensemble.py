@@ -13,7 +13,7 @@ class Ensembles(nn.Module):
         self.all_n_in = copy(base_args['n_in'])
         self.base_args = copy(base_args)
         self.n_models = n_models
-        self.actions = ['pick', 'push-poke', 'push-push_pull']
+        self.actions = ['pick', 'move_contact-poke', 'move_contact-push_pull']
         self.objects = objects
         self.reset()
 

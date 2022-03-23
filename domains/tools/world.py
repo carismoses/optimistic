@@ -26,7 +26,7 @@ from domains.tools.primitives import get_free_motion_gen, \
 
 
 DEBUG = False
-MODEL_INPUT_DIMS = {'push-poke': 4, 'push-push_pull': 4, 'pick': 2}
+MODEL_INPUT_DIMS = {'move_contact-poke': 4, 'move_contact-push_pull': 4, 'pick': 2}
 
 # TODO: make parent world template class
 class ToolsWorld:
@@ -290,7 +290,7 @@ class ToolsWorld:
             # calculate the pose of the push goal in the contact frame
             cont = pddl_action.args[5]
             pose1 = pddl_action.args[3]
-            x = np.zeros(MODEL_INPUT_DIMS['push-'+cont.type])
+            x = np.zeros(MODEL_INPUT_DIMS['move_contact-'+cont.type])
             # tool pose at contact
             block_world = pb_robot.geometry.tform_from_pose(pose1.pose)
             tool_w_tform = block_world@cont.rel_pose
@@ -317,7 +317,7 @@ class ToolsWorld:
 
 
     def pred_args_to_vec(self, action_name, args):
-        if 'push' in action_name:
+        if 'move_contact' in action_name:
             action = Action(name='move_contact', args=(*args,
                                                         None,
                                                         None,

@@ -64,7 +64,7 @@ def add_trajectory_to_dataset(domain, dataset_logger, trajectory, world):
                 x = world.action_to_vec(pddl_action)
                 if pddl_action.name == 'move_contact':
                     contact_type = pddl_action.args[5].type
-                    action = '%s-%s' % ('push', contact_type)
+                    action = '%s-%s' % ('move_contact', contact_type)
                     obj = pddl_action.args[2].readableName
                 elif pddl_action.name == 'pick':
                     action = pddl_action.name
@@ -108,5 +108,5 @@ def train_model(model, dataset, args, plot=False):
     for action, action_dict in dataset.datasets.items():
         for obj, action_object_dataset in action_dict.items():
             if len(action_object_dataset) > 0:
-                print('Training %s %s ensemble with |dataset| = %i' % (action, obj, len(dataset)))
+                print('Training %s %s ensemble with |dataset| = %i' % (action, obj, len(action_object_dataset)))
                 losses = inner_loop(action_object_dataset, model.ensembles[action][obj])

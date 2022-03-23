@@ -174,7 +174,7 @@ def get_contact_motion_gen(world, robot, fixed=[], num_attempts=20, ret_traj=Tru
     # obj1 is tool in grasp, obj2 is at pose1, cont is in obj2 frame
     def fn(obj1, grasp, obj2, pose1, pose2, cont):
         if learned:
-            action_name = 'push-%s' % cont.type
+            action_name = 'move_contact-%s' % cont.type
             trust = trust_model(world, action_name, (obj1, grasp, obj2, pose1, pose2, cont))
             if not trust:
                 return None

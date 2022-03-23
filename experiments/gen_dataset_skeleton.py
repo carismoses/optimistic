@@ -22,7 +22,7 @@ def gen_dataset(args):
     for action, act_dict in dataset.datasets.items():
         for obj, act_obj_dict in act_dict.items():
             if (obj == 'blue_block' and action == 'pick') or \
-                (obj == 'blue_block' and action == 'push-push_pull'):
+                (obj == 'blue_block' and action == 'move_contact-push_pull'):
                 max_len += args.max_type_size
             else:
                 max_len += 2*args.max_type_size
@@ -57,7 +57,7 @@ def gen_dataset(args):
                 for action, act_dict in dataset.datasets.items():
                     for obj, act_obj_dict in act_dict.items():
                         if (obj == 'blue_block' and action == 'pick') or \
-                            (obj == 'blue_block' and action == 'push-push_pull'):
+                            (obj == 'blue_block' and action == 'move_contact-push_pull'):
                             if len(act_obj_dict) > args.max_type_size:
                                 remove_point = True
                         elif len(act_obj_dict) > 2*args.max_type_size:
