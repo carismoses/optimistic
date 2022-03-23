@@ -73,7 +73,8 @@ def gen_plots(args):
 
     fig, ax = plt.subplots(figsize=(15,5))
     for plan_name, counts in skel_count.items():
-        ax.bar(np.arange(len(counts)), counts, width=1.0, label=plan_name)
+        if counts > 0:
+            ax.bar(np.arange(len(counts)), counts, width=1.0, label=plan_name)
 
 
     box = ax.get_position()
