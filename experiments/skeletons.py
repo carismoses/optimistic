@@ -122,6 +122,53 @@ def get_skeleton_fns():
         return skeleton
 
 
+    # push then pick and place block
+    def pick_push_skeleton(world, goal_pred, ctypes=[None]):
+        conts = ground_contacts(world, goal_pred[1], ctypes)
+        skeleton = [
+        # pick block
+        ('pick', (goal_pred[1],
+                    world.obj_init_poses[goal_pred[1].readableName],
+                    world.panda.table,
+                    '#g1',
+                    None,
+                    None,
+                    None)),
+
+        # place block
+        ('place', (goal_pred[1],
+                    '#p1',
+                    world.panda.table,
+                    world.panda.table_pose,
+                    '#g1',
+                    None,
+                    None,
+                    None)),
+
+        # pick tool
+        ('pick', (world.objects['tool'],
+                    world.obj_init_poses['tool'],
+                    world.panda.table,
+                    '#g2',
+                    None,
+                    None,
+                    None)),
+
+        # push block
+        ('move_contact', (world.objects['tool'],
+                    '#g2',
+                    goal_pred[1],
+                    '#p1',
+                    None,
+                    conts[0],
+                    None,
+                    None,
+                    None,
+                    None)),
+        ]
+        return skeleton
+
+
     # push block twice
     def push_push_skeleton(world, goal_pred, ctypes=[None, None]):
         conts = ground_contacts(world, goal_pred[1], ctypes)
@@ -203,8 +250,8 @@ def get_skeleton_fns():
                     None))
         ]
         return skeleton
-    return [push_skeleton, pick_skeleton, push_pick_skeleton, push_push_skeleton, \
-            pick_pick_skeleton]
+    return [push_skeleton, pick_skeleton, push_pick_skeleton, pick_push_skeleton, \
+            push_push_skeleton, pick_pick_skeleton]
 
 
 def ground_contacts(world, block, ctypes):
@@ -288,18 +335,18 @@ def plan_from_skeleton(skeleton, world, pddl_model_type, add_to_state):
 
 if __name__ == '__main__':
     from domains.tools.world import ToolsWorld
-    import pdb; pdb.set_trace()
+    #import pdb; pdb.set_trace()
 
     for _ in range(100):
-        objects = ['yellow_block', 'blue_block']
+        objects = ['yellow_block']#, 'blue_block']
         world = ToolsWorld(True, None, objects)
 
         goal_pred, add_to_state = world.generate_goal()
 
         skeleton_fns = get_skeleton_fns()
-        push_push_skeleton = skeleton_fns[3](world, goal_pred, ctypes=['poke', 'push_pull'])
+        pick_push_skeleton = skeleton_fns[3](world, goal_pred, ctypes=['poke'])
 
-        plan_info = plan_from_skeleton(push_push_skeleton,
+        plan_info = plan_from_skeleton(pick_push_skeleton,
                                         world,
                                         'optimistic',
                                         add_to_state)
