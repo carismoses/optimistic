@@ -9,7 +9,7 @@ import numpy as np
 
 import pb_robot
 
-from learning.models.ensemble import Ensemble, Ensembles, init_weights
+from learning.models.ensemble import Ensemble, Ensembles
 from learning.train import train
 
 
@@ -18,11 +18,12 @@ class MLP(nn.Module):
     Implements a MLP that makes 1-D predictions in [0,1]
     """
 
-    def __init__(self, n_in, n_hidden, n_layers):
+    def __init__(self, n_in, n_hidden, n_layers, winit_sd):
         super(MLP, self).__init__()
         torch.set_default_dtype(torch.float64) # my data was float64 and model params were float32
 
         self.n_in, self.hidden, self.n_layers = n_in, n_hidden, n_layers
+        self.winit_sd = winit_sd
         n_out = 1
         self.N = make_layers(n_in, n_out, n_hidden, n_layers)
 
@@ -32,7 +33,12 @@ class MLP(nn.Module):
         return torch.sigmoid(out)
 
     def reset(self):
-        self.apply(init_weights)
+        self.apply(self.init_weights)
+
+    def init_weights(self, m):
+        if isinstance(m, torch.nn.Linear):
+            m.weight.data.normal_(0, self.winit_sd)
+            m.bias.data.normal_(0, self.winit_sd)
 
 
 def model_forward(model, inputs, action, obj_name, single_batch=False):

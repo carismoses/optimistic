@@ -3,6 +3,9 @@ import torch
 import torch.nn as nn
 
 
+weight_init_sds = {('move_contact-poke', 'blue_block'): 9,
+                    ('move_contact-poke', 'yellow_block'): 8}
+
 class Ensembles(nn.Module):
     def __init__(self, base_model, base_args, n_models, objects):
         # actions_and_objects is a list of (action, object) tuples
@@ -25,6 +28,10 @@ class Ensembles(nn.Module):
                 if action not in self.ensembles:
                     self.ensembles[action] = nn.ModuleDict()
                 self.base_args['n_in'] = self.all_n_in[action]
+                if (action, obj) in weight_init_sds:
+                    self.base_args['winit_sd'] = weight_init_sds[(action, obj)]
+                else:
+                    self.base_args['winit_sd'] = 7
                 ensemble = Ensemble(self.base_model,
                                     self.base_args,
                                     self.n_models)
@@ -67,7 +74,7 @@ class Ensemble(nn.Module):
         """ Initialize (or re-initialize) all the models in the ensemble."""
         self.models = nn.ModuleList([self.base_model(**self.base_args) for _ in range(self.n_models)])
         for model in self.models:
-            model.apply(init_weights)
+            model.reset()
 
     def forward(self, x):
         """ Return a prediction for each model in the ensemble.
@@ -76,9 +83,3 @@ class Ensemble(nn.Module):
         """
         preds = [self.models[ix].forward(x) for ix in range(self.n_models)]
         return torch.cat(preds)
-
-
-def init_weights(m):
-    if isinstance(m, torch.nn.Linear):
-        m.weight.data.normal_(0,7)#uniform_(-1,1)#normal_(0,100)
-        m.bias.data.normal_(0,7)#uniform_(-1,1)#normal_(0,100)
