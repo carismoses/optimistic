@@ -3,6 +3,7 @@ import argparse
 
 from experiments.utils import ExperimentLogger
 from experiments.strategies import collect_trajectory_wrapper
+from experiments.skeletons import merge_skeletons
 from domains.tools.world import MODEL_INPUT_DIMS
 from learning.utils import MLP, train_model
 from learning.models.ensemble import Ensembles
@@ -23,6 +24,10 @@ def train_class(args, logger, n_actions):
         logger.save_trans_dataset(dataset, '', i=n_actions)
         model = Ensembles(MLP, base_args, args.n_models, args.objects)
         logger.save_trans_model(model, i=n_actions)
+
+    # merge skeleton files
+    if args.samples_from_file:
+        merge_skeletons(args.skel_nums)
 
     while n_actions < args.max_actions:
         dataset = logger.load_trans_dataset('')
@@ -96,6 +101,9 @@ if __name__ == '__main__':
     parser.add_argument('--samples-from-file',
                         action='store_true',
                         help='set if want to use pre-generated samples for BALD search')
+    parser.add_argument('--skel-nums',
+                        type=int,
+                        nargs='+')
     parser.add_argument('--n-seq-plans',
                         type=int,
                         default=100,
