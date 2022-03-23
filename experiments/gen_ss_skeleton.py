@@ -53,9 +53,9 @@ def gen_ss(args):
                     all_skeleton_keys.append(SkeletonKey(skeleton_fn, block_name, tuple(ctype_list)))
             else:
                 all_skeleton_keys.append(SkeletonKey(skeleton_fn, block_name, tuple()))
-    for sk in all_skeleton_keys:
-        print(sk)
-    input('There are %s potential skeletons' % len(all_skeleton_keys))
+    #for sk in all_skeleton_keys:
+    #    print(sk)
+    #print('There are %s potential skeletons' % len(all_skeleton_keys))
 
     # load pre saved plans if restarting
     all_plans = {}
