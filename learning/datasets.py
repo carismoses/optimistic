@@ -5,7 +5,7 @@ from torch.utils.data import Dataset
 
 
 class OptDictDataset:
-    def __init__(self, objects):
+    def __init__(self, objects=['yellow_block', 'blue_block']):
         # object in {yellow_block, blue_block}
         self.datasets = {}
         for action in ['pick', 'push-poke', 'push-push_pull']:

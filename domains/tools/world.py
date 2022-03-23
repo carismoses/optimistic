@@ -25,12 +25,12 @@ from domains.tools.primitives import get_free_motion_gen, \
     contact_approach_fn, ee_ik
 
 
-DEBUG = True
+DEBUG = False
 MODEL_INPUT_DIMS = {'push-poke': 4, 'push-push_pull': 4, 'pick': 2}
 
 # TODO: make parent world template class
 class ToolsWorld:
-    def __init__(self, vis, logger, objects):
+    def __init__(self, vis=False, logger=None, objects=['yellow_block', 'blue_block']):
         self.init_objs_pos_xy = {'yellow_block': (0.4, -0.3),
                                 'blue_block': (0.3, 0.3),
                                 'tool': (0.3, -0.45),
@@ -487,7 +487,7 @@ class ToolsWorld:
         if conf1 is None or conf2 is None or traj is None:
             stream_result = streams_map['place-inverse-kinematics'](top_obj, top_pose, grasp).next()
             if len(stream_result) == 0:
-                if DEBUG: print('failed: palce, traj')
+                if DEBUG: print('failed: place, traj')
                 return None
         conf1, conf2, traj = stream_result[0]
 

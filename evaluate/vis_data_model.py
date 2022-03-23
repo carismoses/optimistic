@@ -13,7 +13,7 @@ from domains.tools.primitives import get_contact_gen
 
 dir = 'accuracy'
 
-def indiv_plot(contact_info, action, obj, world, mean_fn, std_fn, dataset, ts, mi, model_logger, grasp=None):
+def indiv_plot(contact_info, action, obj, world, mean_fn, std_fn, dataset, ts, mi, model_logger, dataset_logger, grasp=None):
     n_axes = 3
     fig, axes = plt.subplots(n_axes, figsize=(5, 10))
     contact = None
@@ -24,10 +24,12 @@ def indiv_plot(contact_info, action, obj, world, mean_fn, std_fn, dataset, ts, m
             world.vis_tool_ax(contact, obj, action, axes[n_axes-1], frame='cont')
     x_axes, y_axes = world.get_cont_frame_limits(obj, action, contact)
 
-    world.vis_dense_plot(action, obj, axes[0], x_axes, y_axes, 0, 1, value_fn=mean_fn, cell_width=0.1, grasp=grasp)
-    world.vis_dense_plot(action, obj, axes[1], x_axes, y_axes, None, None, value_fn=std_fn, cell_width=0.1, grasp=grasp)
+    if not args.just_dataset:
+        world.vis_dense_plot(action, obj, axes[0], x_axes, y_axes, 0, 1, value_fn=mean_fn, cell_width=0.1, grasp=grasp)
+        world.vis_dense_plot(action, obj, axes[1], x_axes, y_axes, None, None, value_fn=std_fn, cell_width=0.1, grasp=grasp)
 
     for ai in range(n_axes):
+        print(action, obj, len(dataset.datasets[action][obj]))
         world.vis_dataset(axes[ai], dataset.datasets[action][obj], grasp=grasp)
 
     axes[0].set_title('Mean Ensemble Predictions')
@@ -39,14 +41,21 @@ def indiv_plot(contact_info, action, obj, world, mean_fn, std_fn, dataset, ts, m
         fname = fname = 'acc_%s_%s_g%s_%s_%i.png' % (ts, action, grasp_str, obj, mi)
     else:
         fname = 'acc_%s_%s_%s_%i.png' % (ts, action, obj, mi)
-    model_logger.save_figure(fname, dir=dir)
+    if args.just_dataset:
+        dataset_logger.save_figure(fname, dir=dir)
+    else:
+        model_logger.save_figure(fname, dir=dir)
     plt.close()
 
 
 def gen_plots(args):
-    model_logger = ExperimentLogger(args.model_exp_path)
-    ensembles, mi = model_logger.load_trans_model(ret_i=True)
-    world = ToolsWorld(False, None, ensembles.objects)
+    if args.just_dataset:
+        model_logger = None
+    else:
+        model_logger = ExperimentLogger(args.model_exp_path)
+        ensembles, mi = model_logger.load_trans_model(ret_i=True)
+        print('Generating figures for models on path %s step %i' % (args.model_exp_path, mi))
+    world = ToolsWorld()
 
     if args.dataset_exp_path:
         dataset_logger = ExperimentLogger(args.dataset_exp_path)
@@ -54,7 +63,6 @@ def gen_plots(args):
         dataset_logger = model_logger
     dataset, di = dataset_logger.load_trans_dataset('', ret_i=True)
 
-    print('Generating figures for models on path %s step %i' % (args.model_exp_path, mi))
     print('Plotting dataset on path %s step %i' % (dataset_logger.exp_path, di))
 
     ts = time.strftime('%Y%m%d-%H%M%S')
@@ -66,16 +74,20 @@ def gen_plots(args):
     for contact in contacts:
         contact_info[contact[0].type] = contact[0]
 
-    mean_fn = get_model_accuracy_fn(ensembles, 'mean')
-    std_fn = get_model_accuracy_fn(ensembles, 'std')
+    if not args.just_dataset:
+        mean_fn = get_model_accuracy_fn(ensembles, 'mean')
+        std_fn = get_model_accuracy_fn(ensembles, 'std')
+    else:
+        mean_fn, std_fn = None, None
+        mi = di
 
-    for obj in ensembles.objects:
-        for action in ensembles.actions:
+    for obj in ['yellow_block', 'blue_block']:
+        for action in ['pick', 'push-push_pull', 'push-poke']:
             if 'push' in action:
                 for grasp in [[-.1, 0.], [.1, 0.]]:
-                    indiv_plot(contact_info, action, obj, world, mean_fn, std_fn, dataset, ts, mi, model_logger, grasp=grasp)
+                    indiv_plot(contact_info, action, obj, world, mean_fn, std_fn, dataset, ts, mi, model_logger, dataset_logger, grasp=grasp)
             else:
-                indiv_plot(contact_info, action, obj, world, mean_fn, std_fn, dataset, ts, mi, model_logger)
+                indiv_plot(contact_info, action, obj, world, mean_fn, std_fn, dataset, ts, mi, model_logger, dataset_logger)
 
 
 if __name__ == '__main__':
@@ -89,6 +101,8 @@ if __name__ == '__main__':
     parser.add_argument('--dataset-exp-path',
                         type=str,
                         help='experiment path to visualize results for')
+    parser.add_argument('--just-dataset',
+                        action='store_true')
     args = parser.parse_args()
 
     if args.debug:
