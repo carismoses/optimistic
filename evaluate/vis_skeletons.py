@@ -73,7 +73,7 @@ def gen_plots(args):
 
     fig, ax = plt.subplots(figsize=(15,5))
     for plan_name, counts in skel_count.items():
-        if counts > 0:
+        if sum(counts) > 0:
             ax.bar(np.arange(len(counts)), counts, width=1.0, label=plan_name)
 
 
