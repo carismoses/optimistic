@@ -2,7 +2,6 @@ import time
 import argparse
 import matplotlib.pyplot as plt
 import numpy as np
-import os
 
 import pb_robot
 
@@ -55,7 +54,8 @@ def gen_plots(args):
         ax.bar(np.arange(len(counts)), counts, width=1.0, label=plan_name)
     ax.legend()
     #plt.show()
-    plt.savefig(os.path.join(dir, 'skeletons.png'))
+    fname = 'skeletons.png'
+    logger.save_figure(fname, dir=dir)
     plt.close()
 
 if __name__ == '__main__':
