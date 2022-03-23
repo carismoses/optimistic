@@ -53,9 +53,9 @@ def gen_ss(args):
                     all_skeleton_keys.append(SkeletonKey(skeleton_fn, block_name, tuple(ctype_list)))
             else:
                 all_skeleton_keys.append(SkeletonKey(skeleton_fn, block_name, tuple()))
-    #for sk in all_skeleton_keys:
-    #    print(sk)
-    #print('There are %s potential skeletons' % len(all_skeleton_keys))
+    for sk in all_skeleton_keys:
+        print(sk)
+    input('There are %s potential skeletons' % len(all_skeleton_keys))
 
     # load pre saved plans if restarting
     all_plans = {}
@@ -162,3 +162,31 @@ if __name__ == '__main__':
         import pdb; pdb.set_trace()
 
     gen_ss(args)
+
+'''
+all possible skeletons, use for --skel-num input
+0: SkeletonKey(skeleton_fn=<function get_skeleton_fns.<locals>.push_skeleton at 0x168bab430>, goal_obj='yellow_block', ctypes=('poke',))
+1: SkeletonKey(skeleton_fn=<function get_skeleton_fns.<locals>.push_skeleton at 0x168bab430>, goal_obj='yellow_block', ctypes=('push_pull',))
+2: SkeletonKey(skeleton_fn=<function get_skeleton_fns.<locals>.push_skeleton at 0x168bab430>, goal_obj='blue_block', ctypes=('poke',))
+3: SkeletonKey(skeleton_fn=<function get_skeleton_fns.<locals>.push_skeleton at 0x168bab430>, goal_obj='blue_block', ctypes=('push_pull',))
+4: SkeletonKey(skeleton_fn=<function get_skeleton_fns.<locals>.pick_skeleton at 0x168bab4c0>, goal_obj='yellow_block', ctypes=())
+5: SkeletonKey(skeleton_fn=<function get_skeleton_fns.<locals>.pick_skeleton at 0x168bab4c0>, goal_obj='blue_block', ctypes=())
+6: SkeletonKey(skeleton_fn=<function get_skeleton_fns.<locals>.push_pick_skeleton at 0x168bab550>, goal_obj='yellow_block', ctypes=('poke',))
+7: SkeletonKey(skeleton_fn=<function get_skeleton_fns.<locals>.push_pick_skeleton at 0x168bab550>, goal_obj='yellow_block', ctypes=('push_pull',))
+8: SkeletonKey(skeleton_fn=<function get_skeleton_fns.<locals>.push_pick_skeleton at 0x168bab550>, goal_obj='blue_block', ctypes=('poke',))
+9: SkeletonKey(skeleton_fn=<function get_skeleton_fns.<locals>.push_pick_skeleton at 0x168bab550>, goal_obj='blue_block', ctypes=('push_pull',))
+10: SkeletonKey(skeleton_fn=<function get_skeleton_fns.<locals>.pick_push_skeleton at 0x168bab5e0>, goal_obj='yellow_block', ctypes=('poke',))
+11: SkeletonKey(skeleton_fn=<function get_skeleton_fns.<locals>.pick_push_skeleton at 0x168bab5e0>, goal_obj='yellow_block', ctypes=('push_pull',))
+12: SkeletonKey(skeleton_fn=<function get_skeleton_fns.<locals>.pick_push_skeleton at 0x168bab5e0>, goal_obj='blue_block', ctypes=('poke',))
+13: SkeletonKey(skeleton_fn=<function get_skeleton_fns.<locals>.pick_push_skeleton at 0x168bab5e0>, goal_obj='blue_block', ctypes=('push_pull',))
+14: SkeletonKey(skeleton_fn=<function get_skeleton_fns.<locals>.push_push_skeleton at 0x168bab670>, goal_obj='yellow_block', ctypes=('poke', 'poke'))
+15: SkeletonKey(skeleton_fn=<function get_skeleton_fns.<locals>.push_push_skeleton at 0x168bab670>, goal_obj='yellow_block', ctypes=('poke', 'push_pull'))
+16: SkeletonKey(skeleton_fn=<function get_skeleton_fns.<locals>.push_push_skeleton at 0x168bab670>, goal_obj='yellow_block', ctypes=('push_pull', 'poke'))
+17: SkeletonKey(skeleton_fn=<function get_skeleton_fns.<locals>.push_push_skeleton at 0x168bab670>, goal_obj='yellow_block', ctypes=('push_pull', 'push_pull'))
+18: SkeletonKey(skeleton_fn=<function get_skeleton_fns.<locals>.push_push_skeleton at 0x168bab670>, goal_obj='blue_block', ctypes=('poke', 'poke'))
+19: SkeletonKey(skeleton_fn=<function get_skeleton_fns.<locals>.push_push_skeleton at 0x168bab670>, goal_obj='blue_block', ctypes=('poke', 'push_pull'))
+20: SkeletonKey(skeleton_fn=<function get_skeleton_fns.<locals>.push_push_skeleton at 0x168bab670>, goal_obj='blue_block', ctypes=('push_pull', 'poke'))
+21: SkeletonKey(skeleton_fn=<function get_skeleton_fns.<locals>.push_push_skeleton at 0x168bab670>, goal_obj='blue_block', ctypes=('push_pull', 'push_pull'))
+22: SkeletonKey(skeleton_fn=<function get_skeleton_fns.<locals>.pick_pick_skeleton at 0x168bab700>, goal_obj='yellow_block', ctypes=())
+23: SkeletonKey(skeleton_fn=<function get_skeleton_fns.<locals>.pick_pick_skeleton at 0x168bab700>, goal_obj='blue_block', ctypes=())
+'''
