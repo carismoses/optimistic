@@ -26,7 +26,7 @@ from domains.tools.primitives import get_free_motion_gen, \
 
 
 DEBUG = False
-MODEL_INPUT_DIMS = {'move_contact-poke': 4, 'move_contact-push_pull': 4, 'pick': 2}
+MODEL_INPUT_DIMS = {'move_contact-poke': 4, 'move_contact-push_pull': 4, 'pick': 2, 'move_holding': 2}
 
 # TODO: make parent world template class
 class ToolsWorld:
@@ -312,6 +312,10 @@ class ToolsWorld:
             pick_xy = pick_pose.pose[0][:2]
             x[:] = pick_xy
             return x
+        elif pddl_action.name == 'move_holding':
+            x = np.zeros(MODEL_INPUT_DIMS[pddl_action.name])
+            ee_pose = self.panda.planning_robot.arm.ComputeFK(pddl_action.args[3].configuration)
+            x[:] = ee_pose[0][:2]
         else:
             raise NotImplementedError('No vectorization method for action %s' % pddl_action.name)
 
@@ -348,6 +352,13 @@ class ToolsWorld:
             if pddl_action.args[0].readableName in ['yellow_block', 'blue_block']:
                 init_pos = pddl_action.args[1].pose[0]
                 dist_to_base = np.linalg.norm(init_pos)
+                if dist_to_base > self.valid_pick_yellow_radius:
+                    valid_transition = False
+        elif pddl_action.name == 'move_holding':
+            if pddl_action.args[0].readableName == 'yellow_block':
+                ee_pose = self.panda.planning_robot.arm.ComputeFK(pddl_action.args[3].configuration)
+                xy_pos = ee_pose[0][:2]
+                dist_to_base = np.linalg.norm(xy_pos)
                 if dist_to_base > self.valid_pick_yellow_radius:
                     valid_transition = False
         self.panda.plan()

@@ -57,9 +57,10 @@ def add_trajectory_to_dataset(domain, dataset_logger, trajectory, world):
         dataset, n_actions = dataset_logger.load_trans_dataset('', ret_i=True)
         n_actions += len(trajectory)
         for (state, pddl_action, next_state, opt_accuracy) in trajectory:
-            if (pddl_action.name in ['move_contact', 'pick'] and domain == 'tools') or \
+            if (pddl_action.name in ['move_contact', 'pick', 'move_holding'] and domain == 'tools') or \
                 (pddl_action.name in ['place', 'pickplace'] and domain == 'ordered_blocks'):
-                if pddl_action.name == 'pick' and pddl_action.args[0].readableName == 'tool':
+                if (pddl_action.name == 'pick' and pddl_action.args[0].readableName == 'tool') or \
+                    (pddl_action.name == 'move_holding' and pddl_action.args[0].readableName == 'tool'):
                     continue
                 x = world.action_to_vec(pddl_action)
                 if pddl_action.name == 'move_contact':
@@ -67,6 +68,9 @@ def add_trajectory_to_dataset(domain, dataset_logger, trajectory, world):
                     action = '%s-%s' % ('move_contact', contact_type)
                     obj = pddl_action.args[2].readableName
                 elif pddl_action.name == 'pick':
+                    action = pddl_action.name
+                    obj = pddl_action.args[0].readableName
+                elif pddl_action.name == 'move_holding':
                     action = pddl_action.name
                     obj = pddl_action.args[0].readableName
                 dataset.add_to_dataset(action, obj, x, opt_accuracy)

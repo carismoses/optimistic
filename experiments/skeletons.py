@@ -337,6 +337,8 @@ if __name__ == '__main__':
     from domains.tools.world import ToolsWorld
     #import pdb; pdb.set_trace()
 
+    skel_num = 1
+
     for _ in range(100):
         objects = ['yellow_block']#, 'blue_block']
         world = ToolsWorld(True, None, objects)
@@ -344,13 +346,14 @@ if __name__ == '__main__':
         goal_pred, add_to_state = world.generate_goal()
 
         skeleton_fns = get_skeleton_fns()
-        pick_push_skeleton = skeleton_fns[3](world, goal_pred, ctypes=['poke'])
+        skeleton = skeleton_fns[skel_num](world, goal_pred, ctypes=['poke'])
 
-        plan_info = plan_from_skeleton(pick_push_skeleton,
+        plan_info = plan_from_skeleton(skeleton,
                                         world,
                                         'optimistic',
                                         add_to_state)
         if plan_info:
             pddl_plan, problem, init_expanded = plan_info
-            execute_plan(world, problem, pddl_plan, init_expanded)
+            trajectory = execute_plan(world, problem, pddl_plan, init_expanded)
+            print([t[-1] for t in trajectory])
         world.disconnect()

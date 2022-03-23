@@ -8,7 +8,7 @@ class OptDictDataset:
     def __init__(self, objects=['yellow_block', 'blue_block']):
         # object in {yellow_block, blue_block}
         self.datasets = {}
-        for action in ['pick', 'move_contact-poke', 'move_contact-push_pull']:
+        for action in ['pick', 'move_contact-poke', 'move_contact-push_pull', 'move_holding']:
             for obj in objects:
                 if action not in self.datasets:
                     self.datasets[action] = {}
