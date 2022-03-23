@@ -53,7 +53,9 @@ def gen_plots(args):
     for plan_name, counts in skel_count.items():
         ax.bar(np.arange(len(counts)), counts, width=1.0, label=plan_name)
     ax.legend()
-    plt.show()
+    #plt.show()
+    plt.savefig(os.path.join(dir, 'skeletons.py'))
+    plt.close()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
