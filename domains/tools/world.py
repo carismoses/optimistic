@@ -315,7 +315,8 @@ class ToolsWorld:
         elif pddl_action.name == 'move_holding':
             x = np.zeros(MODEL_INPUT_DIMS[pddl_action.name])
             ee_pose = self.panda.planning_robot.arm.ComputeFK(pddl_action.args[3].configuration)
-            x[:] = ee_pose[0][:2]
+            x[:] = ee_pose[:2,3]
+            return x
         else:
             raise NotImplementedError('No vectorization method for action %s' % pddl_action.name)
 

@@ -118,16 +118,21 @@ def plans_from_skeleton(args, block_name, skeleton_fn, ctypes, skeleton_key, all
 
 def plot_action(world, action, ax, contact_preds, ctype):
     if action.name == 'move_contact':
-        goal_xy = world.action_to_vec(action)
+        goal_xy = world.action_to_vec(action)[:2]
         ax.plot(*goal_xy, 'k.')
-        world.vis_tool_ax(contact_preds[ctype], ax, frame='cont')
+        world.vis_tool_ax(contact_preds[ctype], action.args[2].readableName, action, ax, frame='cont')
     elif action.name == 'pick':
-        pick_pos_xy = action.args[1].pose[0][:2]
-        ax.plot(*pick_pos_xy, 'k.')
+        if action.args[0].readableName != 'tool':
+            pick_pos_xy = action.args[1].pose[0][:2]
+            ax.plot(*pick_pos_xy, 'k.')
     elif action.name == 'place':
-        place_pos_xy = action.args[1].pose[0][:2]
-        ax.plot(*place_pos_xy, 'k.')
-
+        if action.args[0].readableName != 'tool':
+            place_pos_xy = action.args[1].pose[0][:2]
+            ax.plot(*place_pos_xy, 'k.')
+    elif action.name == 'move_holding':
+        if action.args[0].readableName != 'tool':
+            x = world.action_to_vec(action)
+            ax.plot(*x, 'k.')
 
 def get_skeleton_name(pddl_plan, skeleton_key):
     ctype_str = '_'.join(skeleton_key.ctypes)
