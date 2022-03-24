@@ -358,7 +358,7 @@ class ToolsWorld:
         elif pddl_action.name == 'move_holding':
             if pddl_action.args[0].readableName == 'yellow_block':
                 ee_pose = self.panda.planning_robot.arm.ComputeFK(pddl_action.args[3].configuration)
-                xy_pos = ee_pose[0][:2]
+                xy_pos = ee_pose[:2,3]
                 dist_to_base = np.linalg.norm(xy_pos)
                 if dist_to_base > self.valid_pick_yellow_radius:
                     valid_transition = False
