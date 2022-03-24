@@ -8,7 +8,8 @@ from pddlstream.language.constants import Certificate
 
 from domains.tools.world import ToolsWorld
 from domains.tools.primitives import get_contact_gen
-from experiments.skeletons import get_skeleton_fns, plan_from_skeleton
+from experiments.skeletons import get_skeleton_fns, plan_from_skeleton, \
+                                    get_all_skeleton_keys, get_skeleton_name
 
 
 ## file paths ##
@@ -28,34 +29,7 @@ def gen_ss(args):
         if contact[0].type not in contact_preds:
             contact_preds[contact[0].type] = contact[0]
 
-    # generate a list of all possible skeleton keys
-    all_skeleton_keys = []
-    for skeleton_fn in get_skeleton_fns():
-        for block_name in args.objects:
-            # make a world for this block_name
-            dummy_world = ToolsWorld(False, None, [block_name])
-            dummy_goal = dummy_world.generate_dummy_goal()
-            dummy_skeleton = skeleton_fn(dummy_world, dummy_goal)
-            all_ctypes = []
-            for a_name, _ in dummy_skeleton:
-                if a_name == 'move_contact':
-                    if len(all_ctypes) == 0:
-                        all_ctypes = [['poke'], ['push_pull']]
-                    else:
-                        new_all_ctypes = []
-                        for ctype in all_ctypes:
-                            for new_ctype in ['poke', 'push_pull']:
-                                new_all_ctypes.append(ctype+[new_ctype])
-                        all_ctypes = new_all_ctypes
-            dummy_world.disconnect()
-            if len(all_ctypes) > 0:
-                for ctype_list in all_ctypes:
-                    all_skeleton_keys.append(SkeletonKey(skeleton_fn, block_name, tuple(ctype_list)))
-            else:
-                all_skeleton_keys.append(SkeletonKey(skeleton_fn, block_name, tuple()))
-    #for sk in all_skeleton_keys:
-    #    print(sk)
-    #print('There are %s potential skeletons' % len(all_skeleton_keys))
+    all_skeleton_keys = get_all_skeleton_keys(args.objects)
 
     # load pre saved plans if restarting
     all_plans = {}
@@ -134,13 +108,6 @@ def plot_action(world, action, ax, contact_preds, ctype):
             x = world.action_to_vec(action)
             ax.plot(*x, 'k.')
 
-def get_skeleton_name(pddl_plan, skeleton_key):
-    ctype_str = '_'.join(skeleton_key.ctypes)
-    actions_str = '_'.join([name for name, args in pddl_plan])
-    if len(ctype_str) > 0:
-        return '%s-%s-%s' % (skeleton_key.goal_obj, actions_str, ctype_str)
-    else:
-        return '%s-%s' % (skeleton_key.goal_obj, actions_str)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

@@ -69,6 +69,13 @@ def get_skeleton_fns():
     # push then pick and place block
     def push_pick_skeleton(world, goal_pred, ctypes=[None]):
         conts = ground_contacts(world, goal_pred[1], ctypes)
+        '''
+        from copy import copy
+        import pb_robot
+        init_pose = world.obj_init_poses['blue_block']
+        pose = ((init_pose.pose[0][0]+.15, *init_pose.pose[0][1:]), init_pose.pose[1])
+        p1 = pb_robot.vobj.BodyPose(world.objects['blue_block'], pose)
+        '''
         skeleton = [
         # pick tool
         ('pick', (world.objects['tool'],
@@ -352,14 +359,55 @@ def merge_skeletons(skel_nums):
         pickle.dump(all_plans, handle)
 
 
+def get_all_skeleton_keys(objects=['yellow_block', 'blue_block']):
+    # generate a list of all possible skeleton keys
+    all_skeleton_keys = []
+    for skeleton_fn in get_skeleton_fns():
+        for block_name in objects:
+            # make a world for this block_name
+            dummy_world = ToolsWorld(False, None, [block_name])
+            dummy_goal = dummy_world.generate_dummy_goal()
+            dummy_skeleton = skeleton_fn(dummy_world, dummy_goal)
+            all_ctypes = []
+            for a_name, _ in dummy_skeleton:
+                if a_name == 'move_contact':
+                    if len(all_ctypes) == 0:
+                        all_ctypes = [['poke'], ['push_pull']]
+                    else:
+                        new_all_ctypes = []
+                        for ctype in all_ctypes:
+                            for new_ctype in ['poke', 'push_pull']:
+                                new_all_ctypes.append(ctype+[new_ctype])
+                        all_ctypes = new_all_ctypes
+            dummy_world.disconnect()
+            if len(all_ctypes) > 0:
+                for ctype_list in all_ctypes:
+                    all_skeleton_keys.append(SkeletonKey(skeleton_fn, block_name, tuple(ctype_list)))
+            else:
+                all_skeleton_keys.append(SkeletonKey(skeleton_fn, block_name, tuple()))
+    #for sk in all_skeleton_keys:
+    #    print(sk)
+    #print('There are %s potential skeletons' % len(all_skeleton_keys))
+    return all_skeleton_keys
+
+
+def get_skeleton_name(pddl_plan, skeleton_key):
+    ctype_str = '_'.join(skeleton_key.ctypes)
+    actions_str = '_'.join([name for name, args in pddl_plan])
+    if len(ctype_str) > 0:
+        return '%s-%s-%s' % (skeleton_key.goal_obj, actions_str, ctype_str)
+    else:
+        return '%s-%s' % (skeleton_key.goal_obj, actions_str)
+
+
 if __name__ == '__main__':
     from domains.tools.world import ToolsWorld
-    #import pdb; pdb.set_trace()
+    import pdb; pdb.set_trace()
 
-    skel_num = 1
+    skel_num = 2
 
     for _ in range(100):
-        objects = ['yellow_block']#, 'blue_block']
+        objects = ['blue_block']#, 'blue_block']
         world = ToolsWorld(True, None, objects)
 
         goal_pred, add_to_state = world.generate_goal()
