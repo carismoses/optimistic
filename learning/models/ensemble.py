@@ -68,7 +68,6 @@ class Ensemble(nn.Module):
         self.base_model = base_model
         self.base_args = base_args
         self.n_models = n_models
-        self.reset()
 
     def reset(self):
         """ Initialize (or re-initialize) all the models in the ensemble."""
