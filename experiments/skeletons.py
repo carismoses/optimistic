@@ -4,6 +4,7 @@ import dill as pickle
 from pddlstream.language.constants import Certificate
 from pddlstream.algorithms.downward import fact_from_fd, apply_action
 
+from domains.tools.world import ToolsWorld
 from tamp.utils import get_simple_state, task_from_problem, get_fd_action, execute_plan
 
 
