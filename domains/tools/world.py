@@ -705,14 +705,13 @@ class ToolsWorld:
 
 
     def get_cont_frame_limits(self, obj, action, contact=None):
+        minx_w = self.goal_limits[obj]['min_x']
+        maxx_w = self.goal_limits[obj]['max_x']
+        miny_w = self.goal_limits[obj]['min_y']
+        maxy_w = self.goal_limits[obj]['max_y']
         if action == 'pick':
-            return [-1, 1], [-1, 1]
+            return [minx_w, maxx_w], [miny_w, maxy_w]
         else:
-            minx_w = self.goal_limits[obj]['min_x']
-            maxx_w = self.goal_limits[obj]['max_x']
-            miny_w = self.goal_limits[obj]['min_y']
-            maxy_w = self.goal_limits[obj]['max_y']
-
             # calc contact frame in world frame (assumes block always starts from same pose)
             block_world = pb_robot.geometry.tform_from_pose(self.obj_init_poses[obj].pose)
             tool_w_tform = block_world@contact.rel_pose
