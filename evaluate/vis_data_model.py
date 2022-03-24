@@ -83,11 +83,12 @@ def gen_plots(args):
 
     for obj in ['yellow_block', 'blue_block']:
         for action in ['pick', 'move_contact-push_pull', 'move_contact-poke']:
-            if 'move_contact' in action:
-                for grasp in [[-.1, 0.], [.1, 0.]]:
-                    indiv_plot(contact_info, action, obj, world, mean_fn, std_fn, dataset, ts, mi, model_logger, dataset_logger, grasp=grasp)
-            else:
-                indiv_plot(contact_info, action, obj, world, mean_fn, std_fn, dataset, ts, mi, model_logger, dataset_logger)
+            if len(dataset.datasets[action][obj]) > 0:
+                if 'move_contact' in action:
+                    for grasp in [[-.1, 0.], [.1, 0.]]:
+                        indiv_plot(contact_info, action, obj, world, mean_fn, std_fn, dataset, ts, mi, model_logger, dataset_logger, grasp=grasp)
+                else:
+                    indiv_plot(contact_info, action, obj, world, mean_fn, std_fn, dataset, ts, mi, model_logger, dataset_logger)
 
 
 if __name__ == '__main__':
