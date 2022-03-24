@@ -74,7 +74,6 @@ def get_skeleton_fns():
     def push_pick_skeleton(world, goal_pred, ctypes=[None]):
         conts = ground_contacts(world, goal_pred[1], ctypes)
         '''
-        from copy import copy
         import pb_robot
         init_pose = world.obj_init_poses['blue_block']
         pose = ((init_pose.pose[0][0]+.15, *init_pose.pose[0][1:]), init_pose.pose[1])
@@ -134,9 +133,17 @@ def get_skeleton_fns():
         return skeleton
 
 
-    # push then pick and place block
+    # pick and place then push block
     def pick_push_skeleton(world, goal_pred, ctypes=[None]):
         conts = ground_contacts(world, goal_pred[1], ctypes)
+        '''
+        import pb_robot
+        init_pose = world.obj_init_poses['yellow_block']
+        pose1 = ((.3, -.35, init_pose.pose[0][2]), init_pose.pose[1])
+        p1 = pb_robot.vobj.BodyPose(world.objects['yellow_block'], pose1)
+        pose2 = ((.6, -.35, init_pose.pose[0][2]), init_pose.pose[1])
+        p2 = pb_robot.vobj.BodyPose(world.objects['yellow_block'], pose2)
+        '''
         skeleton = [
         # pick block
         ('pick', (goal_pred[1],
@@ -171,7 +178,7 @@ def get_skeleton_fns():
                     '#g2',
                     goal_pred[1],
                     '#p1',
-                    None,
+                    goal_pred[2],
                     conts[0],
                     None,
                     None,
@@ -408,10 +415,11 @@ if __name__ == '__main__':
     from domains.tools.world import ToolsWorld
     import pdb; pdb.set_trace()
 
-    skel_num = 2
+    skel_num = 3  # number in list of functions NOT SkeletonKeys
+    objects = ['yellow_block']#, 'blue_block']
 
     for _ in range(100):
-        objects = ['blue_block']#, 'blue_block']
+
         world = ToolsWorld(True, None, objects)
 
         goal_pred, add_to_state = world.generate_goal()
