@@ -350,7 +350,7 @@ class ToolsWorld:
                 valid_transition = False
         elif pddl_action.name == 'pick':
             # check that if yellow block, was close to base of robot
-            if pddl_action.args[0].readableName in ['yellow_block', 'blue_block']:
+            if pddl_action.args[0].readableName == 'yellow_block':
                 init_pos = pddl_action.args[1].pose[0]
                 dist_to_base = np.linalg.norm(init_pos)
                 if dist_to_base > self.valid_pick_yellow_radius:
