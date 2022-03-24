@@ -503,7 +503,7 @@ def get_pose_gen_tool(world, fixed=[]):
     return fn
 
 
-def get_block_grasp_gen(robot, add_slanted_grasps=True, add_orthogonal_grasps=True):
+def get_block_grasp_gen(robot, add_slanted_grasps=False, add_orthogonal_grasps=True):
     # add_slanted_grasps = True
     # I opt to use TSR to define grasp sets but you could replace this
     # with your favorite grasp generator
