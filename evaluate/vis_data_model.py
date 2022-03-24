@@ -25,8 +25,8 @@ def indiv_plot(contact_info, action, obj, world, mean_fn, std_fn, dataset, ts, m
     x_axes, y_axes = world.get_cont_frame_limits(obj, action, contact)
 
     if not args.just_dataset:
-        world.vis_dense_plot(action, obj, axes[0], x_axes, y_axes, 0, 1, value_fn=mean_fn, cell_width=0.1, grasp=grasp)
-        world.vis_dense_plot(action, obj, axes[1], x_axes, y_axes, None, None, value_fn=std_fn, cell_width=0.1, grasp=grasp)
+        world.vis_dense_plot(action, obj, axes[0], x_axes, y_axes, 0, 1, value_fn=mean_fn, cell_width=0.02, grasp=grasp)
+        world.vis_dense_plot(action, obj, axes[1], x_axes, y_axes, None, None, value_fn=std_fn, cell_width=0.02, grasp=grasp)
 
     for ai in range(n_axes):
         print(action, obj, len(dataset.datasets[action][obj]))
