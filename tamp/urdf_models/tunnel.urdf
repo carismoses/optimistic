@@ -12,7 +12,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <box size="0.2 0.01 0.06" />
+        <box size="0.15 0.01 0.06" />
       </geometry>
       <material name="desert sand">
         <color rgba="0.375 0.375 0.375 0.4" />
@@ -21,7 +21,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <box size="0.2 0.01 0.06" />
+        <box size="0.15 0.01 0.06" />
       </geometry>
     </collision>
   </link>
@@ -38,7 +38,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <box size="0.2 0.01 0.06" />
+        <box size="0.15 0.01 0.06" />
       </geometry>
       <material name="desert sand">
         <color rgba="0.375 0.375 0.375 0.7" />
@@ -47,7 +47,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <box size="0.2 0.01 0.06" />
+        <box size="0.15 0.01 0.06" />
       </geometry>
     </collision>
   </link>
@@ -64,7 +64,7 @@
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <box size="0.2 0.09 0.01" />
+        <box size="0.15 0.09 0.01" />
       </geometry>
       <material name="desert sand">
         <color rgba="0.375 0.375 0.375 0.7" />
@@ -73,7 +73,7 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <box size="0.2 0.09 0.01" />
+        <box size="0.15 0.09 0.01" />
       </geometry>
     </collision>
   </link>
