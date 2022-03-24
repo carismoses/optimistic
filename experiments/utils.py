@@ -53,7 +53,7 @@ class ExperimentLogger:
             os.mkdir(os.path.join(exp_path, 'eval_trajs'))
             os.mkdir(os.path.join(exp_path, 'trajs'))
             os.mkdir(os.path.join(exp_path, 'plans'))
-            os.mkdir(os.path.join(exp_path, 'goals'))
+            os.mkdir(os.path.join(exp_path, 'plan_success'))
 
         with open(os.path.join(exp_path, 'args.pkl'), 'wb') as handle:
             pickle.dump(args, handle)
@@ -122,13 +122,6 @@ class ExperimentLogger:
         sorted_models = [(self.load_trans_model(i=i),i) for fname,i in zip(sorted_file_names, np.sort(txs))]
         return iter(sorted_models)
 
-    def get_trajectories_iterator(self):
-        found_files, txs = self.get_dir_indices('eval_trajs')
-        sorted_indices = np.argsort(txs)
-        sorted_file_names = [found_files[idx] for idx in sorted_indices]
-        sorted_trajs = [(self.load_trajectories(i=i),i) for fname,i in zip(sorted_file_names, np.sort(txs))]
-        return iter(sorted_trajs)
-
     def get_plan_iterator(self):
         found_files, txs = self.get_dir_indices('plans')
         sorted_indices = np.argsort(txs)
@@ -144,8 +137,6 @@ class ExperimentLogger:
             file_name = r'trans_dataset_(.*).pkl'
         elif dir == 'models':
             file_name = r'trans_model_(.*).pt'
-        elif dir == 'eval_trajs':
-            file_name = r'trajs_(.*).pkl'
         elif dir == 'plans':
             file_name = r'plan_(.*).pkl'
         elif dir == 'trajs':
@@ -196,26 +187,6 @@ class ExperimentLogger:
         else:
             return model
 
-    # save trajectory data
-    def save_trajectories(self, trajectories, i):
-        import dill
-        path = os.path.join(self.exp_path, 'eval_trajs')
-        file_name = 'trajs_%i.pkl' % i
-        if not os.path.exists(path):
-            os.makedirs(path)
-        with open(os.path.join(path, file_name), 'wb') as handle:
-            dill.dump(trajectories, handle)
-
-    def load_trajectories(self, i):
-        path = os.path.join(self.exp_path, 'eval_trajs')
-        file_name = 'trajs_%i.pkl' % i
-        if not os.path.exists(path):
-            os.makedirs(path)
-        with open(os.path.join(path, file_name), 'rb') as handle:
-            trajectories = pickle.load(handle)
-        return trajectories
-
-
     # add plans
     def add_to_plans(self, plan):
         found_files, txs = self.get_dir_indices('plans')
@@ -232,7 +203,7 @@ class ExperimentLogger:
         if i is None:
             found_files, txs = self.get_dir_indices('plans')
             assert len(txs) > 0, 'No plans on path %s' % os.path.join(self.exp_path, 'plans')
-            i = max(txs)+1 
+            i = max(txs)+1
         path = os.path.join(self.exp_path, 'plans', 'plan_%i.pkl'%i)
         with open(os.path.join(path), 'rb') as handle:
             plans = pickle.load(handle)
@@ -249,54 +220,6 @@ class ExperimentLogger:
         path = os.path.join(self.exp_path, 'trajs', 'traj_%i.pkl'%i)
         with open(os.path.join(path), 'wb') as handle:
             pickle.dump(traj, handle)
-
-
-    # info on abstract plans that fail to plan trajectories
-    def add_to_failed_plans(self, new_datapoints):
-        datapoints = self.load_failed_plans()
-        for datapoint in new_datapoints:
-            datapoints.append(datapoint)
-        self.save_failed_plans(datapoints)
-
-    def load_failed_plans(self):
-        # TODO: change dir and filename so doesn't conflict with goals fns
-        dir = 'goals'
-        fname = 'failed_goals.pkl'
-        ##
-        path = os.path.join(self.exp_path, dir)
-        if os.path.exists(os.path.join(path, fname)):
-            with open(os.path.join(path, fname), 'rb') as handle:
-                datapoints = pickle.load(handle)
-            return datapoints
-        else:
-            print('No datapoints found on path %s. Returning empty list' % path)
-            return []
-
-    def save_failed_plans(self, datapoints):
-        # TODO: change dir and filename so doesn't conflict with goals fns
-        dir = 'goals'
-        fname = 'failed_goals.pkl'
-        ##
-        path = os.path.join(self.exp_path, dir)
-        with open(os.path.join(path, fname), 'wb') as handle:
-            pickle.dump(datapoints, handle)
-
-    # goal info (for goal datasets to calculate plan success rate)
-    def save_goals(self, goals):
-        path = os.path.join(self.exp_path, 'goals')
-        file_name = 'goals.pkl'
-        with open(os.path.join(path, file_name), 'wb') as handle:
-            pickle.dump(goals, handle)
-
-    def load_goals(self):
-        path = os.path.join(self.exp_path, 'goals')
-        file_name = 'goals.pkl'
-        if os.path.exists(os.path.join(path, file_name)):
-            with open(os.path.join(path, file_name), 'rb') as handle:
-                goals = pickle.load(handle)
-            return goals
-        else:
-            print('No goals found on path %s' % path)
 
     # Planning info
     def save_planning_data(self, tree, goal, plan, i=None):
@@ -322,6 +245,14 @@ class ExperimentLogger:
     # figures
     def save_figure(self, filename, dir=''):
         full_path = os.path.join(self.exp_path, 'figures', dir)
+        if not os.path.isdir(full_path):
+            os.makedirs(full_path)
+        plt.savefig(os.path.join(full_path, filename))
+
+    # plan success data
+    def save_success_data(success_data, mi):
+        full_path = os.path.join(self.exp_path, 'plan_success')
+        filename = 'success_data_%i.pkl' % mi
         if not os.path.isdir(full_path):
             os.makedirs(full_path)
         plt.savefig(os.path.join(full_path, filename))
