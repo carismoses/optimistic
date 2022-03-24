@@ -2,7 +2,6 @@ import dill as pickle
 import matplotlib.pyplot as plt
 import argparse
 import os
-from collections import namedtuple
 
 from pddlstream.language.constants import Certificate
 

@@ -1,5 +1,6 @@
 from copy import copy
 import dill as pickle
+from collections import namedtuple
 
 from pddlstream.language.constants import Certificate
 from pddlstream.algorithms.downward import fact_from_fd, apply_action
