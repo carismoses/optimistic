@@ -17,8 +17,6 @@ save_path = 'logs/ss_skeleton_samples.pkl'
 fig_dir = 'logs/search_space_figs/'
 ##
 
-SkeletonKey = namedtuple('SkeletonKey', ('skeleton_fn', 'goal_obj', 'ctypes'))
-
 def gen_ss(args):
     # get all contact predicates (for plotting later)
     world = ToolsWorld(False, None, args.objects)

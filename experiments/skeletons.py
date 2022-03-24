@@ -8,6 +8,8 @@ from domains.tools.world import ToolsWorld
 from tamp.utils import get_simple_state, task_from_problem, get_fd_action, execute_plan
 
 
+SkeletonKey = namedtuple('SkeletonKey', ('skeleton_fn', 'goal_obj', 'ctypes'))
+
 n_attempts = 30  # number of attempts to ground each action in skeleton
 
 # return a list of skeletons which are functions that take in a goal pose
