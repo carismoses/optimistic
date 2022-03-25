@@ -277,6 +277,22 @@ def sequential_bald(plan, model, world, ret_states=False):
             predictions = model_forward(model, x, action, obj_name, single_batch=True)
             mean_prediction = predictions.mean()
             score += mean_prediction*bald(predictions)
+        elif pddl_action.name == 'pick':
+            obj_name = pddl_action.args[0].readableName
+            if obj_name != 'tool':
+                x = world.action_to_vec(pddl_action)
+                action = pddl_action.name
+                predictions = model_forward(model, x, action, obj_name, single_batch=True)
+                mean_prediction = predictions.mean()
+                score += mean_prediction*bald(predictions)
+        elif pddl_action.name == 'move_holding':
+            obj_name = pddl_action.args[0].readableName
+            if obj_name != 'tool':
+                x = world.action_to_vec(pddl_action)
+                action = pddl_action.name
+                predictions = model_forward(model, x, action, obj_name, single_batch=True)
+                mean_prediction = predictions.mean()
+                score += mean_prediction*bald(predictions)
         # TODO add 'pick' option
     if ret_states:
         return score, x
