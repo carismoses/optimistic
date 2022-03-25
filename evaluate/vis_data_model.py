@@ -82,7 +82,7 @@ def gen_plots(args):
         mi = di
 
     for obj in ['yellow_block', 'blue_block']:
-        for action in ['pick', 'move_contact-push_pull', 'move_contact-poke']:
+        for action in ['pick', 'move_contact-push_pull', 'move_contact-poke', 'move_holding']:
             if len(dataset.datasets[action][obj]) > 0:
                 if 'move_contact' in action:
                     for grasp in [[-.1, 0.], [.1, 0.]]:
