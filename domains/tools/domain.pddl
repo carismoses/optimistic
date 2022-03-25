@@ -81,6 +81,8 @@
   )
 
   ; Make contact ?c between ?o1 being held by robot and ?o2 (at ?p2)
+  ; ?q1, ?q2, ?q3 are initial, approach, and final push conf
+  ; robot reverses back to approach (?q2) before proceeding with plan
   (:action move_contact
     :parameters (?o1 ?g ?o2 ?p1 ?p2 ?c ?q1 ?q2 ?q3 ?t)
     :precondition (and (ContactMotion ?o1 ?g ?o2 ?p1 ?p2 ?c ?q1 ?q2 ?q3 ?t)
@@ -89,7 +91,7 @@
                        (AtGrasp ?o1 ?g)
                        (FreeObj ?o2))
     :effect (and (AtPose ?o2 ?p2)
-                 (AtConf ?q3)
+                 (AtConf ?q2)
                  (not (AtPose ?o2 ?p1))
                  (not (AtConf ?q1)))
   )
