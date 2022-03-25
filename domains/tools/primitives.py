@@ -312,7 +312,7 @@ def get_free_motion_gen(robot, fixed=[], ret_traj=True):
     return fn
 
 
-def get_holding_motion_gen(world, robot, fixed=[], ret_traj=True):
+def get_holding_motion_gen(world, robot, fixed=[], ret_traj=True, learned=False):
     def fn(obj, grasp, conf1, conf2, fluents=[]):
         if learned:
             action_name = 'move_holding'
