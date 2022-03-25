@@ -709,9 +709,7 @@ class ToolsWorld:
         maxx_w = self.goal_limits[obj]['max_x']
         miny_w = self.goal_limits[obj]['min_y']
         maxy_w = self.goal_limits[obj]['max_y']
-        if action == 'pick':
-            return [minx_w, maxx_w], [miny_w, maxy_w]
-        else:
+        if action == 'move_contact':
             # calc contact frame in world frame (assumes block always starts from same pose)
             block_world = pb_robot.geometry.tform_from_pose(self.obj_init_poses[obj].pose)
             tool_w_tform = block_world@contact.rel_pose
@@ -724,6 +722,8 @@ class ToolsWorld:
             x_axes = [minxminy_c[0], maxxmaxy_c[0]]
             y_axes = [minxminy_c[1], maxxmaxy_c[1]]
             return x_axes, y_axes
+        else:
+            return [minx_w, maxx_w], [miny_w, maxy_w]
 
 
     # can visualize tool in world or contact frame
