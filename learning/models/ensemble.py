@@ -4,7 +4,7 @@ import torch.nn as nn
 
 
 weight_init_sds = {('move_contact-poke', 'blue_block'): 9,
-                    ('move_contact-poke', 'yellow_block'): 8}
+                    ('move_holding', 'yellow_block'): 5}
 
 class Ensembles(nn.Module):
     def __init__(self, base_model, base_args, n_models, objects):
