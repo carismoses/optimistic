@@ -26,7 +26,7 @@ from domains.tools.primitives import get_free_motion_gen, \
 
 
 DEBUG = False
-MODEL_INPUT_DIMS = {'move_contact-poke': 4, 'move_contact-push_pull': 4, 'pick': 2, 'move_holding': 2}
+MODEL_INPUT_DIMS = {'move_contact-poke': 6, 'move_contact-push_pull': 6, 'pick': 2, 'move_holding': 2}
 
 # TODO: make parent world template class
 class ToolsWorld:
@@ -190,7 +190,8 @@ class ToolsWorld:
             'plan-free-motion': from_fn(get_free_motion_gen(robot,
                                                             self.fixed,
                                                             ret_traj=ret_traj)),
-            'plan-holding-motion': from_fn(get_holding_motion_gen(robot,
+            'plan-holding-motion': from_fn(get_holding_motion_gen(self,
+                                                                    robot,
                                                                     self.fixed,
                                                                     ret_traj=ret_traj)),
             'pick-inverse-kinematics': from_fn(get_ik_fn(self,
@@ -286,25 +287,16 @@ class ToolsWorld:
 
     def action_to_vec(self, pddl_action):
         if pddl_action.name == 'move_contact':
-
-            # calculate the pose of the push goal in the contact frame
             cont = pddl_action.args[5]
-            pose1 = pddl_action.args[3]
             x = np.zeros(MODEL_INPUT_DIMS['move_contact-'+cont.type])
-            # tool pose at contact
-            block_world = pb_robot.geometry.tform_from_pose(pose1.pose)
-            tool_w_tform = block_world@cont.rel_pose
 
-            # contact frame in the world
-            cont_w_tform = np.dot(tool_w_tform, np.linalg.inv(cont.tool_in_cont_tform))
-            goal_world_point = (*pddl_action.args[4].pose[0], 1)
-            goal_cont = self.point_from_world_to_cont(goal_world_point, cont_w_tform)
-
+            init_pos_xy = pddl_action.args[3].pose[0][:2]
+            goal_pos_xy = pddl_action.args[4].pose[0][:2]
             # the position of the gripper in the tool frame
             gripper_tool_pos_xy = pddl_action.args[1].grasp_objF[:2,3]
-
-            x[:2] = goal_cont[:2]
-            x[2:] = gripper_tool_pos_xy
+            x[:2] = init_pos_xy
+            x[2:4] = goal_pos_xy
+            x[4:] = gripper_tool_pos_xy
             return x
         elif pddl_action.name == 'pick':
             x = np.zeros(MODEL_INPUT_DIMS[pddl_action.name])
@@ -335,6 +327,9 @@ class ToolsWorld:
                                                 None,
                                                 None,
                                                 None))
+        elif 'move_holding' in action_name:
+            action = Action(name='move_holding', args=(*args,
+                                                        None))
         return self.action_to_vec(action)
 
 
@@ -704,26 +699,12 @@ class ToolsWorld:
             return ar, extent
 
 
-    def get_cont_frame_limits(self, obj, action, contact=None):
+    def get_world_limits(self, obj, action, contact=None):
         minx_w = self.goal_limits[obj]['min_x']
         maxx_w = self.goal_limits[obj]['max_x']
         miny_w = self.goal_limits[obj]['min_y']
         maxy_w = self.goal_limits[obj]['max_y']
-        if 'move_contact' in action:
-            # calc contact frame in world frame (assumes block always starts from same pose)
-            block_world = pb_robot.geometry.tform_from_pose(self.obj_init_poses[obj].pose)
-            tool_w_tform = block_world@contact.rel_pose
-            cont_w_tform = np.dot(tool_w_tform, np.linalg.inv(contact.tool_in_cont_tform))
-
-            # convert world goal sampling limits to the contact frame
-            minxminy_c = self.point_from_world_to_cont((minx_w, miny_w, 0, 1), cont_w_tform)
-            maxxmaxy_c = self.point_from_world_to_cont((maxx_w, maxy_w, 0, 1), cont_w_tform)
-
-            x_axes = [minxminy_c[0], maxxmaxy_c[0]]
-            y_axes = [minxminy_c[1], maxxmaxy_c[1]]
-            return x_axes, y_axes
-        else:
-            return [minx_w, maxx_w], [miny_w, maxy_w]
+        return [minx_w, maxx_w], [miny_w, maxy_w]
 
 
     # can visualize tool in world or contact frame
@@ -745,7 +726,7 @@ class ToolsWorld:
             ax.set_xlim([limits['min_x'], limits['max_x']])
             ax.set_ylim([limits['min_y'], limits['max_y']])
         elif frame == 'cont':
-            xlimits, ylimits = self.get_cont_frame_limits(obj, action, cont)
+            xlimits, ylimits = self.get_world_limits(obj, action, cont)
             ax.set_xlim(xlimits)
             ax.set_ylim(ylimits)
 
@@ -819,14 +800,18 @@ class ToolsWorld:
                                 fill = False))
 
 
-    def vis_dataset(self, ax, dataset, grasp=None):
+    def vis_dataset(self, ax, action, obj, dataset, grasp=None):
         for x, y in dataset:
             color = 'r' if y == 0 else 'g'
-            if grasp is not None:
-                if np.allclose(x[2:], grasp):
-                    ax.plot(*x[:2], color+'.')
-            elif grasp is None:
+            if action in ['move_holding', 'pick']:
                 ax.plot(*x, color+'.')
+            elif 'move_contact' in action:
+                if np.allclose(x[4:], grasp):
+                    # shift to plot all pushes in init block frame
+                    init_pos_xy = self.init_objs_pos_xy[obj]
+                    rel_pos_xy = np.subtract(x[2:4], x[:2])
+                    goal_pos_xy = np.add(init_pos_xy, rel_pos_xy)
+                    ax.plot(*goal_pos_xy, color+'.')
 
 
     def get_model_inputs(self, tool_approach_pose, goal_pose):

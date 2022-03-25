@@ -9,8 +9,12 @@ from experiments.strategies import bald
 
 def get_model_accuracy_fn(ensembles, ret):
     def model_accuracy_fn(world, action, obj, xv, yv, grasp=None):
-        if grasp is not None:
-            x = [xv, yv, *grasp]
+        if 'move_contact' in action:
+            # plot all model accuracies as if block is being pushed from init pose
+            # (might have different performance from diff initial poses but this
+            # is the easiest way to visualize model accuracy in 2D)
+            init_xy = world.init_objs_pos_xy[obj]
+            x = [*init_xy, xv, yv, *grasp]
         else:
             x = [xv, yv]
         if ret == 'mean':

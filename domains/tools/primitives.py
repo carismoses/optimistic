@@ -312,8 +312,13 @@ def get_free_motion_gen(robot, fixed=[], ret_traj=True):
     return fn
 
 
-def get_holding_motion_gen(robot, fixed=[], ret_traj=True):
+def get_holding_motion_gen(world, robot, fixed=[], ret_traj=True):
     def fn(obj, grasp, conf1, conf2, fluents=[]):
+        if learned:
+            action_name = 'move_holding'
+            trust = trust_model(world, action_name, (obj1, grasp, conf1, conf2))
+            if not trust:
+                return None
         obstacles = assign_fluent_state(fluents)
         fluent_names = [o.get_name() for o in obstacles]
         for o in fixed:
@@ -647,8 +652,8 @@ def trust_model(world, action_name, args):
 
     model = world.logger.load_trans_model()
     x = world.pred_args_to_vec(action_name, args)
-    trust_model = model_forward(action_name, model, x, single_batch=True).mean().round().squeeze()
-    return trust_model
+    pred = model_forward(action_name, model, x, single_batch=True).mean().round().squeeze()
+    return pred
 
 
 def assign_fluent_state(fluents):

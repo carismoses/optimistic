@@ -21,8 +21,8 @@ def indiv_plot(contact_info, action, obj, world, mean_fn, std_fn, dataset, ts, m
         if ctype in action:
             contact = contact_info[ctype]
             # plot the tool
-            world.vis_tool_ax(contact, obj, action, axes[n_axes-1], frame='cont')
-    x_axes, y_axes = world.get_cont_frame_limits(obj, action, contact)
+            world.vis_tool_ax(contact, obj, action, axes[n_axes-1], frame='world')
+    x_axes, y_axes = world.get_world_limits(obj, action, contact)
 
     if not args.just_dataset:
         world.vis_dense_plot(action, obj, axes[0], x_axes, y_axes, 0, 1, value_fn=mean_fn, cell_width=0.01, grasp=grasp)
@@ -30,7 +30,7 @@ def indiv_plot(contact_info, action, obj, world, mean_fn, std_fn, dataset, ts, m
 
     for ai in range(n_axes):
         print(action, obj, len(dataset.datasets[action][obj]))
-        world.vis_dataset(axes[ai], dataset.datasets[action][obj], grasp=grasp)
+        world.vis_dataset(axes[ai], action, obj, dataset.datasets[action][obj], grasp=grasp)
 
     axes[0].set_title('Mean Ensemble Predictions')
     axes[1].set_title('Std Ensemble Predictions')
