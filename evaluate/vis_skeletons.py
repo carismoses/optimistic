@@ -30,7 +30,7 @@ def get_plan_name(plan):
                 obj = args[0].readableName
                 if plan_name == '':
                     plan_name += obj+'_'
-                plan_name += name+'_'+'move_holding'
+                plan_name += name+'_'+'move_holding_'
     return plan_name[:-1]
 
 
