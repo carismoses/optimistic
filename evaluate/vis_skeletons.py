@@ -57,12 +57,7 @@ def gen_plots(args):
                     old_plans = new_plans
                     new_plans = []
                     for old_plan in old_plans:
-                        new_plans.append(old_plan+'_pick')
-                elif name == 'move_holding' and skel_args[0].readableName != 'tool':
-                    old_plans = new_plans
-                    new_plans = []
-                    for old_plan in old_plans:
-                        new_plans.append(old_plan+'_move_holding')
+                        new_plans.append(old_plan+'_pick_move_holding')
             all_plans += new_plans
 
 
