@@ -231,9 +231,10 @@ class ToolsWorld:
 
 
     # TODO: reimplement way to pass in a goal: object, action, and xy_pos
-    def generate_goal(self, goal_xy=None):
-        random_block_i = np.random.randint(len(self.blocks))
-        goal_obj = self.blocks[random_block_i]
+    def generate_goal(self, goal_xy=None, goal_obj=None):
+        if goal_obj is None:
+            random_block_i = np.random.randint(len(self.blocks))
+            goal_obj = self.blocks[random_block_i]
 
         object = self.objects[goal_obj]
         init_state = self.get_init_state()
