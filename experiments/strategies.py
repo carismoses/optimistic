@@ -293,7 +293,6 @@ def sequential_bald(plan, model, world, ret_states=False):
                 predictions = model_forward(model, x, action, obj_name, single_batch=True)
                 mean_prediction = predictions.mean()
                 score += mean_prediction*bald(predictions)
-        # TODO add 'pick' option
     if ret_states:
         return score, x
     else:
