@@ -250,9 +250,10 @@ class ExperimentLogger:
         plt.savefig(os.path.join(full_path, filename))
 
     # plan success data
-    def save_success_data(success_data, mi):
+    def save_success_data(self, success_data, mi):
         full_path = os.path.join(self.exp_path, 'plan_success')
         filename = 'success_data_%i.pkl' % mi
         if not os.path.isdir(full_path):
             os.makedirs(full_path)
-        plt.savefig(os.path.join(full_path, filename))
+        with open(os.path.join(full_path, filename), 'wb') as handle:
+            pickle.dump([mi, success_data], handle)
