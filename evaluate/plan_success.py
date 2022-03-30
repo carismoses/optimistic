@@ -8,7 +8,7 @@ from experiments.utils import ExperimentLogger
 from experiments.skeletons import get_all_skeleton_keys, plan_from_skeleton, \
                                 get_skeleton_name
 from domains.tools.world import ToolsWorld
-from experiments.strategies import solve_trajectories
+from experiments.strategies import solve_trajectories, calc_plan_success
 from tamp.utils import execute_plan
 from learning.utils import model_forward
 
@@ -64,19 +64,7 @@ def calc_plan_success(args):
                 scores = []
                 for skel_key, plan_info in all_plans:
                     pddl_plan, problem, init_expanded = plan_info
-                    plan_feas = 1
-                    for pddl_action in pddl_plan:
-                        if pddl_action.name == 'move_contact' or \
-                            pddl_action.name in ['pick', 'move_holding'] and \
-                                    pddl_action.args[0].readableName != 'tool':
-                            if pddl_action.name == 'move_contact':
-                                action = 'move_contact-%s' % pddl_action.args[5].type
-                                obj_name = pddl_action.args[2].readableName
-                            else:
-                                obj_name = pddl_action.args[0].readableName
-                                action = pddl_action.name
-                            x = world.action_to_vec(pddl_action)
-                            plan_feas *= model_forward(model, x, action, obj_name, single_batch=True).mean()
+                    plan_feas = calc_plan_feasibility(pddl_plan, model, world)
                     scores.append(plan_feas)
 
                 # select plan and ground trajectories

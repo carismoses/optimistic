@@ -268,31 +268,31 @@ def sequential(args, world, mode, n_seq_plans, samples_from_file=False):
 def sequential_bald(plan, model, world, ret_states=False):
     score = 0
     x = None
-    for pddl_action in plan:
+    for ai in range(1, len(plan)+1):
+        pddl_action = plan[ai-1]
+        subplan = plan[:ai]
+        plan_feas = calc_plan_feasibility(subplan, model, world)
         if pddl_action.name == 'move_contact':
             x = world.action_to_vec(pddl_action)
             contact_type = pddl_action.args[5].type
             action = '%s-%s' % ('move_contact', contact_type)
             obj_name = pddl_action.args[2].readableName
             predictions = model_forward(model, x, action, obj_name, single_batch=True)
-            mean_prediction = predictions.mean()
-            score += mean_prediction*bald(predictions)
+            score += plan_feas*bald(predictions)
         elif pddl_action.name == 'pick':
             obj_name = pddl_action.args[0].readableName
             if obj_name != 'tool':
                 x = world.action_to_vec(pddl_action)
                 action = pddl_action.name
                 predictions = model_forward(model, x, action, obj_name, single_batch=True)
-                mean_prediction = predictions.mean()
-                score += mean_prediction*bald(predictions)
+                score += plan_feas*bald(predictions)
         elif pddl_action.name == 'move_holding':
             obj_name = pddl_action.args[0].readableName
             if obj_name != 'tool':
                 x = world.action_to_vec(pddl_action)
                 action = pddl_action.name
                 predictions = model_forward(model, x, action, obj_name, single_batch=True)
-                mean_prediction = predictions.mean()
-                score += mean_prediction*bald(predictions)
+                score += plan_feas*bald(predictions)
     if ret_states:
         return score, x
     else:
@@ -314,6 +314,22 @@ def bald(predictions):
 
     return bald
 
+
+def calc_plan_feasibility(pddl_plan, model, world):
+    plan_feas = 1
+    for pddl_action in pddl_plan:
+        if pddl_action.name == 'move_contact' or \
+            pddl_action.name in ['pick', 'move_holding'] and \
+                    pddl_action.args[0].readableName != 'tool':
+            if pddl_action.name == 'move_contact':
+                action = 'move_contact-%s' % pddl_action.args[5].type
+                obj_name = pddl_action.args[2].readableName
+            else:
+                obj_name = pddl_action.args[0].readableName
+                action = pddl_action.name
+            x = world.action_to_vec(pddl_action)
+            plan_feas *= model_forward(model, x, action, obj_name, single_batch=True).mean()
+    return plan_feas
 
 def solve_trajectories(world, pddl_plan, ret_full_plan=False):
     '''
