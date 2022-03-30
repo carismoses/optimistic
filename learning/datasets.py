@@ -8,15 +8,21 @@ class OptDictDataset:
     def __init__(self, objects=['yellow_block', 'blue_block']):
         # object in {yellow_block, blue_block}
         self.datasets = {}
+        self.ixs = {}
+        self.count = 0
         for action in ['pick', 'move_contact-poke', 'move_contact-push_pull', 'move_holding']:
             for obj in objects:
                 if action not in self.datasets:
                     self.datasets[action] = {}
-                self.datasets[action][obj] = OptDataset()
+                self.datasets[action][obj] = OptDataset(action, obj)
 
 
-    def __getitem__(self, action_type, object):
-        return self.datasets[action_type][object]
+    def __getitem__(self, ix):
+        action_type, object, dix = self.ixs[ix]
+        return self.datasets[action_type][object].xs[dix], \
+                self.datasets[action_type][object].ys[dix], \
+                action_type, \
+                object
 
 
     def __len__(self):
@@ -29,10 +35,15 @@ class OptDictDataset:
 
     def add_to_dataset(self, action_type, object, x, y):
         self.datasets[action_type][object].add_to_dataset(x, y)
+        ix = len(self.datasets[action_type][object])-1
+        self.ixs[self.count] = (action_type, object, ix)
+        self.count += 1
 
 
 class OptDataset(Dataset):
-    def __init__(self):
+    def __init__(self, action_type, object):
+        self.action_type = action_type
+        self.object = object
         self.xs = torch.tensor([], dtype=torch.float64)
         self.ys = torch.tensor([], dtype=torch.float64)
 
