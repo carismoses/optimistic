@@ -8,12 +8,12 @@ from pddlstream.language.constants import Certificate
 from domains.tools.world import ToolsWorld
 from domains.tools.primitives import get_contact_gen
 from experiments.skeletons import get_skeleton_fns, plan_from_skeleton, \
-                                    get_all_skeleton_keys, get_skeleton_name
+                                    get_skeleton_name
 
 
 ## file paths ##
-save_path = 'logs/ss_skeleton_samples.pkl'
-fig_dir = 'logs/search_space_figs/'
+skel_fname = 'ss_skeleton_samples.pkl'
+fig_dir = 'search_space_figs/'
 ##
 
 def gen_ss(args):
@@ -26,17 +26,15 @@ def gen_ss(args):
         if contact[0].type not in contact_preds:
             contact_preds[contact[0].type] = contact[0]
 
-    all_skeleton_keys = get_all_skeleton_keys(args.objects)
-
     # load pre saved plans if restarting
     all_plans = {}
+    save_path = os.path.join(args.save_path_prefix, skel_fname)
     if args.restart:
         with open(save_path, 'rb') as handle:
             all_plans = pickle.load(handle)
 
     # generate new plans/samples
-    skeleton_key = all_skeleton_keys[args.skel_num]
-    #for skeleton_key in all_skeleton_keys:
+    skeleton_key = list(all_plans.keys())[0]
     skeleton_fn, block_name, ctypes = skeleton_key
     print('Generating plans for skeleton: ', skeleton_key)
     plans_from_skeleton(args, block_name, skeleton_fn, ctypes, skeleton_key, all_plans, contact_preds)
@@ -63,13 +61,14 @@ def plans_from_skeleton(args, block_name, skeleton_fn, ctypes, skeleton_key, all
             problem = problem[:3] + problem[4:] # remove stream map (causes pickling issue)
             plan_info = (pddl_plan, problem, init_expanded)
             all_plans[skeleton_key].append(plan_info)
+            save_path = os.path.join(args.save_path_prefix, skel_fname)
             with open(save_path, 'wb') as handle:
                 pickle.dump(all_plans, handle)
 
             # plot all sampled plans
             n_actions = len(all_plans[skeleton_key][0][0]) # all plans in list are the same length
             skeleton_name = get_skeleton_name(pddl_plan, skeleton_key)
-            fig_path = os.path.join(fig_dir, skeleton_name)
+            fig_path = os.path.join(args.save_path_prefix, fig_dir, skeleton_name)
             if not os.path.exists(fig_path):
                 os.makedirs(fig_path)
             mci = 0
@@ -123,6 +122,9 @@ if __name__ == '__main__':
     parser.add_argument('--skel-num',
                         type=int,
                         help='the index into the list of skeletons to generate samples for')
+    parser.add_argument('--save-path-prefix',
+                        type=str,
+                        help='path to samples file and directory for sample figures')
     parser.add_argument('--debug',
                         action='store_true',
                         help='use to run in debug mode')
