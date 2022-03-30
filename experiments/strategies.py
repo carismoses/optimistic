@@ -69,7 +69,7 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, model_logger, \
         pddl_plan, problem, init_expanded = random_plan(world, 'optimistic')
     elif args.data_collection_mode == 'random-goals-opt':
         goal, add_to_state = world.generate_goal(goal_xy=goal)
-        pddl_plan, problem, init_expanded = goals(world, 'optimistic', goal, add_to_state)
+        pddl_plan, problem, init_expanded = goals(world, 'optimistic', goal, add_to_state, samples_from_file=args.samples_from_file)
     elif args.data_collection_mode == 'random-goals-learned':
         goal, add_to_state = world.generate_goal(goal_xy=goal)
         pddl_plan, problem, init_expanded = goals(world, 'learned', goal, add_to_state, samples_from_file=args.samples_from_file)
