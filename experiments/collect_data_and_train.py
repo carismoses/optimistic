@@ -154,14 +154,13 @@ if __name__ == '__main__':
     if args.debug:
         import pdb; pdb.set_trace()
 
-    args.early_stop = args.early_stop == 'True'
-
     if args.restart:
         assert args.exp_path, 'Must set the --exp-path to restart experiment'
         logger = ExperimentLogger(args.exp_path)
         _, n_actions = logger.load_trans_dataset('', ret_i=True)
         args = logger.args
     else:
+        args.early_stop = args.early_stop == 'True'
         assert args.exp_name, 'Must set the --exp-name to start a new experiments'
         assert args.data_collection_mode, 'Must set the --data-collection-mode when starting a new experiment'
         logger = ExperimentLogger.setup_experiment_directory(args, 'experiments')
