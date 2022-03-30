@@ -114,6 +114,9 @@ if __name__ == '__main__':
     parser.add_argument('--initial-dataset-path',
                         type=str,
                         help='path to initial dataset to start with')
+    parser.add_argument('--K',
+                        type=int,
+                        help='number of top plans to select from during sequential')
 
     # Training args
     parser.add_argument('--train-freq',

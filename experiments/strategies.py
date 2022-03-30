@@ -241,6 +241,8 @@ def sequential(args, world, mode, n_seq_plans, samples_from_file=False):
     best_plan_info = None
     best_bald_score = float('-inf')
     n_plans_searched = 0
+    bald_scores = []
+    all_plan_info = []
     if samples_from_file:
         with open('logs/ss_skeleton_samples.pkl', 'rb') as handle:
             samples = pickle.load(handle)
@@ -259,9 +261,16 @@ def sequential(args, world, mode, n_seq_plans, samples_from_file=False):
         if pddl_plan:
             n_plans_searched += 1
             bald_score = sequential_bald(pddl_plan, model, world)
+            bald_scores.append(bald_score)
+            all_plan_info.append((pddl_plan, problem, init_expanded))
             if bald_score >= best_bald_score:
                 best_plan_info = pddl_plan, problem, init_expanded
                 best_bald_score = bald_score
+        if args.K and samples_from_file:
+            # select top K scores then select one at random
+            rand_i = np.random.randint(args.K)
+            best_i = np.argsort(bald_scores)[rand_i]
+            best_plan_info = all_plan_info[best_i]
     return best_plan_info
 
 
