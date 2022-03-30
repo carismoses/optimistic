@@ -733,7 +733,7 @@ class ToolsWorld:
             ax.set_ylim(ylimits)
 
 
-    def vis_dense_plot(self, action, obj, ax, x_range, y_range, vmin, vmax, value_fn=None, cell_width=0.05, grasp=None):
+    def vis_dense_plot(self, action, obj, ax, x_range, y_range, vmin, vmax, value_fn=None, cell_width=0.05, grasp=None, cmap='binary'):
         # make 2d arrays of mean and std ensemble predictions
         xs, x_extent = self.make_array(*x_range, cell_width)
         ys, y_extent = self.make_array(*y_range, cell_width)
@@ -746,7 +746,7 @@ class ToolsWorld:
         # plot predictions w/ colorbars
         extent = (*x_extent, *y_extent)
 
-        im0 = ax.imshow(values, origin='lower', cmap='cividis', extent=extent, vmin=vmin, vmax=vmax, aspect='equal')
+        im0 = ax.imshow(values, origin='lower', cmap=cmap, extent=extent, vmin=vmin, vmax=vmax, aspect='equal')
         divider0 = make_axes_locatable(ax)
         cax0 = divider0.append_axes("right", size="10%", pad=0.5)
         cbar0 = plt.colorbar(im0, cax=cax0, format="%.2f")

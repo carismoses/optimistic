@@ -87,19 +87,24 @@ def plans_from_skeleton(args, block_name, skeleton_fn, ctypes, skeleton_key, all
         world.disconnect()
 
 
-def plot_action(world, action, ax, contact_preds, ctype, color='k'):
+def plot_action(world, action, ax=None, contact_preds=None, ctype=None, color='k', plot=True):
+    x = None
     if action.name == 'move_contact':
-        goal_xy = world.action_to_vec(action)[2:4]
-        ax.plot(*goal_xy, color=color, marker='.')
+        x = world.action_to_vec(action)[2:4]
+        if plot:
+            ax.plot(*x, color=color, marker='.')
         #world.vis_tool_ax(contact_preds[ctype], action.args[2].readableName, action, ax, frame='cont')
     elif action.name == 'pick':
         if action.args[0].readableName != 'tool':
-            pick_pos_xy = action.args[1].pose[0][:2]
-            ax.plot(*pick_pos_xy, color=color, marker='.')
+            x = world.action_to_vec(action)
+            if plot:
+                ax.plot(*x, color=color, marker='.')
     elif action.name == 'move_holding':
         if action.args[0].readableName != 'tool':
             x = world.action_to_vec(action)
-            ax.plot(*x, color=color, marker='.')
+            if plot:
+                ax.plot(*x, color=color, marker='.')
+    return x
 
 
 if __name__ == '__main__':
