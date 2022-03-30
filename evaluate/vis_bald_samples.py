@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from domains.tools.world import ToolsWorld
 from domains.tools.primitives import get_contact_gen
 
+from evaluate.plot_value_fns import get_model_accuracy_fn
 from experiments.strategies import sequential_bald
 from experiments.gen_ss_skeleton import plot_action
 from experiments.skeletons import get_skeleton_name
@@ -38,30 +39,29 @@ def get_grasp_indices(samples, grasp):
     return grasp_ixs
 
 def get_num_ax(plan):
-    num = 0
     indices = []
     for ai, action in enumerate(plan):
         if action.name == 'move_contact':
-            num += 1
             indices.append(ai)
         elif action.name == 'pick':
             if action.args[0].readableName != 'tool':
-                num += 1
                 indices.append(ai)
         elif action.name == 'move_holding':
             if action.args[0].readableName != 'tool':
-                num += 1
                 indices.append(ai)
-    return num, indices
+    return indices
 
 def gen_plot(world, mi_min, mi_max, ensembles, skel_num, skel_key, samples, grasp):
+    mean_fn = get_model_accuracy_fn(ensembles, 'mean')
+    std_fn = get_model_accuracy_fn(ensembles, 'std')
+
     # calc and normalize bald scores
     bald_scores = np.array([sequential_bald(pddl_plan, ensembles, world) for pddl_plan,_,_ in samples])
     bald_scores = np.clip(bald_scores, 0, 1)
 
     ## plot all sampled plans ##
     dummy_plan = samples[0][0] # all plans in list are the same length
-    num_ax, plt_indices = get_num_ax(dummy_plan)
+    plt_indices = get_num_ax(dummy_plan)
     fig_path = os.path.join(fig_dir, str(mi_max))
     if not os.path.exists(fig_path):
         os.makedirs(fig_path)
@@ -73,16 +73,28 @@ def gen_plot(world, mi_min, mi_max, ensembles, skel_num, skel_key, samples, gras
     else:
         grasp_ixs = np.arange(len(samples))
 
-    fig, axes = plt.subplots(2, num_ax, figsize=(15,10))
+    fig, axes = plt.subplots(2, len(plt_indices), figsize=(15,10))
     for axi, ai in enumerate(plt_indices):
-        ## plot all skeleton samples and bald scores ##
         ctype = None
+        action = dummy_plan[ai].name
+        contact = None
         if samples[0][0][ai].name == 'move_contact':
             ctype = skel_key.ctypes[mci]
             mci += 1
+            contact = contact_preds[ctype]
+            action += '-'+ctype
         for ax_row in range(2):
-            ax = axes[ax_row] if num_ax == 1 else axes[ax_row, axi]
+            ax = axes[ax_row] if len(plt_indices) == 1 else axes[ax_row, axi]
 
+            ## plot mean/std ##
+            obj = skel_key.goal_obj
+            x_axes, y_axes = world.get_world_limits(obj, action, contact)
+            if ax_row == 0:
+                world.vis_dense_plot(action, obj, ax, x_axes, y_axes, 0, 1, value_fn=mean_fn, cell_width=0.01, grasp=grasp)
+            else:
+                world.vis_dense_plot(action, obj, ax, x_axes, y_axes, None, None, value_fn=std_fn, cell_width=0.01, grasp=grasp)
+
+            ## plot all skeleton samples and bald scores ##
             for pi in grasp_ixs:
                 plan, _, _ = samples[pi]
                 plot_action(world,
@@ -91,14 +103,13 @@ def gen_plot(world, mi_min, mi_max, ensembles, skel_num, skel_key, samples, gras
                             contact_preds,
                             ctype,
                             color=str(bald_scores[pi]))
-            if ctype is not None:
-                ax.set_title(dummy_plan[ai].name+'_'+ctype)
-            else:
-                ax.set_title(dummy_plan[ai].name)
+            ax.set_title(action)
             ax.set_aspect('equal')
 
             ## plot all executed plans ##
             dataset = logger.load_trans_dataset('', i=mi_max)
+            if len(list(dataset.ixs.keys())) > 3:
+                import pdb; pdb.set_trace()
             for ixs in dataset.ixs:
                 x, y, action_type, object = dataset[ixs]
                 if dummy_plan[ai].name in action_type and object == skel_key.goal_obj:

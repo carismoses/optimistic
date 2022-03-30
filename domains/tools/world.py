@@ -746,7 +746,7 @@ class ToolsWorld:
         # plot predictions w/ colorbars
         extent = (*x_extent, *y_extent)
 
-        im0 = ax.imshow(values, origin='lower', cmap='binary', extent=extent, vmin=vmin, vmax=vmax, aspect='equal')
+        im0 = ax.imshow(values, origin='lower', cmap='cividis', extent=extent, vmin=vmin, vmax=vmax, aspect='equal')
         divider0 = make_axes_locatable(ax)
         cax0 = divider0.append_axes("right", size="10%", pad=0.5)
         cbar0 = plt.colorbar(im0, cax=cax0, format="%.2f")
