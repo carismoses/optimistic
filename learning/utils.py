@@ -1,7 +1,6 @@
 from torch import nn
 import torch
 from torch.utils.data import random_split, ConcatDataset
-from learning.datasets import OptDataset
 from torch.nn import functional as F
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
