@@ -8,7 +8,7 @@ from experiments.utils import ExperimentLogger
 from experiments.skeletons import get_all_skeleton_keys, plan_from_skeleton, \
                                 get_skeleton_name
 from domains.tools.world import ToolsWorld
-from experiments.strategies import solve_trajectories, calc_plan_success
+from experiments.strategies import solve_trajectories
 from tamp.utils import execute_plan
 from learning.utils import model_forward
 
@@ -25,8 +25,8 @@ def calc_plan_success(args):
     assert len(goals) >= args.n_goals, \
             'cannot generate %i goals from file with %i goals'%(args.n_goals, len(goals))
 
-    txs = logger.get_dir_indices('models')
-    for mi in txs[:100:10]:
+    _, txs = logger.get_dir_indices('models')
+    for mi in sorted(txs)[:150:10]:
         #for model, mi in logger.get_model_iterator():
         model = logger.load_trans_model(i=mi)
         success_data = []
