@@ -25,7 +25,10 @@ def calc_plan_success(args):
     assert len(goals) >= args.n_goals, \
             'cannot generate %i goals from file with %i goals'%(args.n_goals, len(goals))
 
-    for model, mi in logger.get_model_iterator():
+    txs = logger.get_dir_indices('models')
+    for mi in txs[:100:10]:
+        #for model, mi in logger.get_model_iterator():
+        model = logger.load_trans_model(i=mi)
         success_data = []
         for gi in range(args.n_goals):
             # generate a goal
