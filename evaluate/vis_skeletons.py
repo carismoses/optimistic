@@ -65,16 +65,24 @@ def gen_plots(args):
     for plan, pi in logger.get_plan_iterator():
         plan_name = get_plan_name(plan)
         for pn in all_plans:
-            if plan_name == pn:
-                #print('matching name!')
-                skel_count[pn] += [1]
+            if args.line_plot:
+                if plan_name == pn:
+                    skel_count[pn] += [skel_count[pn][-1] + 1]
+                else:
+                    skel_count[pn] += [skel_count[pn][-1]]
             else:
-                skel_count[pn] += [0]
+                if plan_name == pn:
+                    skel_count[pn] += [1]
+                else:
+                    skel_count[pn] += [0]
 
     fig, ax = plt.subplots(figsize=(15,5))
     for plan_name, counts in skel_count.items():
         if sum(counts) > 0:
-            ax.bar(np.arange(len(counts)), counts, width=1.0, label=plan_name)
+            if args.line_plot:
+                ax.plot(counts, label=plan_name)
+            else:
+                ax.bar(np.arange(len(counts)), counts, width=1.0, label=plan_name)
 
 
     box = ax.get_position()
@@ -82,7 +90,10 @@ def gen_plots(args):
 
     # Put a legend to the right of the current axis
     ax.legend(loc='center left', bbox_to_anchor=(1.0, 0.5))
-    fname = 'skeletons.png'
+    fname = 'skeletons'
+    if args.line_plot:
+        fname += '_line'
+    fname += '.png'
 
     logger.save_figure(fname, dir=dir)
     plt.close()
@@ -95,6 +106,10 @@ if __name__ == '__main__':
     parser.add_argument('--dataset-exp-path',
                         type=str,
                         help='experiment path to visualize results for')
+    parser.add_argument('--line-plot',
+                        action='store_true',
+                        help='if want to do a line plot over a histogram')
+
     args = parser.parse_args()
 
     if args.debug:
