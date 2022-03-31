@@ -8,7 +8,7 @@ from experiments.utils import ExperimentLogger
 from experiments.skeletons import get_all_skeleton_keys, plan_from_skeleton, \
                                 get_skeleton_name
 from domains.tools.world import ToolsWorld
-from experiments.strategies import solve_trajectories
+from experiments.strategies import solve_trajectories, calc_plan_feasibility
 from tamp.utils import execute_plan
 from learning.utils import model_forward
 
