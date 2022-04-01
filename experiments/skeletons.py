@@ -288,7 +288,7 @@ def ground_contacts(world, block, ctypes):
     return conts
 
 
-def plan_from_skeleton(skeleton, world, pddl_model_type, add_to_state):
+def plan_from_skeleton(skeleton, world, pddl_model_type, add_to_state, push_poses=None):
     pddl_state = world.get_init_state()+add_to_state
     pddl_info = world.get_pddl_info(pddl_model_type)
     streams_map = pddl_info[3]
@@ -318,6 +318,8 @@ def plan_from_skeleton(skeleton, world, pddl_model_type, add_to_state):
                 action_fn_kwargs[action_param] = hash_args[skeleton_arg]
             else:
                 action_fn_kwargs[action_param] = skeleton_arg
+        if action_name == 'move_contact':
+            action_fn_kwargs['push_poses'] = push_poses
         for _ in range(n_attempts):
             action_info = action_fn(**action_fn_kwargs)
             if action_info is not None:

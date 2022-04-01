@@ -585,9 +585,9 @@ class ToolsWorld:
         return [action], expanded_states
 
 
-    def get_move_contact_action(self, state, streams_map, tool=None, grasp=None, pushed_obj=None, \
-                            pose1=None, pose2=None, cont=None, conf1=None, conf2=None, \
-                            conf3=None, traj=None):
+    def get_move_contact_action(self, state, streams_map, push_poses=None, tool=None, \
+                            grasp=None, pushed_obj=None, pose1=None, pose2=None, \
+                            cont=None, conf1=None, conf2=None, conf3=None, traj=None):
         # must be holding something
         if ('handempty',) in state:
             return None
@@ -638,9 +638,15 @@ class ToolsWorld:
         # get final block pose
         if pose2 is None:
             block_name = pushed_obj.readableName
-            limits = self.goal_limits[block_name]
-            pose2_pos_xy = np.array([np.random.uniform(limits['min_x'], limits['max_x']),
-                                    np.random.uniform(limits['min_y'], limits['max_y'])])
+            if push_poses:
+                grasp_xy = grasp.grasp_objF[:2,3]
+                grasp_str = 'p1' if np.allclose(grasp_xy, [.1,0]) else 'n1'
+                pi = np.random.randint(len(push_poses[block_name][cont.type][grasp_str]))
+                pose2_pos_xy = push_poses[block_name][cont.type][grasp_str][pi]
+            else:
+                limits = self.goal_limits[block_name]
+                pose2_pos_xy = np.array([np.random.uniform(limits['min_x'], limits['max_x']),
+                                        np.random.uniform(limits['min_y'], limits['max_y'])])
             pose2 = pb_robot.vobj.BodyPose(pushed_obj,
                                 ((*pose2_pos_xy, pose1.pose[0][2]),
                                 pose1.pose[1]))
