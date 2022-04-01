@@ -269,7 +269,7 @@ def sequential(args, world, mode, n_seq_plans, samples_from_file=False):
     if args.K and samples_from_file:
         # select top K scores then select one at random
         rand_i = np.random.randint(args.K)
-        best_i = np.argsort(bald_scores)[rand_i]
+        best_i = np.argsort(bald_scores)[-rand_i] # list is in ascending order
         best_plan_info = all_plan_info[best_i]
     return best_plan_info
 
