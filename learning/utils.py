@@ -41,11 +41,11 @@ class MLP(nn.Module):
 
 
 def model_forward(model, inputs, action, obj_name, single_batch=False):
+    if not isinstance(inputs, torch.Tensor):
+        inputs = torch.tensor(inputs, dtype=torch.float64)
     if single_batch:
-        if isinstance(inputs, torch.Tensor):
             inputs = inputs.unsqueeze(0)
-        else:
-            inputs = torch.tensor(inputs, dtype=torch.float64).unsqueeze(0)
+        
 
     if torch.cuda.is_available():
         model.ensembles[action][obj_name].cuda()
