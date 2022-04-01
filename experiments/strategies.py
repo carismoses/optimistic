@@ -266,11 +266,11 @@ def sequential(args, world, mode, n_seq_plans, samples_from_file=False):
             if bald_score >= best_bald_score:
                 best_plan_info = pddl_plan, problem, init_expanded
                 best_bald_score = bald_score
-        if args.K and samples_from_file:
-            # select top K scores then select one at random
-            rand_i = np.random.randint(args.K)
-            best_i = np.argsort(bald_scores)[rand_i]
-            best_plan_info = all_plan_info[best_i]
+    if args.K and samples_from_file:
+        # select top K scores then select one at random
+        rand_i = np.random.randint(args.K)
+        best_i = np.argsort(bald_scores)[rand_i]
+        best_plan_info = all_plan_info[best_i]
     return best_plan_info
 
 
