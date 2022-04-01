@@ -13,6 +13,12 @@ from domains.tools.primitives import get_contact_gen
 
 dir = 'accuracy'
 
+def find_nearest(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return array[idx]
+
+
 def indiv_plot(contact_info, action, obj, world, mean_fn, std_fn, dataset, ts, mi, model_logger, dataset_logger, grasp=None):
     n_axes = 3
     fig, axes = plt.subplots(n_axes, figsize=(5, 10))
@@ -53,7 +59,12 @@ def gen_plots(args):
         model_logger = None
     else:
         model_logger = ExperimentLogger(args.model_exp_path)
-        ensembles, mi = model_logger.load_trans_model(ret_i=True)
+        if args.action_step:
+            _, txs = model_logger.get_dir_indices('models')
+            mi = find_nearest(txs, args.action_step)
+            ensembles = model_logger.load_trans_model(i=mi)
+        else:
+            ensembles, mi = model_logger.load_trans_model(ret_i=True)
         print('Generating figures for models on path %s step %i' % (args.model_exp_path, mi))
     world = ToolsWorld()
 
@@ -61,7 +72,12 @@ def gen_plots(args):
         dataset_logger = ExperimentLogger(args.dataset_exp_path)
     else:
         dataset_logger = model_logger
-    dataset, di = dataset_logger.load_trans_dataset('', ret_i=True)
+    if args.action_step:
+        _, txs = dataset_logger.get_dir_indices('datasets')
+        di = find_nearest(txs, args.action_step)
+        dataset = model_logger.load_trans_dataset('', i=di)
+    else:
+        dataset, di = dataset_logger.load_trans_dataset('', ret_i=True)
 
     print('Plotting dataset on path %s step %i' % (dataset_logger.exp_path, di))
 
@@ -104,9 +120,13 @@ if __name__ == '__main__':
                         help='experiment path to visualize results for')
     parser.add_argument('--just-dataset',
                         action='store_true')
+    parser.add_argument('--action-step',
+                        type=int,
+                        help='only generate plots for this action step (or the step closest to this value)')
     args = parser.parse_args()
 
     if args.debug:
         import pdb; pdb.set_trace()
 
     gen_plots(args)
+
