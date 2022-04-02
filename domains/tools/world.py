@@ -585,9 +585,10 @@ class ToolsWorld:
         return [action], expanded_states
 
 
-    def get_move_contact_action(self, state, streams_map, push_poses=None, tool=None, \
+    def get_move_contact_action(self, state, streams_map, tool=None, \
                             grasp=None, pushed_obj=None, pose1=None, pose2=None, \
-                            cont=None, conf1=None, conf2=None, conf3=None, traj=None):
+                            cont=None, conf1=None, conf2=None, conf3=None, traj=None,
+                            push_poses=None):
         # must be holding something
         if ('handempty',) in state:
             return None
