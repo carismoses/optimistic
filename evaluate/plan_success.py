@@ -1,6 +1,7 @@
 import numpy as np
 import dill as pickle
 import argparse
+import matplotlib.pyplot as plt
 
 from pddlstream.language.constants import Certificate
 
@@ -14,7 +15,58 @@ from learning.utils import model_forward
 
 
 # TODO: parallelize (run in own process then when all are done merge pkl files)
-n_attempts = 10 # number of times to try to plan to achieve a goal for a specific skeleton
+n_attempts = 1 # number of times to try to plan to achieve a goal for a specific skeleton
+
+def gen_feas_push_poses(model):
+    n_poses = 1000       # per (block, ctype, grasp)
+    n_feas_max = 5   # number of most feasible samples to keep
+    n_feas_thresh = 0.7
+
+    world = ToolsWorld()
+    push_poses = {}
+    for block_name in ['yellow_block', 'blue_block']:
+        push_poses[block_name] = {}
+        init_xy = world.init_objs_pos_xy[block_name]
+        for ctype in ['push_pull', 'poke']:
+            push_poses[block_name][ctype] = {}
+            for grasp_str in ['p1', 'n1']:
+                xs = []
+                for _ in range(n_poses):
+                    grasp = [.1,0] if grasp_str == 'p1' else [-.1,0]
+
+                    limits = world.goal_limits[block_name]
+                    pose2_pos_xy = np.array([np.random.uniform(limits['min_x'], limits['max_x']),
+                                            np.random.uniform(limits['min_y'], limits['max_y'])])
+
+                    x = np.array([*init_xy, *pose2_pos_xy, *grasp])
+                    xs.append(x)
+                xs = np.array(xs)
+                preds = model_forward(model, xs, 'move_contact-'+ctype, block_name).mean(axis=0)
+                best_ixs = np.argsort(preds)
+                # only keep ones above thresh
+                top_ixs = np.argwhere(preds > n_feas_thresh).squeeze()
+                if len(top_ixs) == 0:
+                    pos_xys = [xs[best_ixs[-1],:][2:4]]
+                    #print('0', pos_xys)
+                elif len(top_ixs) > n_feas_max:
+                    pos_xys = [xs[ix,:][2:4] for ix in best_ixs[-n_feas_max:]]
+                    #print('1', pos_xys)
+                else:
+                    pos_xys = [xs[ix,:][2:4] for ix in top_ixs]
+                    #print('2', pos_xys)
+                push_poses[block_name][ctype][grasp_str] = pos_xys
+                '''
+                fig, ax = plt.subplots()
+                print([preds[i] for i in np.argsort(preds)[-10:]])
+                print(block_name, ctype, grasp_str)
+                ax.plot([x for x,y in pos_xys], [y for x,y in pos_xys], '.')
+                plt.show()
+                plt.close()
+                '''
+    world.disconnect()
+    #print(push_poses)
+    return push_poses
+
 
 def calc_plan_success(args):
     logger = ExperimentLogger(args.exp_path)
@@ -22,25 +74,30 @@ def calc_plan_success(args):
     # load goals
     with open(args.goal_path, 'rb') as f:
         goals = pickle.load(f)
-    assert len(goals) >= args.n_goals, \
-            'cannot generate %i goals from file with %i goals'%(args.n_goals, len(goals))
 
     _, txs = logger.get_dir_indices('models')
-    for mi in sorted(txs)[:150:10]:
+    for mi in sorted(txs)[::args.action_step]:
         #for model, mi in logger.get_model_iterator():
         model = logger.load_trans_model(i=mi)
+
+        # calculate samples from high feasibility area for contact models
+        feas_push_poses = gen_feas_push_poses(model)
+
         success_data = []
-        for gi in range(args.n_goals):
+        for goal in goals:
+            #print(p.getBasePositionAndOrientation(0, physicsClientId=0))
             # generate a goal
-            goal_xy = goals[gi][0][2].pose[0][:2]
-            goal_obj = goals[gi][0][1].readableName
+            goal_xy = goal[0][2].pose[0][:2]
+            goal_obj = goal[0][1].readableName
 
             # get all possible skeletons
             all_skeleton_keys = get_all_skeleton_keys()
 
             # generate a space of plans (opt_no_traj) for skeletons
             all_plans = []
+
             world = ToolsWorld()
+
             for si, skel_key in enumerate(all_skeleton_keys):
                 skel_fn, block_name, ctypes = skel_key
                 if si in args.skel_nums:
@@ -49,12 +106,14 @@ def calc_plan_success(args):
                         na = 0
                         while ns < args.n_samples and na < n_attempts:
                             print('--> Planning sample %i for skel %i with obj %s. Attempt %i'%(ns, si, goal_obj, na))
+
                             goal_pred, add_to_state = world.generate_goal(goal_xy=goal_xy, goal_obj=goal_obj)
                             goal_skeleton = skel_fn(world, goal_pred, ctypes)
                             plan_info = plan_from_skeleton(goal_skeleton,
                                                             world,
                                                             'opt_no_traj',
-                                                            add_to_state)
+                                                            add_to_state,
+                                                            push_poses=feas_push_poses)
                             na += 1
                             if plan_info is not None:
                                 all_plans.append((skel_key, plan_info))
@@ -67,8 +126,12 @@ def calc_plan_success(args):
                 scores = []
                 for skel_key, plan_info in all_plans:
                     pddl_plan, problem, init_expanded = plan_info
+                    #print(pddl_plan)
                     plan_feas = calc_plan_feasibility(pddl_plan, model, world)
                     scores.append(plan_feas)
+                    #print(pddl_plan, plan_feas)
+                    #input('press enter')
+
 
                 # select plan and ground trajectories
                 traj_pddl_plan = None
@@ -94,6 +157,7 @@ def calc_plan_success(args):
                     skel_name = get_skeleton_name(pddl_plan, skel_key)
                     success_data.append((skel_name, trajectory, goal_pred, success))
 
+            world.disconnect()
         # save to file (action step, plan and whether or not goal was achieved and which skeleton was used?)
         logger.save_success_data(success_data, mi)
 
@@ -104,10 +168,6 @@ if __name__ == '__main__':
                         type=str,
                         required=True,
                         help='path to evaluate')
-    parser.add_argument('--n-goals',
-                        type=int,
-                        required=True,
-                        help='number of goals to evaluate model on for each time step')
     parser.add_argument('--n-samples',
                         type=int,
                         required=True,
@@ -121,6 +181,9 @@ if __name__ == '__main__':
                         type=str,
                         required=True,
                         help='path to pkl file with list of goal predicates')
+    parser.add_argument('--action-step',
+                        type=int,
+                        default=100)
     parser.add_argument('--debug',
                         action='store_true',
                         help='use to run in debug mode')
