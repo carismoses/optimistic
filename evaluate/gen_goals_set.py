@@ -24,6 +24,23 @@ if __name__ == '__main__':
 
     world = ToolsWorld()
 
-    goals = [world.generate_goal() for _ in range(args.n_goals)]
+    xy_goals = [('yellow_block', (0.2, -0.3)),
+                ('yellow_block', (0.1, -0.3)),
+                ('yellow_block', (0.5, -0.3)),
+                ('yellow_block', (0.6, -0.3)),
+                ('yellow_block', (0.7, -0.3)),
+                ('yellow_block', (0.2, -0.4)),
+                ('yellow_block', (0.3, -0.4)),
+                ('yellow_block', (0.2, -0.3)),
+                ('yellow_block', (0.3, -0.2)),
+                ('yellow_block', (0.4, 0.0))]
+
+    goals = []
+    for goal_obj, goal_xy in xy_goals:
+        goal = world.generate_goal(goal_xy=goal_xy, goal_obj=goal_obj)
+        goals.append(goal)
+    for _ in range(10):
+        goal = world.generate_goal(goal_obj='blue_block')
+        goals.append(goal)
 
     with open(args.path, 'wb') as f: pickle.dump(goals, f)
