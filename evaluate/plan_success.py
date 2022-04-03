@@ -131,7 +131,7 @@ def calc_plan_success(args):
 
             # calculate feasibility scores
             if len(all_plans) == 0:
-                success_data.append((None, None, None, False))
+                success_data.append((None, None, None, [False]))
             else:
                 scores = []
                 for skel_key, plan_info in all_plans:
