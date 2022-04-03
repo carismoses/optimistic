@@ -44,6 +44,21 @@ if __name__ == '__main__':
                     else:
                         method_successes[pii] = pii_success
 
+                    # plot all goal and successes
+                    sub_fig, sub_ax = plt.subplots()
+                    for _, _, goal_pred, s in pii_success_info:
+                        print(goal_pred)
+                        if goal_pred is not None:
+                            goal_xy = goal_pred[2].pose[0][:2]
+                            goal_obj = goal_pred[1].readableName
+                            su = s if isinstance(s, bool) else s[-1]
+                            color = 'g' if su else 'r'
+                            mc = 'y' if goal_obj == 'yellow_block' else 'b'
+                            sub_ax.plot(*goal_xy, '.', color=color, markeredgecolor=mc)
+                    fname = 'success_%i.svg' % (pii)
+                    logger.save_figure(fname, dir='plan_success')
+                    plt.close(sub_fig)
+
         # calculate avg and standard deviations
         method_avg = [np.mean(success_data) for success_data in method_successes.values()]
         method_std = [np.std(success_data) for success_data in method_successes.values()]
@@ -67,3 +82,4 @@ if __name__ == '__main__':
     ax.set_ylim([0.,1])
     plt.savefig('plan_success.svg', format='svg')
     #plt.show()
+
