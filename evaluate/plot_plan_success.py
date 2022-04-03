@@ -18,6 +18,7 @@ all_objs = ['yellow_block', 'blue_block']
 max_actions = None
 
 if __name__ == '__main__':
+    import pdb; pdb.set_trace()
     fig, ax = plt.subplots()
     cs = ['r', 'g', 'b', 'c', 'm', 'y', 'k']
     for pi, (method, model_paths) in enumerate(all_model_paths.items()):
@@ -30,15 +31,15 @@ if __name__ == '__main__':
             _, txs = logger.get_dir_indices('plan_success')
             for pii in sorted(txs):
                 if max_actions is None or pii < max_actions:
-                    pii_success_info = logger.load_success_data(pii)
+                    pii_success_info = logger.load_success_data(pii)[1]
                     pii_success = []
                     for _,_,_,s in pii_success_info:
-                        if len(s) > 0:
-                            pii_success.append(s[-1])
+                        if isinstance(s, bool):
+                            pii_success.append(s)
                         else:
-                            pii_sucess.append(s)
+                            pii_success.append(s[-1])
 
-                    if pii in all_successes:
+                    if pii in method_successes:
                         method_successes[pii] += pii_success
                     else:
                         method_successes[pii] = pii_success
