@@ -86,7 +86,16 @@ def calc_plan_success(args):
         goals = pickle.load(f)
 
     _, txs = logger.get_dir_indices('models')
-    for mi in sorted(txs)[::args.action_step]:
+    if args.single_action_step:
+        for ti in sorted(txs):
+            if ti > args.single_action_step:
+                mis = [ti]
+                break
+    else:
+        mis = sorted(txs)[::args.action_step]
+
+    for mi in mis:
+        print('Action step: %i'%mi)
         #for model, mi in logger.get_model_iterator():
         model = logger.load_trans_model(i=mi)
 
@@ -194,6 +203,9 @@ if __name__ == '__main__':
     parser.add_argument('--action-step',
                         type=int,
                         default=100)
+    parser.add_argument('--single-action-step',
+                        type=int,
+                        default=2000)
     parser.add_argument('--debug',
                         action='store_true',
                         help='use to run in debug mode')
