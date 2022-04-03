@@ -20,7 +20,7 @@ from domains.tools.primitives import get_traj
 from domains.tools.world import ToolsWorld
 
 
-MAX_PLAN_LEN = 6           # max num of actions in a randomly generated plan
+MAX_PLAN_LEN = 10           # max num of actions in a randomly generated plan
 EPS = 1e-5
 
 

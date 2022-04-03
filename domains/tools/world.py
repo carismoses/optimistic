@@ -404,9 +404,10 @@ class ToolsWorld:
         # check that obj to be picked is a freeObj and is on another obj and
         # TODO: we should check if bot_obj is None
         if top_obj is None:
-            shuffled_objects = self.blocks + self.objects['tool']
+            shuffled_objects = self.blocks + ['tool']
             random.shuffle(shuffled_objects)
-            for obj in shuffled_objects:
+            for obj_name in shuffled_objects:
+                obj = self.objects[obj_name]
                 if ('freeobj', obj) in state:
                     for pred in state:
                         if pred[0] == 'on' and pred[1] == obj:
@@ -469,7 +470,7 @@ class ToolsWorld:
 
         # ground bottom object (if passed in then use that else use the table)
         if bot_obj is None:
-            bot_obj = self.objects['table']
+            bot_obj = self.panda.table
         if bot_obj is None:
             if DEBUG: print('failed: place, bot_obj')
             return None
@@ -612,7 +613,8 @@ class ToolsWorld:
         if pushed_obj is None:
             shuffled_objects = self.blocks
             random.shuffle(shuffled_objects)
-            for obj in shuffled_objects:
+            for obj_name in shuffled_objects:
+                obj = self.objects[obj_name]
                 if ('freeobj', obj) in state and \
                     ('block', obj) in state: # can only push blocks
                     pushed_obj = obj
