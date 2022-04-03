@@ -12,7 +12,7 @@ from learning.utils import model_forward
 from tamp.utils import pause, Contact, vis_frame
 
 DEBUG_FAILURE = False
-
+DEBUG = False
 
 def get_contact_gen(robot):
     def gen(obj1, obj2, contact_types=['poke', 'push_pull'], shuffle=True):
@@ -232,13 +232,19 @@ def get_contact_motion_gen(world, robot, fixed=[], num_attempts=20, ret_traj=Tru
             # calculate all configurations from poses
             obstacles = copy(fixed)
             conf_contact = ee_ik(ee_contact_world, robot, obstacles)
-            if not conf_contact: continue
+            if not conf_contact:
+                if DEBUG: print('conf contact fail')
+                continue
             obstacles = copy(fixed) + [obj2]
             conf_approach = ee_ik(ee_approach_world, robot, obstacles, seed_q=conf_contact.configuration)
-            if not conf_approach: continue
+            if not conf_approach:
+                if DEBUG: print('conf approach fail')
+                continue
             obstacles = copy(fixed)
             conf_pose2 = ee_ik(ee_pose2_world, robot, obstacles)
-            if not conf_pose2: continue
+            if not conf_pose2:
+                if DEBUG: print('conf pose2 fail')
+                continue
 
             # contact motion
             # TODO: constrain path to be straight line (I think I can add constraints to birrt call
@@ -259,11 +265,13 @@ def get_contact_motion_gen(world, robot, fixed=[], num_attempts=20, ret_traj=Tru
                                                                     pose2,
                                                                     cont,
                                                                     conf_approach,
-                                                                     conf_contact,
+                                                                    conf_contact,
                                                                     conf_pose2,
                                                                     []))
                 command, _ = get_traj(robot, obstacles, no_traj_action, num_attempts)
-                if not command: continue
+                if not command:
+                    if DEBUG: print('traj fail')
+                    continue
             else:
                 command = []
 

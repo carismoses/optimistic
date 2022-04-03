@@ -644,6 +644,8 @@ class ToolsWorld:
             if push_poses:
                 grasp_xy = grasp.grasp_objF[:2,3]
                 grasp_str = 'p1' if np.allclose(grasp_xy, [.1,0]) else 'n1'
+                if len(push_poses[block_name][cont.type][grasp_str]) == 0:
+                    return None
                 pi = np.random.randint(len(push_poses[block_name][cont.type][grasp_str]))
                 pose2_pos_xy = push_poses[block_name][cont.type][grasp_str][pi]
             else:

@@ -13,9 +13,7 @@ from experiments.strategies import solve_trajectories, calc_plan_feasibility
 from tamp.utils import execute_plan
 from learning.utils import model_forward
 
-
 # TODO: parallelize (run in own process then when all are done merge pkl files)
-n_attempts = 1 # number of times to try to plan to achieve a goal for a specific skeleton
 
 def gen_feas_push_poses(model):
     n_poses = 1000       # per (block, ctype, grasp)
@@ -41,28 +39,40 @@ def gen_feas_push_poses(model):
                     x = np.array([*init_xy, *pose2_pos_xy, *grasp])
                     xs.append(x)
                 xs = np.array(xs)
-                preds = model_forward(model, xs, 'move_contact-'+ctype, block_name).mean(axis=0)
+                all_preds = model_forward(model, xs, 'move_contact-'+ctype, block_name)
+                preds = all_preds.mean(axis=0)
                 best_ixs = np.argsort(preds)
                 # only keep ones above thresh
                 top_ixs = np.argwhere(preds > n_feas_thresh).squeeze()
                 if top_ixs.size == 0:
-                    pos_xys = [xs[best_ixs[-1],:][2:4]]
+                    pos_xys = []
+                    small_all_preds = []
                     #print('0', pos_xys)
                 elif top_ixs.size > n_feas_max:
                     pos_xys = [xs[ix,:][2:4] for ix in best_ixs[-n_feas_max:]]
+                    small_all_preds = [all_preds[:,ix] for ix in best_ixs[-n_feas_max:]]
                     #print('1', pos_xys)
                 else:
                     pos_xys = [xs[ix,:][2:4] for ix in top_ixs]
+                    small_all_preds = [all_preds[:,ix] for ix in top_ixs]
                     #print('2', pos_xys)
                 push_poses[block_name][ctype][grasp_str] = pos_xys
                 '''
-                fig, ax = plt.subplots()
-                print([preds[i] for i in np.argsort(preds)[-10:]])
+                fig, ax = plt.subplots(2)
+                #print([preds[i] for i in np.argsort(preds)[-10:]])
                 print(block_name, ctype, grasp_str)
-                ax.plot([x for x,y in pos_xys], [y for x,y in pos_xys], '.')
+                for (x,y), apred in zip(pos_xys, small_all_preds):
+                    mean = apred.mean()
+                    std = apred.std()
+                    ax[0].plot(x,y,color=str(mean), marker='.', markeredgecolor='k')
+                    ax[1].plot(x,y,color=str(std), marker='.', markeredgecolor='k')
+                ax[0].set_title('Mean')
+                ax[1].set_title('St Dev')
+
                 plt.show()
                 plt.close()
                 '''
+
     world.disconnect()
     #print(push_poses)
     return push_poses
@@ -103,9 +113,8 @@ def calc_plan_success(args):
                 if si in args.skel_nums:
                     if goal_obj == block_name:
                         ns = 0
-                        na = 0
-                        while ns < args.n_samples and na < n_attempts:
-                            print('--> Planning sample %i for skel %i with obj %s. Attempt %i'%(ns, si, goal_obj, na))
+                        while ns < args.n_samples:
+                            print('--> Planning sample %i for skel %i with obj %s'%(ns, si, goal_obj))
 
                             goal_pred, add_to_state = world.generate_goal(goal_xy=goal_xy, goal_obj=goal_obj)
                             goal_skeleton = skel_fn(world, goal_pred, ctypes)
@@ -114,10 +123,11 @@ def calc_plan_success(args):
                                                             'opt_no_traj',
                                                             add_to_state,
                                                             push_poses=feas_push_poses)
-                            na += 1
+
                             if plan_info is not None:
                                 all_plans.append((skel_key, plan_info))
                                 ns += 1
+
 
             # calculate feasibility scores
             if len(all_plans) == 0:
@@ -148,7 +158,7 @@ def calc_plan_success(args):
 
                 # if none of the trajectories can be grounded, goal failed
                 if traj_pddl_plan is None:
-                    success_data.append((None, None, None, False))
+                    success_data.append((None, None, goal_pred, [False]))
                 else:
                     # execute and store result
                     init_expanded = Certificate(add_to_init+init_expanded.all_facts, [])
