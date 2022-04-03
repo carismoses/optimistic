@@ -45,10 +45,10 @@ def gen_feas_push_poses(model):
                 best_ixs = np.argsort(preds)
                 # only keep ones above thresh
                 top_ixs = np.argwhere(preds > n_feas_thresh).squeeze()
-                if len(top_ixs) == 0:
+                if top_ixs.size == 0:
                     pos_xys = [xs[best_ixs[-1],:][2:4]]
                     #print('0', pos_xys)
-                elif len(top_ixs) > n_feas_max:
+                elif top_ixs.size > n_feas_max:
                     pos_xys = [xs[ix,:][2:4] for ix in best_ixs[-n_feas_max:]]
                     #print('1', pos_xys)
                 else:
