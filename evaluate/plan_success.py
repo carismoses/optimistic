@@ -14,6 +14,7 @@ from tamp.utils import execute_plan
 from learning.utils import model_forward
 
 # TODO: parallelize (run in own process then when all are done merge pkl files)
+N_ATTEMPTS = 10 # number of attempts to try a goal with a specific skeleton
 
 def gen_feas_push_poses(model):
     n_poses = 1000       # per (block, ctype, grasp)
@@ -122,7 +123,8 @@ def calc_plan_success(args):
                 if si in args.skel_nums:
                     if goal_obj == block_name:
                         ns = 0
-                        while ns < args.n_samples:
+                        na = 0
+                        while ns < args.n_samples and na < N_ATTEMPTS:
                             print('--> Planning sample %i for skel %i with obj %s'%(ns, si, goal_obj))
 
                             goal_pred, add_to_state = world.generate_goal(goal_xy=goal_xy, goal_obj=goal_obj)
@@ -136,6 +138,9 @@ def calc_plan_success(args):
                             if plan_info is not None:
                                 all_plans.append((skel_key, plan_info))
                                 ns += 1
+                                na = 0
+                            else:
+                                na += 1
 
 
             # calculate feasibility scores
