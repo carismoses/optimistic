@@ -150,6 +150,8 @@ class ExperimentLogger:
             file_name = r'plan_(.*).pkl'
         elif dir == 'trajs':
             file_name = r'traj_(.*).pkl'
+        elif dir == 'plan_success':
+            file_name = 'success_data_(.*).pkl'
         txs = []
         found_files = []
         for file in files:
@@ -278,3 +280,11 @@ class ExperimentLogger:
             os.makedirs(full_path)
         with open(os.path.join(full_path, filename), 'wb') as handle:
             pickle.dump([mi, success_data], handle)
+
+
+    def load_success_data(self, mi):
+        full_path = os.path.join(self.exp_path, 'plan_success')
+        filename = 'success_data_%i.pkl' % mi
+        with open(os.path.join(full_path, filename), 'rb') as handle:
+            data = pickle.load(handle)
+        return data
