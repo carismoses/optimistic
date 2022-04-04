@@ -87,11 +87,17 @@ def calc_plan_success(args):
         goals = pickle.load(f)
 
     _, txs = logger.get_dir_indices('models')
+    mis = []
     if args.single_action_step:
         for ti in sorted(txs):
             if ti > args.single_action_step:
                 mis = [ti]
                 break
+        if len(mis) == 0:
+            if abs(sorted(txs)[-1]-args.single_action_step) < 10:
+                mis = [sorted(txs)[-1]]
+            else:
+                assert False, 'no model close to %i'%args.single_action_step
     else:
         mis = sorted(txs)[::args.action_step]
 
