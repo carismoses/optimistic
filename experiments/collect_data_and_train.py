@@ -26,7 +26,7 @@ def train_class(args, logger, n_actions):
         logger.save_trans_model(model, i=n_actions)
 
     # merge skeleton files
-    if args.samples_from_file:
+    if args.samples_from_file and args.data_collection_mode == 'sequential-goals':
         merge_skeletons(args.skel_nums)
 
     while n_actions < args.max_actions:

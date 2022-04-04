@@ -69,10 +69,10 @@ def collect_trajectory(args, pddl_model_type, dataset_logger, model_logger, \
         pddl_plan, problem, init_expanded = random_plan(world, 'optimistic')
     elif args.data_collection_mode == 'random-goals-opt':
         goal, add_to_state = world.generate_goal(goal_xy=goal)
-        pddl_plan, problem, init_expanded = goals(world, 'optimistic', goal, add_to_state, samples_from_file=args.samples_from_file)
+        pddl_plan, problem, init_expanded = goals(world, 'optimistic', goal, add_to_state)
     elif args.data_collection_mode == 'random-goals-learned':
         goal, add_to_state = world.generate_goal(goal_xy=goal)
-        pddl_plan, problem, init_expanded = goals(world, 'learned', goal, add_to_state, samples_from_file=args.samples_from_file)
+        pddl_plan, problem, init_expanded = goals(world, 'learned', goal, add_to_state)
     elif args.data_collection_mode == 'sequential-plans':
         pddl_plan, problem, init_expanded = sequential(args, world, 'plans', args.n_seq_plans, args.samples_from_file)
     elif args.data_collection_mode == 'sequential-goals':
@@ -185,41 +185,27 @@ def random_plan(world, pddl_model_type, ret_states=False):
 
 
 # plans to achieve a random goal under the given (optimistic or learned) model
-def goals(world, pddl_model_type, goal, add_to_state, ret_states=False, samples_from_file=False):
-    if samples_from_file:
-        with open('logs/ss_skeleton_samples.pkl', 'rb') as handle:
-            samples = pickle.load(handle)
-        plan_i = np.random.randint(len(samples))
-        pddl_plan, problem, init_expanded = samples[plan_i]
-        pddl_info = world.get_pddl_info('opt_no_traj')
-        problem = list(problem[:3])+[pddl_info[3]]+list(problem[3:])  # add back stream map
+def goals(world, pddl_model_type, goal, add_to_state, ret_states=False):
+    print('Goal: ', *goal[:2], goal[2].pose[0][:2])
+    print('Planning with %s model'%pddl_model_type)
+    if world.use_panda:
+        world.panda.add_text('Planning with %s model'%pddl_model_type,
+                            position=(0, -1, 1),
+                            size=1.5)
 
-        # try to solve for trajectories
-        pddl_plan, add_to_init = solve_trajectories(world,
-                                                    pddl_plan,
-                                                    ret_full_plan=True)
-        init_expanded = Certificate(add_to_init+init_expanded.all_facts, [])
-    else:
-        print('Goal: ', *goal[:2], goal[2].pose[0][:2])
-        print('Planning with %s model'%pddl_model_type)
-        if world.use_panda:
-            world.panda.add_text('Planning with %s model'%pddl_model_type,
-                                position=(0, -1, 1),
-                                size=1.5)
-
-        pddl_info = world.get_pddl_info(pddl_model_type)
-        problem = tuple([*pddl_info, world.get_init_state()+add_to_state, goal])
-        print('Init: ', world.get_init_state()+add_to_state)
-        ic = 2 if world.use_panda else 0
-        pddl_plan, cost, init_expanded = solve_focused(problem,
-                                            success_cost=INF,
-                                            max_skeletons=2,
-                                            search_sample_ratio=1.0,
-                                            max_time=120,
-                                            verbose=False,
-                                            unit_costs=True,
-                                            initial_complexity=ic,
-                                            max_iterations=2)
+    pddl_info = world.get_pddl_info(pddl_model_type)
+    problem = tuple([*pddl_info, world.get_init_state()+add_to_state, goal])
+    print('Init: ', world.get_init_state()+add_to_state)
+    ic = 2 if world.use_panda else 0
+    pddl_plan, cost, init_expanded = solve_focused(problem,
+                                        success_cost=INF,
+                                        max_skeletons=2,
+                                        search_sample_ratio=1.0,
+                                        max_time=120,
+                                        verbose=False,
+                                        unit_costs=True,
+                                        initial_complexity=ic,
+                                        max_iterations=2)
     if pddl_plan and ret_states:
         task, fd_plan = postprocess_plan(problem, pddl_plan, init_expanded)
         fd_state = set(task.init)
@@ -244,7 +230,11 @@ def sequential(args, world, mode, n_seq_plans, samples_from_file=False):
     bald_scores = []
     all_plan_info = []
     if samples_from_file:
-        with open('logs/ss_skeleton_samples.pkl', 'rb') as handle:
+        if mode == 'goals':
+            fname = 'logs/ss_skeleton_samples.pkl'
+        elif mode == 'plans':
+            fname = 'logs/ss_random_samples.pkl'
+        with open(fname, 'rb') as handle:
             samples = pickle.load(handle)
         n_seq_plans = len(samples)
     while n_plans_searched < n_seq_plans:
