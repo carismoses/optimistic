@@ -49,7 +49,7 @@ def gen_feas_push_poses(model):
                     pos_xys = []
                     #small_all_preds = []
                 elif top_ixs.size == 1:
-                    pos_xys = xs[top_ixs,:][2:4]
+                    pos_xys = [xs[top_ixs,:][2:4]]
                 elif top_ixs.size > n_feas_max:
                     pos_xys = [xs[ix,:][2:4] for ix in best_ixs[-n_feas_max:]]
                     #small_all_preds = [all_preds[:,ix] for ix in best_ixs[-n_feas_max:]]
