@@ -47,16 +47,15 @@ def gen_feas_push_poses(model):
                 top_ixs = np.argwhere(preds > n_feas_thresh).squeeze()
                 if top_ixs.size == 0:
                     pos_xys = []
-                    small_all_preds = []
-                    #print('0', pos_xys)
+                    #small_all_preds = []
+                elif top_ixs.size == 1:
+                    pos_xys = xs[top_ixs,:][2:4]
                 elif top_ixs.size > n_feas_max:
                     pos_xys = [xs[ix,:][2:4] for ix in best_ixs[-n_feas_max:]]
-                    small_all_preds = [all_preds[:,ix] for ix in best_ixs[-n_feas_max:]]
-                    #print('1', pos_xys)
+                    #small_all_preds = [all_preds[:,ix] for ix in best_ixs[-n_feas_max:]]
                 else:
                     pos_xys = [xs[ix,:][2:4] for ix in top_ixs]
-                    small_all_preds = [all_preds[:,ix] for ix in top_ixs]
-                    #print('2', pos_xys)
+                    #small_all_preds = [all_preds[:,ix] for ix in top_ixs]
                 push_poses[block_name][ctype][grasp_str] = pos_xys
                 '''
                 fig, ax = plt.subplots(2)
