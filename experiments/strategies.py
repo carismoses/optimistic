@@ -276,21 +276,23 @@ def sequential_bald(plan, model, world, ret_states=False):
             contact_type = pddl_action.args[5].type
             action = '%s-%s' % ('move_contact', contact_type)
             obj_name = pddl_action.args[2].readableName
-            predictions = model_forward(model, x, action, obj_name, single_batch=True)
+            grasp_xy = pddl_action.args[1].grasp_objF[:2,3]
+            grasp = 'p1' if np.allclose(grasp_xy, [.1,0]) else 'n1'
+            predictions = model_forward(model, x, action, obj_name, grasp, single_batch=True)
             score += plan_feas*bald(predictions)
         elif pddl_action.name == 'pick':
             obj_name = pddl_action.args[0].readableName
             if obj_name != 'tool':
                 x = world.action_to_vec(pddl_action)
                 action = pddl_action.name
-                predictions = model_forward(model, x, action, obj_name, single_batch=True)
+                predictions = model_forward(model, x, action, obj_name, 'None', single_batch=True)
                 score += plan_feas*bald(predictions)
         elif pddl_action.name == 'move_holding':
             obj_name = pddl_action.args[0].readableName
             if obj_name != 'tool':
                 x = world.action_to_vec(pddl_action)
                 action = pddl_action.name
-                predictions = model_forward(model, x, action, obj_name, single_batch=True)
+                predictions = model_forward(model, x, action, obj_name, 'None', single_batch=True)
                 score += plan_feas*bald(predictions)
     if ret_states:
         return score, x
@@ -323,11 +325,14 @@ def calc_plan_feasibility(pddl_plan, model, world):
             if pddl_action.name == 'move_contact':
                 action = 'move_contact-%s' % pddl_action.args[5].type
                 obj_name = pddl_action.args[2].readableName
+                grasp_xy = pddl_action.args[1].grasp_objF[:2,3]
+                grasp = 'p1' if np.allclose(grasp_xy, [.1,0]) else 'n1'
             else:
                 obj_name = pddl_action.args[0].readableName
                 action = pddl_action.name
+                grasp = 'None'
             x = world.action_to_vec(pddl_action)
-            plan_feas *= model_forward(model, x, action, obj_name, single_batch=True).mean()
+            plan_feas *= model_forward(model, x, action, obj_name, grasp, single_batch=True).mean()
     return plan_feas
 
 def solve_trajectories(world, pddl_plan, ret_full_plan=False):

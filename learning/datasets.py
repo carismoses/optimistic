@@ -1,20 +1,25 @@
 import numpy as np
 import torch
+from collections import defaultdict
 
 from torch.utils.data import Dataset
 
+def ddict():
+    return defaultdict(ddict)
 
 class OptDictDataset:
     def __init__(self, objects=['yellow_block', 'blue_block']):
         # object in {yellow_block, blue_block}
-        self.datasets = {}
+        self.datasets = ddict()
         self.ixs = {}
         self.count = 0
         for action in ['pick', 'move_contact-poke', 'move_contact-push_pull', 'move_holding']:
             for obj in objects:
-                if action not in self.datasets:
-                    self.datasets[action] = {}
-                self.datasets[action][obj] = OptDataset(action, obj)
+                if 'move_contact' in action:
+                    for grasp in ['p1', 'n1']:
+                        self.datasets[action][obj][grasp] = OptDataset(action, obj, grasp)
+                else:
+                    self.datasets[action][obj]['None'] = OptDataset(action, obj, None)
 
 
     def __getitem__(self, ix):
@@ -33,17 +38,18 @@ class OptDictDataset:
         return dlen
 
 
-    def add_to_dataset(self, action_type, object, x, y):
-        self.datasets[action_type][object].add_to_dataset(x, y)
-        ix = len(self.datasets[action_type][object])-1
-        self.ixs[self.count] = (action_type, object, ix)
+    def add_to_dataset(self, action_type, object, grasp, x, y):
+        self.datasets[action_type][object][grasp].add_to_dataset(x, y)
+        ix = len(self.datasets[action_type][object][grasp])-1
+        self.ixs[self.count] = (action_type, object, grasp, ix)
         self.count += 1
 
 
 class OptDataset(Dataset):
-    def __init__(self, action_type, object):
+    def __init__(self, action_type, object, grasp):
         self.action_type = action_type
         self.object = object
+        self.grasp = grasp
         self.xs = torch.tensor([], dtype=torch.float64)
         self.ys = torch.tensor([], dtype=torch.float64)
 

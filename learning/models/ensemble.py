@@ -22,21 +22,32 @@ class Ensembles(nn.Module):
 
 
     def reset(self):
+        def reset_dict(action, obj, grasp):
+            if action not in self.ensembles:
+                self.ensembles[action] = nn.ModuleDict()
+            if obj not in self.ensembles[action]:
+                self.ensembles[action][obj] = nn.ModuleDict()
+
+            self.base_args['n_in'] = self.all_n_in[action]
+            if (action, obj) in weight_init_sds:
+                self.base_args['winit_sd'] = weight_init_sds[(action, obj)]
+            else:
+                self.base_args['winit_sd'] = 7
+            ensemble = Ensemble(self.base_model,
+                                self.base_args,
+                                self.n_models)
+            ensemble.reset()
+            self.ensembles[action][obj][grasp] = ensemble
+
         self.ensembles = nn.ModuleDict()
         for action in self.actions:
             for obj in self.objects:
-                if action not in self.ensembles:
-                    self.ensembles[action] = nn.ModuleDict()
-                self.base_args['n_in'] = self.all_n_in[action]
-                if (action, obj) in weight_init_sds:
-                    self.base_args['winit_sd'] = weight_init_sds[(action, obj)]
+                if 'move_contact' in action:
+                    for grasp in ['p1', 'n1']:
+                        reset_dict(action, obj, grasp)
                 else:
-                    self.base_args['winit_sd'] = 7
-                ensemble = Ensemble(self.base_model,
-                                    self.base_args,
-                                    self.n_models)
-                ensemble.reset()
-                self.ensembles[action][obj] = ensemble
+                    grasp = 'None'
+                    reset_dict(action, obj, grasp)
 
 
     def forward(self, x, action, obj):

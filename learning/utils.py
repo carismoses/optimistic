@@ -40,18 +40,17 @@ class MLP(nn.Module):
             m.bias.data.normal_(0, self.winit_sd)
 
 
-def model_forward(model, inputs, action, obj_name, single_batch=False):
+def model_forward(model, inputs, action, obj_name, grasp, single_batch=False):
     if not isinstance(inputs, torch.Tensor):
         inputs = torch.tensor(inputs, dtype=torch.float64)
     if single_batch:
             inputs = inputs.unsqueeze(0)
-        
 
     if torch.cuda.is_available():
-        model.ensembles[action][obj_name].cuda()
+        model.ensembles[action][obj_name][grasp].cuda()
         inputs = inputs.cuda()
 
-    output = model.ensembles[action][obj_name].forward(inputs)
+    output = model.ensembles[action][obj_name][grasp].forward(inputs)
     if torch.cuda.is_available():
         output = output.cpu()
     return output.detach().numpy()
@@ -74,13 +73,17 @@ def add_trajectory_to_dataset(domain, dataset_logger, trajectory, world):
                     contact_type = pddl_action.args[5].type
                     action = '%s-%s' % ('move_contact', contact_type)
                     obj = pddl_action.args[2].readableName
+                    grasp_xy = pddl_action.args[1].grasp_objF[:2,3]
+                    grasp = 'p1' if np.allclose(grasp_xy, [.1,0]) else 'n1'
                 elif pddl_action.name == 'pick':
                     action = pddl_action.name
                     obj = pddl_action.args[0].readableName
+                    grasp = 'None'
                 elif pddl_action.name == 'move_holding':
                     action = pddl_action.name
                     obj = pddl_action.args[0].readableName
-                dataset.add_to_dataset(action, obj, x, opt_accuracy)
+                    grasp = 'None'
+                dataset.add_to_dataset(action, obj, grasp, x, opt_accuracy)
                 dataset_logger.save_trans_dataset(dataset, '', n_actions)
                 datapoints.append((pddl_action.name, x, opt_accuracy))
     return datapoints
@@ -117,7 +120,8 @@ def train_model(model, dataset, args, plot=False):
         return all_losses
 
     for action, action_dict in dataset.datasets.items():
-        for obj, action_object_dataset in action_dict.items():
-            if len(action_object_dataset) > 0:
-                print('Training %s %s ensemble with |dataset| = %i' % (action, obj, len(action_object_dataset)))
-                losses = inner_loop(action_object_dataset, model.ensembles[action][obj])
+        for obj, action_object_dict in action_dict.items():
+            for grasp, dataset in action_object_dict.items():
+                if len(dataset) > 0:
+                    print('Training %s %s %s ensemble with |dataset| = %i' % (action, obj, grasp, len(dataset)))
+                    losses = inner_loop(dataset, model.ensembles[action][obj][grasp])

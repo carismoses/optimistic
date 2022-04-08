@@ -26,7 +26,7 @@ from domains.tools.primitives import get_free_motion_gen, \
 
 
 DEBUG = False
-MODEL_INPUT_DIMS = {'move_contact-poke': 6, 'move_contact-push_pull': 6, 'pick': 2, 'move_holding': 2}
+MODEL_INPUT_DIMS = {'move_contact-poke': 2, 'move_contact-push_pull': 2, 'pick': 2, 'move_holding': 2}
 
 # TODO: make parent world template class
 class ToolsWorld:
@@ -296,9 +296,10 @@ class ToolsWorld:
             goal_pos_xy = pddl_action.args[4].pose[0][:2]
             # the position of the gripper in the tool frame
             gripper_tool_pos_xy = pddl_action.args[1].grasp_objF[:2,3]
-            x[:2] = init_pos_xy
-            x[2:4] = goal_pos_xy
-            x[4:] = gripper_tool_pos_xy
+            #x[:2] = init_pos_xy
+            #x[2:4] = goal_pos_xy
+            #x[4:] = gripper_tool_pos_xy
+            x[:] = goal_pos_xy
             return x
         elif pddl_action.name == 'pick':
             x = np.zeros(MODEL_INPUT_DIMS[pddl_action.name])
