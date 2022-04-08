@@ -5,12 +5,12 @@ dirs = ['1', '2', '3']
 skel_nums = [6, 7, 8]
 ###
 
-path = 'logs/all_skels/skel%i/%i/ss_skeleton_samples.pkl'
+path = 'logs/all_skels/skel%i/%s/ss_skeleton_samples.pkl'
 dest_path = 'logs/all_skels/skel%i/ss_skeleton_samples.pkl'
 
-all_skels = {}
-
+import pdb; pdb.set_trace()
 for skel_num in skel_nums:
+    all_skels = {}
     for dir in dirs:
         skel_path = path % (skel_num, dir)
         print(skel_path)
@@ -26,16 +26,20 @@ for skel_num in skel_nums:
         # make sure all same key
         if all_skels == {}:
             all_skels[key] = []
+            all_skels_key = key
         else:
-            all_skels_key = list(all_skels.keys()[0])
-            if all_skels_key not in all_skels:
-                print('All given paths dont have matching keys\n    %s\n    %s') % (key, all_skels_key)
+            all_skels_key = list(all_skels.keys())[0]
+            if not ((all_skels_key.skeleton_fn.__name__ == key.skeleton_fn.__name__) and
+                    (all_skels_key.goal_obj == key.goal_obj) and
+                    (all_skels_key.ctypes == key.ctypes)):
+                print('All given paths dont have matching keys\n    %s\n    %s' % (key, all_skels_key))
                 break
 
         # add to main list
-        all_skels[key].append(path_skels[key])
+        all_skels[all_skels_key] += path_skels[key]
 
     # dump in dest path
-    with open(dest_path, 'wb') as f:
-        pickle.dump(all_skels f)
+    with open(dest_path%skel_num, 'wb') as f:
+        pickle.dump(all_skels, f)
     print('Done with skel num %i!' % skel_num)
+
