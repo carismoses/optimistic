@@ -24,8 +24,8 @@ class OptDictDataset:
 
     def __getitem__(self, ix):
         action_type, object, grasp, dix = self.ixs[ix]
-        return self.datasets[action_type][object].xs[dix], \
-                self.datasets[action_type][object].ys[dix], \
+        return self.datasets[action_type][object][grasp].xs[dix], \
+                self.datasets[action_type][object][grasp].ys[dix], \
                 action_type, \
                 object, \
                 grasp
