@@ -19,7 +19,7 @@ def find_nearest(array, value):
     return array[idx]
 
 
-def indiv_plot(contact_info, action, obj, world, mean_fn, std_fn, dataset, ts, mi, model_logger, dataset_logger, grasp=None):
+def indiv_plot(contact_info, action, obj, grasp, world, mean_fn, std_fn, dataset, ts, mi, model_logger, dataset_logger):
     n_axes = 3
     fig, axes = plt.subplots(n_axes, figsize=(5, 10))
     contact = None
@@ -31,20 +31,19 @@ def indiv_plot(contact_info, action, obj, world, mean_fn, std_fn, dataset, ts, m
     x_axes, y_axes = world.get_world_limits(obj, action, contact)
 
     if not args.just_dataset:
-        world.vis_dense_plot(action, obj, axes[0], x_axes, y_axes, 0, 1, value_fn=mean_fn, cell_width=0.01, grasp=grasp)
-        world.vis_dense_plot(action, obj, axes[1], x_axes, y_axes, None, None, value_fn=std_fn, cell_width=0.01, grasp=grasp)
+        world.vis_dense_plot(action, obj, grasp, axes[0], x_axes, y_axes, 0, 1, value_fn=mean_fn, cell_width=0.01)
+        world.vis_dense_plot(action, obj, grasp, axes[1], x_axes, y_axes, None, None, value_fn=std_fn, cell_width=0.01)
 
     for ai in range(n_axes):
-        print(action, obj, len(dataset.datasets[action][obj]))
-        world.vis_dataset(axes[ai], action, obj, dataset.datasets[action][obj], grasp=grasp)
+        print(action, obj, len(dataset.datasets[action][obj][grasp]))
+        world.vis_dataset(axes[ai], action, obj, grasp, dataset.datasets[action][obj][grasp])
 
     axes[0].set_title('Mean Ensemble Predictions')
     axes[1].set_title('Std Ensemble Predictions')
     axes[2].set_title('Tool Contact')
 
     if grasp is not None:
-        grasp_str = 'p1' if grasp == [.1,0] else 'n1'
-        fname = fname = 'acc_%s_%s_g%s_%s_%i.png' % (ts, action, grasp_str, obj, mi)
+        fname = 'acc_%s_%s_g%s_%s_%i.png' % (ts, action, grasp, obj, mi)
     else:
         fname = 'acc_%s_%s_%s_%i.png' % (ts, action, obj, mi)
     if args.just_dataset:
@@ -99,12 +98,14 @@ def gen_plots(args):
 
     for obj in ['yellow_block', 'blue_block']:
         for action in ['pick', 'move_contact-push_pull', 'move_contact-poke', 'move_holding']:
-            if len(dataset.datasets[action][obj]) > 0:
-                if 'move_contact' in action:
-                    for grasp in [[-.1, 0.], [.1, 0.]]:
-                        indiv_plot(contact_info, action, obj, world, mean_fn, std_fn, dataset, ts, mi, model_logger, dataset_logger, grasp=grasp)
-                else:
-                    indiv_plot(contact_info, action, obj, world, mean_fn, std_fn, dataset, ts, mi, model_logger, dataset_logger)
+            if 'move_contact' in action:
+                for grasp in ['p1', 'n1']:
+                    if len(dataset.datasets[action][obj][grasp]) > 0:
+                        indiv_plot(contact_info, action, obj, grasp, world, mean_fn, std_fn, dataset, ts, mi, model_logger, dataset_logger)
+            else:
+                grasp = 'None'
+                if len(dataset.datasets[action][obj][grasp]) > 0:
+                    indiv_plot(contact_info, action, obj, grasp, world, mean_fn, std_fn, dataset, ts, mi, model_logger, dataset_logger)
 
 
 if __name__ == '__main__':
@@ -129,4 +130,3 @@ if __name__ == '__main__':
         import pdb; pdb.set_trace()
 
     gen_plots(args)
-

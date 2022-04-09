@@ -745,7 +745,7 @@ class ToolsWorld:
             ax.set_ylim(ylimits)
 
 
-    def vis_dense_plot(self, action, obj, ax, x_range, y_range, vmin, vmax, value_fn=None, cell_width=0.05, grasp=None, cmap='binary'):
+    def vis_dense_plot(self, action, obj, grasp, ax, x_range, y_range, vmin, vmax, value_fn=None, cell_width=0.05, grasp=None, cmap='binary'):
         # make 2d arrays of mean and std ensemble predictions
         xs, x_extent = self.make_array(*x_range, cell_width)
         ys, y_extent = self.make_array(*y_range, cell_width)
@@ -753,7 +753,7 @@ class ToolsWorld:
 
         for xi, xv in enumerate(xs):
             for yi, yv in enumerate(ys):
-                values[yi][xi] = value_fn(self, action, obj, xv, yv, grasp)
+                values[yi][xi] = value_fn(self, action, grasp, obj, xv, yv)
 
         # plot predictions w/ colorbars
         extent = (*x_extent, *y_extent)
@@ -814,11 +814,12 @@ class ToolsWorld:
                                 fill = False))
 
 
-    def vis_dataset(self, ax, action, obj, dataset, grasp=None):
+    def vis_dataset(self, ax, action, obj, grasp, dataset, grasp=None):
         for x, y in dataset:
             color = 'r' if y == 0 else 'g'
-            if action in ['move_holding', 'pick']:
-                ax.plot(*x, color+'.')
+            #if action in ['move_holding', 'pick']:
+            ax.plot(*x, color+'.')
+            '''
             elif 'move_contact' in action:
                 if np.allclose(x[4:], grasp):
                     # shift to plot all pushes in init block frame
@@ -826,6 +827,7 @@ class ToolsWorld:
                     rel_pos_xy = np.subtract(x[2:4], x[:2])
                     goal_pos_xy = np.add(init_pos_xy, rel_pos_xy)
                     ax.plot(*goal_pos_xy, color+'.')
+            '''
 
 
     def get_model_inputs(self, tool_approach_pose, goal_pose):
