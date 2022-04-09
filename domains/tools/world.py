@@ -814,7 +814,7 @@ class ToolsWorld:
                                 fill = False))
 
 
-    def vis_dataset(self, ax, action, obj, grasp, dataset, grasp=None):
+    def vis_dataset(self, ax, action, obj, dataset):
         for x, y in dataset:
             color = 'r' if y == 0 else 'g'
             #if action in ['move_holding', 'pick']:

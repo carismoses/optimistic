@@ -36,7 +36,7 @@ def indiv_plot(contact_info, action, obj, grasp, world, mean_fn, std_fn, dataset
 
     for ai in range(n_axes):
         print(action, obj, len(dataset.datasets[action][obj][grasp]))
-        world.vis_dataset(axes[ai], action, obj, grasp, dataset.datasets[action][obj][grasp])
+        world.vis_dataset(axes[ai], action, obj, dataset.datasets[action][obj][grasp])
 
     axes[0].set_title('Mean Ensemble Predictions')
     axes[1].set_title('Std Ensemble Predictions')
