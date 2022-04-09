@@ -753,7 +753,7 @@ class ToolsWorld:
 
         for xi, xv in enumerate(xs):
             for yi, yv in enumerate(ys):
-                values[yi][xi] = value_fn(self, action, grasp, obj, xv, yv)
+                values[yi][xi] = value_fn(self, action, obj, grasp, xv, yv)
 
         # plot predictions w/ colorbars
         extent = (*x_extent, *y_extent)
