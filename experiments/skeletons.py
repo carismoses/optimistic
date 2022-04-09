@@ -355,7 +355,7 @@ def plan_from_skeleton(skeleton, world, pddl_model_type, add_to_state, push_pose
 
 
 #skel_nums = [0, 1, 2, 3, 6, 7, 8, 9]
-def merge_skeletons(skel_nums):
+def merge_skeletons(skel_nums, max_samples=None):
     all_skels_path = 'logs/all_skels/skel'
     final_path = 'logs/ss_skeleton_samples.pkl'
 
@@ -366,7 +366,11 @@ def merge_skeletons(skel_nums):
             skel_plans = pickle.load(handle)
         key = list(skel_plans.keys())[0]
         print('Adding skel %i: %s' % (skel_num, key))
-        all_plans += skel_plans[key]
+        if max_samples is None:
+            add_skels = skel_plans[key]
+        else:
+            add_skels = skel_plans[key][:max_samples]
+        all_plans += add_skels
     print('Merged %s plans' % len(all_plans))
     with open(final_path, 'wb') as handle:
         pickle.dump(all_plans, handle)

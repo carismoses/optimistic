@@ -27,7 +27,7 @@ def train_class(args, logger, n_actions):
 
     # merge skeleton files
     if args.samples_from_file and args.data_collection_mode == 'sequential-goals':
-        merge_skeletons(args.skel_nums)
+        merge_skeletons(args.skel_nums, args.max_samples)
 
     while n_actions < args.max_actions:
         dataset = logger.load_trans_dataset('')
@@ -104,6 +104,9 @@ if __name__ == '__main__':
     parser.add_argument('--skel-nums',
                         type=int,
                         nargs='+')
+    parser.add_argument('--max-samples',
+                        type=int,
+                        help='maximum number of samples for use for each skeleton')
     parser.add_argument('--n-seq-plans',
                         type=int,
                         default=100,
