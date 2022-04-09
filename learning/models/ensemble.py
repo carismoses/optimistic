@@ -3,11 +3,8 @@ import torch
 import torch.nn as nn
 
 
-weight_init_sds = {}#('move_contact-poke', 'blue_block'): 9,
-                    #('move_holding', 'yellow_block'): 5}
-
 class Ensembles(nn.Module):
-    def __init__(self, base_model, base_args, n_models, objects):
+    def __init__(self, base_model, base_args, n_models, objects, wi):
         # actions_and_objects is a list of (action, object) tuples
         # where action in {pick, push-poke, push-push_pull}
         # object in {yellow_block, blue_block}
@@ -18,6 +15,8 @@ class Ensembles(nn.Module):
         self.n_models = n_models
         self.actions = ['pick', 'move_contact-poke', 'move_contact-push_pull', 'move_holding']
         self.objects = objects
+        self.weight_init_sds = {'move_contact-push_pull': wi}#('move_contact-poke', 'blue_block'): 9,
+                            #('move_holding', 'yellow_block'): 5}
         self.reset()
 
 
@@ -29,8 +28,8 @@ class Ensembles(nn.Module):
                 self.ensembles[action][obj] = nn.ModuleDict()
 
             self.base_args['n_in'] = self.all_n_in[action]
-            if (action, obj) in weight_init_sds:
-                self.base_args['winit_sd'] = weight_init_sds[(action, obj)]
+            if (action, obj) in self.weight_init_sds:
+                self.base_args['winit_sd'] = self.weight_init_sds[(action, obj)]
             else:
                 self.base_args['winit_sd'] = 7
             ensemble = Ensemble(self.base_model,

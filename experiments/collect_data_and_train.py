@@ -22,7 +22,7 @@ def train_class(args, logger, n_actions):
     if n_actions == 0:
         dataset = OptDictDataset(args.objects)
         logger.save_trans_dataset(dataset, '', i=n_actions)
-        model = Ensembles(MLP, base_args, args.n_models, args.objects)
+        model = Ensembles(MLP, base_args, args.n_models, args.objects, args.wi)
         logger.save_trans_model(model, i=n_actions)
 
     # merge skeleton files
@@ -36,7 +36,7 @@ def train_class(args, logger, n_actions):
 
         # train at training freq
         if not n_dataset_actions % args.train_freq:
-            model = Ensembles(MLP, base_args, args.n_models, args.objects)
+            model = Ensembles(MLP, base_args, args.n_models, args.objects, args.wi)
             train_model(model, dataset, args)
 
             # save model and accuracy plots
@@ -120,6 +120,9 @@ if __name__ == '__main__':
     parser.add_argument('--K',
                         type=int,
                         help='number of top plans to select from during sequential')
+    parser.add_argument('--wi',
+                        type=float,
+                        help='standard deviation of normal used to init weights for push_pull MLP')
 
     # Training args
     parser.add_argument('--train-freq',

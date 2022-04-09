@@ -8,7 +8,6 @@ import numpy as np
 
 import pb_robot
 
-from learning.models.ensemble import Ensemble, Ensembles
 from learning.train import train
 
 
