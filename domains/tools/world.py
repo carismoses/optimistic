@@ -745,7 +745,7 @@ class ToolsWorld:
             ax.set_ylim(ylimits)
 
 
-    def vis_dense_plot(self, action, obj, grasp, ax, x_range, y_range, vmin, vmax, value_fn=None, cell_width=0.05, grasp=None, cmap='binary'):
+    def vis_dense_plot(self, action, obj, grasp, ax, x_range, y_range, vmin, vmax, value_fn=None, cell_width=0.05, cmap='binary'):
         # make 2d arrays of mean and std ensemble predictions
         xs, x_extent = self.make_array(*x_range, cell_width)
         ys, y_extent = self.make_array(*y_range, cell_width)
