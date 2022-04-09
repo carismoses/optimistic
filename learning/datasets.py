@@ -34,8 +34,9 @@ class OptDictDataset:
     def __len__(self):
         dlen = 0
         for action, action_dict in self.datasets.items():
-            for object, dataset in action_dict.items():
-                dlen += len(dataset)
+            for object, obj_dict in action_dict.items():
+                for grasp, dataset in obj_dic.items():
+                    dlen += len(dataset)
         return dlen
 
 
