@@ -35,7 +35,7 @@ class OptDictDataset:
         dlen = 0
         for action, action_dict in self.datasets.items():
             for object, obj_dict in action_dict.items():
-                for grasp, dataset in obj_dic.items():
+                for grasp, dataset in obj_dict.items():
                     dlen += len(dataset)
         return dlen
 
