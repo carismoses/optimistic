@@ -23,11 +23,12 @@ class OptDictDataset:
 
 
     def __getitem__(self, ix):
-        action_type, object, dix = self.ixs[ix]
+        action_type, object, grasp, dix = self.ixs[ix]
         return self.datasets[action_type][object].xs[dix], \
                 self.datasets[action_type][object].ys[dix], \
                 action_type, \
-                object
+                object, \
+                grasp
 
 
     def __len__(self):
