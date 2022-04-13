@@ -15,6 +15,7 @@ class Ensembles(nn.Module):
         self.n_models = n_models
         self.actions = ['pick', 'move_contact-poke', 'move_contact-push_pull', 'move_holding']
         self.objects = objects
+        wi = 7 if wi is None
         self.weight_init_sds = {'move_contact-push_pull': wi}#('move_contact-poke', 'blue_block'): 9,
                             #('move_holding', 'yellow_block'): 5}
         self.reset()
