@@ -37,7 +37,8 @@ def gen_feas_push_poses(model):
                     pose2_pos_xy = np.array([np.random.uniform(limits['min_x'], limits['max_x']),
                                             np.random.uniform(limits['min_y'], limits['max_y'])])
 
-                    x = np.array([*init_xy, *pose2_pos_xy, *grasp])
+                    #x = np.array([*init_xy, *pose2_pos_xy, *grasp])
+                    x = np.array([*pose2_pos_xy])
                     xs.append(x)
                 xs = np.array(xs)
                 all_preds = model_forward(model, xs, 'move_contact-'+ctype, block_name, grasp_str)
