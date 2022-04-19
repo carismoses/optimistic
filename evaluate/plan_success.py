@@ -40,7 +40,7 @@ def gen_feas_push_poses(model):
                     x = np.array([*init_xy, *pose2_pos_xy, *grasp])
                     xs.append(x)
                 xs = np.array(xs)
-                all_preds = model_forward(model, xs, 'move_contact-'+ctype, block_name)
+                all_preds = model_forward(model, xs, 'move_contact-'+ctype, block_name, grasp_str)
                 preds = all_preds.mean(axis=0)
                 best_ixs = np.argsort(preds)
                 # only keep ones above thresh
