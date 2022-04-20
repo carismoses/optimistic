@@ -110,7 +110,8 @@ def calc_plan_success(args):
         feas_push_poses = gen_feas_push_poses(model)
 
         success_data = []
-        for goal in goals:
+        for gi, goal in enumerate(goals):
+            print('Goal %i' % gi)
             #print(p.getBasePositionAndOrientation(0, physicsClientId=0))
             # generate a goal
             goal_xy = goal[0][2].pose[0][:2]
@@ -205,7 +206,7 @@ if __name__ == '__main__':
     parser.add_argument('--skel-nums',
                         type=int,
                         nargs='+',
-                        default=[0,1,2,3,4,5,6,7,8,9,10,11,12,13],
+                        default=[0,1,2,4,6,7,8],
                         help='which skeletons to use for plans')
     parser.add_argument('--goal-path',
                         type=str,
