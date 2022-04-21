@@ -258,6 +258,15 @@ class ToolsWorld:
         # WARNING: SHOWING THE GOAL MESSES UP THE ROBOT INTERACTIONS AND CAUSES COLLISIONS!
         # Do not use if trying to collect accurate data !!
         if False:
+            name = 'yellow_radius'
+            color = (0.0, 1.0, 0.0, 1.0)
+            urdf_path = 'tamp/urdf_models/%s.urdf' % name
+            goal_to_urdf(name, urdf_path, color, self.valid_pick_yellow_radius)
+            self.panda.execute()
+            self.place_object(name, urdf_path, (0,0), (0,0,0,1))
+            self.panda.plan()
+            self.place_object(name, urdf_path, (0,0), (0,0,0,1))
+
             name = 'goal_patch'
             color = (0.0, 1.0, 0.0, 1.0)
             urdf_path = 'tamp/urdf_models/%s.urdf' % name

@@ -50,18 +50,19 @@ def gen_feas_push_poses(model):
                     pos_xys = []
                     #small_all_preds = []
                 elif top_ixs.size == 1:
-                    pos_xys = [xs[top_ixs,:][2:4]]
+                    pos_xys = [xs[top_ixs,:][:]]
                 elif top_ixs.size > n_feas_max:
-                    pos_xys = [xs[ix,:][2:4] for ix in best_ixs[-n_feas_max:]]
+                    pos_xys = [xs[ix,:][:] for ix in best_ixs[-n_feas_max:]]
                     #small_all_preds = [all_preds[:,ix] for ix in best_ixs[-n_feas_max:]]
                 else:
-                    pos_xys = [xs[ix,:][2:4] for ix in top_ixs]
+                    pos_xys = [xs[ix,:][:] for ix in top_ixs]
                     #small_all_preds = [all_preds[:,ix] for ix in top_ixs]
                 push_poses[block_name][ctype][grasp_str] = pos_xys
                 '''
                 fig, ax = plt.subplots(2)
                 #print([preds[i] for i in np.argsort(preds)[-10:]])
                 print(block_name, ctype, grasp_str)
+
                 for (x,y), apred in zip(pos_xys, small_all_preds):
                     mean = apred.mean()
                     std = apred.std()
@@ -125,6 +126,20 @@ def calc_plan_success(args):
 
             world = ToolsWorld()
 
+            '''
+            from tamp.utils import goal_to_urdf
+            for goal_xy in feas_push_poses['blue_block']['poke']['n1']:
+                name = 'goal_patch'
+                color = (0.0, 1.0, 0.0, 1.0)
+
+                urdf_path = 'tamp/urdf_models/%s.urdf' % name
+                goal_to_urdf(name, urdf_path, color, world.push_goal_radius)
+                world.panda.execute()
+                world.place_object(name, urdf_path, goal_xy, (0,0,0,1))
+                world.panda.plan()
+                world.place_object(name, urdf_path, goal_xy, (0,0,0,1))
+            '''
+
             for si, skel_key in enumerate(all_skeleton_keys):
                 skel_fn, block_name, ctypes = skel_key
                 if si in args.skel_nums:
@@ -181,6 +196,7 @@ def calc_plan_success(args):
                 if traj_pddl_plan is None:
                     success_data.append((None, None, goal_pred, [False]))
                 else:
+
                     # execute and store result
                     init_expanded = Certificate(add_to_init+init_expanded.all_facts, [])
                     trajectory = execute_plan(world, problem, traj_pddl_plan, init_expanded)
