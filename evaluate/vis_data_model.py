@@ -20,14 +20,18 @@ def find_nearest(array, value):
 
 
 def indiv_plot(contact_info, action, obj, grasp, world, mean_fn, std_fn, dataset, ts, mi, model_logger, dataset_logger):
-    n_axes = 3
+    if 'move_contact' in action:
+        n_axes = 3
+    else:
+        n_axes = 2
     fig, axes = plt.subplots(n_axes, figsize=(5, 10))
     contact = None
     for ctype in contact_info:
         if ctype in action:
             contact = contact_info[ctype]
             # plot the tool
-            world.vis_tool_ax(contact, obj, action, axes[n_axes-1], frame='world')
+            if 'move_contact' in action:
+                world.vis_tool_ax(contact, obj, action, axes[2], frame='world')
     x_axes, y_axes = world.get_world_limits(obj, action, contact)
 
     if not args.just_dataset:
@@ -40,7 +44,8 @@ def indiv_plot(contact_info, action, obj, grasp, world, mean_fn, std_fn, dataset
 
     axes[0].set_title('Mean Ensemble Predictions')
     axes[1].set_title('Std Ensemble Predictions')
-    axes[2].set_title('Tool Contact')
+    if n_axes == 3:
+        axes[2].set_title('Tool Contact')
 
     if grasp is not None:
         fname = 'acc_%s_%s_g%s_%s_%i.png' % (ts, action, grasp, obj, mi)
