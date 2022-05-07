@@ -19,33 +19,50 @@ def find_nearest(array, value):
     return array[idx]
 
 
-def indiv_plot(contact_info, action, obj, grasp, world, mean_fn, std_fn, dataset, ts, mi, model_logger, dataset_logger):
+def indiv_plot(args, contact_info, action, obj, grasp, world, mean_fn, std_fn, dataset, ts, mi, model_logger, dataset_logger):
     if 'move_contact' in action:
-        n_axes = 3
+        if args.plot_std:
+            n_axes = 3
+        else:
+            n_axes = 2
     else:
-        n_axes = 2
-    fig, axes = plt.subplots(n_axes, figsize=(5, 10))
+        if args.plot_std:
+            n_axes = 2
+        else:
+            n_axes = 1
+    fig, axes = plt.subplots(n_axes, figsize=(5, 3.3*n_axes))
     contact = None
     for ctype in contact_info:
         if ctype in action:
             contact = contact_info[ctype]
             # plot the tool
             if 'move_contact' in action:
-                world.vis_tool_ax(contact, obj, action, axes[2], frame='world')
+                ax = axes if n_axes==1 else axes[n_axes-1]
+                world.vis_tool_ax(contact, obj, action, ax, frame='world')
     x_axes, y_axes = world.get_world_limits(obj, action, contact)
 
     if not args.just_dataset:
-        world.vis_dense_plot(action, obj, grasp, axes[0], x_axes, y_axes, 0, 1, value_fn=mean_fn, cell_width=0.01)
-        world.vis_dense_plot(action, obj, grasp, axes[1], x_axes, y_axes, None, None, value_fn=std_fn, cell_width=0.01)
+        ax = axes if n_axes==1 else axes[0]
+        world.vis_dense_plot(action, obj, grasp, ax, x_axes, y_axes, 0, 1, value_fn=mean_fn, cell_width=args.cell_width)
+        if args.plot_std:
+            ax = axes if n_axes==1 else axes[1]
+            world.vis_dense_plot(action, obj, grasp, ax, x_axes, y_axes, None, None, value_fn=std_fn, cell_width=args.cell_width)
 
     for ai in range(n_axes):
         print(action, obj, len(dataset.datasets[action][obj][grasp]))
-        world.vis_dataset(axes[ai], action, obj, dataset.datasets[action][obj][grasp])
+        ax = axes if n_axes==1 else axes[ai]
+        world.vis_dataset(ax, action, obj, dataset.datasets[action][obj][grasp])
+        ax.set_xlim(*x_axes)
+        ax.set_ylim(*y_axes)
 
-    axes[0].set_title('Mean Ensemble Predictions')
-    axes[1].set_title('Std Ensemble Predictions')
-    if n_axes == 3:
-        axes[2].set_title('Tool Contact')
+    ax = axes if n_axes==1 else axes[0]
+    ax.set_title('Mean Ensemble Predictions')
+    if args.plot_std:
+        ax = axes if n_axes==1 else axes[1]
+        ax.set_title('Std Ensemble Predictions')
+    if 'move_contact' in action:
+        ax = axes if n_axes==1 else axes[n_axes-1]
+        ax.set_title('Tool Contact')
 
     if grasp is not None:
         fname = 'acc_%s_%s_g%s_%s_%i.png' % (ts, action, grasp, obj, mi)
@@ -106,11 +123,11 @@ def gen_plots(args):
             if 'move_contact' in action:
                 for grasp in ['p1', 'n1']:
                     if len(dataset.datasets[action][obj][grasp]) > 0:
-                        indiv_plot(contact_info, action, obj, grasp, world, mean_fn, std_fn, dataset, ts, mi, model_logger, dataset_logger)
+                        indiv_plot(args, contact_info, action, obj, grasp, world, mean_fn, std_fn, dataset, ts, mi, model_logger, dataset_logger)
             else:
                 grasp = 'None'
                 if len(dataset.datasets[action][obj][grasp]) > 0:
-                    indiv_plot(contact_info, action, obj, grasp, world, mean_fn, std_fn, dataset, ts, mi, model_logger, dataset_logger)
+                    indiv_plot(args, contact_info, action, obj, grasp, world, mean_fn, std_fn, dataset, ts, mi, model_logger, dataset_logger)
 
 
 if __name__ == '__main__':
@@ -129,6 +146,11 @@ if __name__ == '__main__':
     parser.add_argument('--action-step',
                         type=int,
                         help='only generate plots for this action step (or the step closest to this value)')
+    parser.add_argument('--plot-std',
+                        action='store_true')
+    parser.add_argument('--cell-width',
+                        type=float,
+                        default=0.01)
     args = parser.parse_args()
 
     if args.debug:
