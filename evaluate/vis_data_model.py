@@ -20,33 +20,24 @@ def find_nearest(array, value):
 
 
 def indiv_plot(args, contact_info, action, obj, grasp, world, mean_fn, std_fn, dataset, ts, mi, model_logger, dataset_logger):
-    if 'move_contact' in action:
-        if args.plot_std:
-            n_axes = 3
-        else:
-            n_axes = 2
+    if args.plot_std:
+        n_axes = 2
     else:
-        if args.plot_std:
-            n_axes = 2
-        else:
-            n_axes = 1
+        n_axes = 1
     fig, axes = plt.subplots(n_axes, figsize=(5, 3.3*n_axes))
     contact = None
     for ctype in contact_info:
         if ctype in action:
             contact = contact_info[ctype]
-            # plot the tool
-            if 'move_contact' in action:
-                ax = axes if n_axes==1 else axes[n_axes-1]
-                world.vis_tool_ax(contact, obj, action, ax, frame='world')
     x_axes, y_axes = world.get_world_limits(obj, action, contact)
+    cell_width = min(abs(np.subtract(*x_axes))/args.pw, abs(np.subtract(*y_axes))/args.ph)
 
     if not args.just_dataset:
         ax = axes if n_axes==1 else axes[0]
-        world.vis_dense_plot(action, obj, grasp, ax, x_axes, y_axes, 0, 1, value_fn=mean_fn, cell_width=args.cell_width)
+        world.vis_dense_plot(action, obj, grasp, ax, x_axes, y_axes, 0, 1, value_fn=mean_fn, cell_width=cell_width)
         if args.plot_std:
             ax = axes if n_axes==1 else axes[1]
-            world.vis_dense_plot(action, obj, grasp, ax, x_axes, y_axes, None, None, value_fn=std_fn, cell_width=args.cell_width)
+            world.vis_dense_plot(action, obj, grasp, ax, x_axes, y_axes, None, None, value_fn=std_fn, cell_width=cell_width)
 
     for ai in range(n_axes):
         print(action, obj, len(dataset.datasets[action][obj][grasp]))
@@ -55,14 +46,17 @@ def indiv_plot(args, contact_info, action, obj, grasp, world, mean_fn, std_fn, d
         ax.set_xlim(*x_axes)
         ax.set_ylim(*y_axes)
 
+    # plot the tool
+    if 'move_contact' in action:
+        for ax_i in range(n_axes):
+            ax = axes if n_axes == 1 else axes[ax_i]
+            world.vis_tool_ax(contact, obj, action, ax, frame='world')
+
     ax = axes if n_axes==1 else axes[0]
     ax.set_title('Mean Ensemble Predictions')
     if args.plot_std:
         ax = axes if n_axes==1 else axes[1]
         ax.set_title('Std Ensemble Predictions')
-    if 'move_contact' in action:
-        ax = axes if n_axes==1 else axes[n_axes-1]
-        ax.set_title('Tool Contact')
 
     if grasp is not None:
         fname = 'acc_%s_%s_g%s_%s_%i.png' % (ts, action, grasp, obj, mi)
@@ -148,9 +142,12 @@ if __name__ == '__main__':
                         help='only generate plots for this action step (or the step closest to this value)')
     parser.add_argument('--plot-std',
                         action='store_true')
-    parser.add_argument('--cell-width',
-                        type=float,
-                        default=0.01)
+    parser.add_argument('--ph',
+                        type=int,
+                        default=5)
+    parser.add_argument('--pw',
+                        type=int,
+                        default=10)
     args = parser.parse_args()
 
     if args.debug:

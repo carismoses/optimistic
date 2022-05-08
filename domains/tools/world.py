@@ -741,7 +741,8 @@ class ToolsWorld:
             init_block_pos = (0., 0.)
             tool_tform = cont.tool_in_cont_tform
 
-        self.plot_block(ax, init_block_pos, color=color)
+        block_color = 'y' if obj=='yellow_block' else 'b'
+        self.plot_block(ax, init_block_pos, color=block_color)
         self.plot_tool(ax, tool_tform, color)
         ax.set_aspect('equal')
         if frame == 'world':
@@ -789,7 +790,7 @@ class ToolsWorld:
         ax.add_patch(Rectangle(pos-block_dims/2,
                                 *block_dims,
                                 color=color,
-                                fill = False,
+                                fill = True,
                                 linestyle=linestyle))
 
 
@@ -815,12 +816,12 @@ class ToolsWorld:
                                 *tool_base_dims,
                                 angle = deg_angle_00,
                                 color = color,
-                                fill = False))
+                                fill = True))
         ax.add_patch(Rectangle(anchor_link0_00[:2],
                                 *tool_link0_dims,
                                 angle = deg_angle_00,
                                 color = color,
-                                fill = False))
+                                fill = True))
 
 
     def vis_dataset(self, ax, action, obj, dataset):
