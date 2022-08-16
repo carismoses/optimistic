@@ -1,6 +1,6 @@
 # optimistic
 
-This repo implements a method for learning classifiers on top of optimistic action models to use for planning. Currently it only works in a simple toy domain called ordered blocks. It leverages PDDLStream for task and motion planning (TAMP), and pb_robot for integration with the Panda robot. It can be run in pyBullet or on a real Panda robot.
+This repo implements the code for the workshop paper [Learning to Plan with Optimistic Action Models](http://people.csail.mit.edu/cmm386/publications/ICRA_WS2022_final.pdf), which is a method for learning action models to be used within a task and motion planner (see paper for more details). This code performs experiments in a tool-use domain. It leverages PDDLStream for task and motion planning (TAMP), and pb_robot for integration with a Panda robot run in a pyBullet simulator.
 
 ## Installation
 
@@ -30,45 +30,29 @@ ln -s ~/pb_robot/src/pb_robot .  # this assumes you installed it to your home di
 
 ## Run
 
-### Train classifier ###
+### Collect Data and Train Classifiers ###
+This will iteratively have the robot take actions and train action models on the collected data. See paper for the details of each data collection method.
 ```
-python3 -m experiments.collect_data_and_train --data-collection-mode <DCM> --domain <D> --domain-args <DA> --exp-name <EN>
-```
-
-```<EN>``` (required) saves results to ```logs/experiments/<EN>```, ```<D>``` (default: ```'ordered_blocks'```) is the desired domain, and ```<DA>``` (required) are the relevant domain arguments. ```<DCM>``` (required) can be any of the following data collection methods
-
-- ```'random-goals-opt'```: sample random goals, plan to achieve them using the optimistic model, train on collected data. Use random rollouts when not plan is found
-- ```'random-goals-learned'```: sample random goals, plan to achieve them using the current learned model, train on collected data. Use random rollouts when not plan is found
-- ```'random-actions'```: sample random actions
-- ```'curriculum-goals-learned'```: goals increase in complexity over time (more blocks and higher heights). Use random rollouts when not plan is found
-- ```'curriculum-goals-learned-new'```: goals increase in complexity over time (higher heights always consider all blocks). Use random rollouts when not plan is found
-  - optionally add the ```--curriculum-max-t <MT>``` argument to perform curriculum learning until ```<MT>``` then do random goal sampling afterwards
-
-### Evaluate Performance ###
-
-#### Model Accuracy across Domains (Generalization) ####
-
-The following command will calculate the accuracy of the learned models in test domains varying from 2-8 blocks. Store your paths from the training runs in ```domains/ordered_blocks/results_paths.py```. Then run the following command which will save plots and data to ```logs/model_accuracu/<EN>```.
-
-```
-python3 -m evaluate.accuracy_vary_test_blocks --exp-name <EN>
+python3 -m experiments.collect_data_and_train --data-collection-mode <DCM> --exp-name <EN> --max-actions <MA> --vis
 ```
 
-#### Model Accuracy over Training Time ####
+```--vis``` is an optional argument that allows you to visualize the actions the robot is taking in pyBullet.
+```<EN>``` (required) saves results to ```logs/experiments/<EN>```.
+```<MA>``` is an integer number of actions to have the robot perform and train on.
+```<DCM>``` (required) can be any of the following data collection methods:
 
-The following command will calculate the accuracy of the learned models over the course of training for domain sizes of 2-8 blocks (separate plot for each). Store your paths from the training runs in ```domains/ordered_blocks/results_paths.py```. Then run the following command which will save plots and data to ```logs/model_accuracu/<EN>```.
+- ```'random-actions'```: sample and execute random actions (Random Actions method in paper)  
+- ```'random-goals-opt'```: sample random goals, plan to achieve them using the optimistic model, execute found plan. Use random rollouts when no plan is found (Random Goals method in paper)
+- ```'sequential-plans'```: sample and execute actions found using the Sequential method (see paper)
+- ```'sequential-goals'```: sample and execute actions found using the Sequential Goals method (see paper)
 
-```
-python3 -m evaluate.accuracy_vary_time_steps --exp-name <EN>
-```
+### Evaluating Model Accuracy ###
 
-## ToDos
-1. Integrate with pb_robot and PDDLStream instead of using my planning code and object types
-2. Render in pyBullet
-3. Develop tools world in pyBullet
-4. Develop tools world actions in PDDLStream
-5. Collect data on when optimistic model fails
-6. Learn classifier from data
+```evaluate/model_accuracy.py``` is used to calculate the accuracy of trained models. The ```all_models_path``` variable contains the paths to the experiments to be evaluated and the ```test_dataset_path``` is the path to the experiment to be used as the test dataset.
+
+### Planning with Learned Models ###
+
+To plan with the learned action models we developed a skeleton-based planner (see paper for details). The code for using this planner is in ```evaluate/plan_success.py```.
 
 ## Troubleshooting
 
